@@ -14,6 +14,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import Stripe from "stripe";
+import { Client, Environment, OrdersController } from '@paypal/paypal-server-sdk';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -22,12 +23,26 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-09-30.clover",
 });
 
+if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+  throw new Error('Missing required PayPal secrets: PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET');
+}
+const paypalClient = new Client({
+  clientCredentialsAuthCredentials: {
+    oAuthClientId: process.env.PAYPAL_CLIENT_ID,
+    oAuthClientSecret: process.env.PAYPAL_CLIENT_SECRET
+  },
+  timeout: 0,
+  environment: Environment.Sandbox,
+});
+const paypalOrdersController = new OrdersController(paypalClient);
+
 const orderSchema = z.object({
   orderType: z.string(),
   tableId: z.string().nullable().optional(),
   customerName: z.string().nullable().optional(),
   customerPhone: z.string().nullable().optional(),
   customerEmail: z.string().nullable().optional(),
+  paymentMethod: z.enum(['stripe', 'paypal']).optional().default('stripe'),
   items: z.array(z.object({
     menuItemId: z.string(),
     quantity: z.number(),
@@ -866,10 +881,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal: (parseFloat(item.unitPrice) * item.quantity).toFixed(2),
       })));
       
-      res.json({ orderId: order.id, checkoutUrl: null });
+      if (data.paymentMethod === 'paypal') {
+        res.json({ orderId: order.id, paymentMethod: 'paypal' });
+      } else {
+        res.json({ orderId: order.id, checkoutUrl: null });
+      }
     } catch (error) {
       console.error("Error creating online order:", error);
       res.status(400).json({ message: "Failed to create order" });
+    }
+  });
+
+  // PayPal create order
+  app.post('/api/paypal/create-order', async (req, res) => {
+    try {
+      const { orderId, total } = req.body;
+      
+      const orderRequest = {
+        body: {
+          intent: 'CAPTURE',
+          purchaseUnits: [
+            {
+              referenceId: orderId,
+              amount: {
+                currencyCode: 'USD',
+                value: parseFloat(total).toFixed(2)
+              },
+              description: 'Restaurant order payment'
+            }
+          ],
+          applicationContext: {
+            brandName: 'EatOut',
+            landingPage: 'NO_PREFERENCE',
+            userAction: 'PAY_NOW'
+          }
+        }
+      };
+
+      const paypalOrder = await paypalOrdersController.ordersCreate(orderRequest);
+      res.json({ paypalOrderId: paypalOrder.result.id });
+    } catch (error) {
+      console.error('PayPal create order error:', error);
+      res.status(500).json({ message: 'Failed to create PayPal order' });
+    }
+  });
+
+  // PayPal capture payment
+  app.post('/api/paypal/capture-order/:paypalOrderId', async (req, res) => {
+    try {
+      const { paypalOrderId } = req.params;
+      const { orderId } = req.body;
+
+      const captureRequest = {
+        id: paypalOrderId,
+        prefer: 'return=representation'
+      };
+
+      const capture = await paypalOrdersController.ordersCapture(captureRequest);
+      
+      if (capture.result.status === 'COMPLETED') {
+        // Update order payment status
+        await storage.updateOrder(orderId, { 
+          paymentStatus: 'paid',
+          status: 'confirmed'
+        });
+        
+        res.json({ 
+          success: true,
+          orderId,
+          captureId: capture.result.purchaseUnits[0].payments.captures[0].id
+        });
+      } else {
+        res.status(400).json({ message: 'Payment not completed' });
+      }
+    } catch (error) {
+      console.error('PayPal capture error:', error);
+      res.status(500).json({ message: 'Failed to capture PayPal payment' });
     }
   });
 

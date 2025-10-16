@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Sheet,
   SheetContent,
@@ -18,12 +20,19 @@ import {
   SheetTrigger,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { ShoppingCart, Plus, Minus, Trash2, Store, Phone, MapPin } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Store, Phone, MapPin, CreditCard } from "lucide-react";
+import { SiPaypal } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 
 interface CartItem {
   menuItem: MenuItem;
   quantity: number;
+}
+
+declare global {
+  interface Window {
+    paypal?: any;
+  }
 }
 
 export default function Storefront() {
@@ -34,6 +43,22 @@ export default function Storefront() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal'>('paypal');
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const paypalButtonsRef = useRef<HTMLDivElement>(null);
+  const paypalRendered = useRef(false);
+
+  // Load PayPal SDK
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = `https://www.paypal.com/sdk/js?client-id=${import.meta.env.VITE_PAYPAL_CLIENT_ID || 'test'}&currency=USD`;
+    script.async = true;
+    document.body.appendChild(script);
+    
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   // Try hostname-based lookup first, fallback to slug
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
@@ -124,6 +149,7 @@ export default function Storefront() {
           customerName,
           customerPhone,
           customerEmail: customerEmail || null,
+          paymentMethod,
           items: cart.map((ci) => ({
             menuItemId: ci.menuItem.id,
             quantity: ci.quantity,
@@ -136,7 +162,10 @@ export default function Storefront() {
       }).then((res) => res.json());
     },
     onSuccess: (data) => {
-      if (data.checkoutUrl) {
+      if (data.paymentMethod === 'paypal') {
+        setCurrentOrderId(data.orderId);
+        renderPayPalButtons(data.orderId, total);
+      } else if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
         toast({ title: "Order placed successfully!" });
@@ -144,12 +173,62 @@ export default function Storefront() {
         setCustomerName("");
         setCustomerPhone("");
         setCustomerEmail("");
+        setPaymentMethod('paypal');
       }
     },
     onError: () => {
       toast({ title: "Failed to place order", variant: "destructive" });
     },
   });
+
+  // Render PayPal buttons
+  const renderPayPalButtons = (orderId: string, total: number) => {
+    if (!window.paypal || !paypalButtonsRef.current || paypalRendered.current) return;
+    
+    paypalRendered.current = true;
+    paypalButtonsRef.current.innerHTML = '';
+
+    window.paypal.Buttons({
+      createOrder: async () => {
+        const res = await fetch('/api/paypal/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, total: total.toFixed(2) })
+        });
+        const data = await res.json();
+        return data.paypalOrderId;
+      },
+      onApprove: async (data: any) => {
+        const res = await fetch(`/api/paypal/capture-order/${data.orderID}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId })
+        });
+        const result = await res.json();
+        
+        if (result.success) {
+          toast({ title: "Payment successful! Order confirmed." });
+          setCart([]);
+          setCustomerName("");
+          setCustomerPhone("");
+          setCustomerEmail("");
+          setCurrentOrderId(null);
+          paypalRendered.current = false;
+        }
+      },
+      onError: () => {
+        toast({ title: "Payment failed", variant: "destructive" });
+        paypalRendered.current = false;
+      }
+    }).render(paypalButtonsRef.current);
+  };
+
+  // Re-render PayPal buttons when needed
+  useEffect(() => {
+    if (currentOrderId && window.paypal && paypalButtonsRef.current && !paypalRendered.current) {
+      renderPayPalButtons(currentOrderId, total);
+    }
+  }, [currentOrderId, total]);
 
   if (restaurantLoading) {
     return (
@@ -393,14 +472,49 @@ export default function Storefront() {
                   </div>
                 </div>
 
-                <Button
-                  className="w-full h-12"
-                  disabled={!customerName || !customerPhone || checkoutMutation.isPending}
-                  onClick={() => checkoutMutation.mutate()}
-                  data-testid="button-checkout"
-                >
-                  {checkoutMutation.isPending ? "Processing..." : "Proceed to Payment"}
-                </Button>
+                <div className="w-full space-y-3">
+                  <Label className="text-sm font-medium">Payment Method</Label>
+                  <RadioGroup 
+                    value={paymentMethod} 
+                    onValueChange={(value: 'stripe' | 'paypal') => {
+                      setPaymentMethod(value);
+                      setCurrentOrderId(null);
+                      paypalRendered.current = false;
+                    }}
+                    className="flex gap-4"
+                    data-testid="radio-payment-method"
+                  >
+                    <div className="flex items-center space-x-2 flex-1">
+                      <RadioGroupItem value="paypal" id="paypal" data-testid="radio-paypal" />
+                      <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer">
+                        <SiPaypal className="h-4 w-4" />
+                        PayPal
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 flex-1">
+                      <RadioGroupItem value="stripe" id="stripe" data-testid="radio-stripe" />
+                      <Label htmlFor="stripe" className="flex items-center gap-2 cursor-pointer">
+                        <CreditCard className="h-4 w-4" />
+                        Card
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {!currentOrderId ? (
+                  <Button
+                    className="w-full h-12"
+                    disabled={!customerName || !customerPhone || checkoutMutation.isPending}
+                    onClick={() => checkoutMutation.mutate()}
+                    data-testid="button-checkout"
+                  >
+                    {checkoutMutation.isPending ? "Processing..." : "Continue to Payment"}
+                  </Button>
+                ) : (
+                  <div className="w-full">
+                    <div ref={paypalButtonsRef} data-testid="paypal-buttons" />
+                  </div>
+                )}
               </SheetFooter>
             </>
           )}
