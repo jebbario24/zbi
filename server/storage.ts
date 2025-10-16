@@ -1,38 +1,195 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import {
+  users,
+  restaurants,
+  menuCategories,
+  menuItems,
+  tables,
+  reservations,
+  orders,
+  orderItems,
+  staff,
+  inventory,
+  type User,
+  type UpsertUser,
+  type Restaurant,
+  type InsertRestaurant,
+  type MenuCategory,
+  type InsertMenuCategory,
+  type MenuItem,
+  type InsertMenuItem,
+  type Table,
+  type InsertTable,
+  type Reservation,
+  type InsertReservation,
+  type Order,
+  type InsertOrder,
+  type OrderItem,
+  type InsertOrderItem,
+  type Staff,
+  type InsertStaff,
+  type Inventory,
+  type InsertInventory,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
+  // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
+  // Restaurant operations
+  getRestaurantByOwnerId(ownerId: string): Promise<Restaurant | undefined>;
+  getRestaurantBySlug(slug: string): Promise<Restaurant | undefined>;
+  createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant>;
+  updateRestaurant(id: string, restaurant: Partial<InsertRestaurant>): Promise<Restaurant>;
+  
+  // Menu operations
+  getMenuCategories(restaurantId: string): Promise<MenuCategory[]>;
+  createMenuCategory(category: InsertMenuCategory): Promise<MenuCategory>;
+  getMenuItems(restaurantId: string): Promise<MenuItem[]>;
+  createMenuItem(item: InsertMenuItem): Promise<MenuItem>;
+  
+  // Table operations
+  getTables(restaurantId: string): Promise<Table[]>;
+  createTable(table: InsertTable): Promise<Table>;
+  
+  // Reservation operations
+  getReservations(restaurantId: string): Promise<Reservation[]>;
+  createReservation(reservation: InsertReservation): Promise<Reservation>;
+  
+  // Order operations
+  getOrders(restaurantId: string): Promise<Order[]>;
+  getRecentOrders(restaurantId: string, limit: number): Promise<Order[]>;
+  createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
+  
+  // Staff operations
+  getStaff(restaurantId: string): Promise<Staff[]>;
+  createStaff(staff: InsertStaff): Promise<Staff>;
+  
+  // Inventory operations
+  getInventory(restaurantId: string): Promise<Inventory[]>;
+  createInventory(inventory: InsertInventory): Promise<Inventory>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async getRestaurantByOwnerId(ownerId: string): Promise<Restaurant | undefined> {
+    const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.ownerId, ownerId));
+    return restaurant;
+  }
+
+  async getRestaurantBySlug(slug: string): Promise<Restaurant | undefined> {
+    const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.slug, slug));
+    return restaurant;
+  }
+
+  async createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant> {
+    const [newRestaurant] = await db.insert(restaurants).values(restaurant).returning();
+    return newRestaurant;
+  }
+
+  async updateRestaurant(id: string, restaurant: Partial<InsertRestaurant>): Promise<Restaurant> {
+    const [updated] = await db
+      .update(restaurants)
+      .set({ ...restaurant, updatedAt: new Date() })
+      .where(eq(restaurants.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getMenuCategories(restaurantId: string): Promise<MenuCategory[]> {
+    return await db.select().from(menuCategories).where(eq(menuCategories.restaurantId, restaurantId));
+  }
+
+  async createMenuCategory(category: InsertMenuCategory): Promise<MenuCategory> {
+    const [newCategory] = await db.insert(menuCategories).values(category).returning();
+    return newCategory;
+  }
+
+  async getMenuItems(restaurantId: string): Promise<MenuItem[]> {
+    return await db.select().from(menuItems).where(eq(menuItems.restaurantId, restaurantId));
+  }
+
+  async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
+    const [newItem] = await db.insert(menuItems).values(item).returning();
+    return newItem;
+  }
+
+  async getTables(restaurantId: string): Promise<Table[]> {
+    return await db.select().from(tables).where(eq(tables.restaurantId, restaurantId));
+  }
+
+  async createTable(table: InsertTable): Promise<Table> {
+    const [newTable] = await db.insert(tables).values(table).returning();
+    return newTable;
+  }
+
+  async getReservations(restaurantId: string): Promise<Reservation[]> {
+    return await db.select().from(reservations).where(eq(reservations.restaurantId, restaurantId)).orderBy(desc(reservations.reservationDate));
+  }
+
+  async createReservation(reservation: InsertReservation): Promise<Reservation> {
+    const [newReservation] = await db.insert(reservations).values(reservation).returning();
+    return newReservation;
+  }
+
+  async getOrders(restaurantId: string): Promise<Order[]> {
+    return await db.select().from(orders).where(eq(orders.restaurantId, restaurantId)).orderBy(desc(orders.createdAt));
+  }
+
+  async getRecentOrders(restaurantId: string, limit: number): Promise<Order[]> {
+    return await db.select().from(orders).where(eq(orders.restaurantId, restaurantId)).orderBy(desc(orders.createdAt)).limit(limit);
+  }
+
+  async createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
+    const [newOrder] = await db.insert(orders).values(order).returning();
+    
+    if (items.length > 0) {
+      await db.insert(orderItems).values(
+        items.map((item) => ({ ...item, orderId: newOrder.id }))
+      );
+    }
+    
+    return newOrder;
+  }
+
+  async getStaff(restaurantId: string): Promise<Staff[]> {
+    return await db.select().from(staff).where(eq(staff.restaurantId, restaurantId));
+  }
+
+  async createStaff(staffMember: InsertStaff): Promise<Staff> {
+    const [newStaff] = await db.insert(staff).values(staffMember).returning();
+    return newStaff;
+  }
+
+  async getInventory(restaurantId: string): Promise<Inventory[]> {
+    return await db.select().from(inventory).where(eq(inventory.restaurantId, restaurantId));
+  }
+
+  async createInventory(inventoryItem: InsertInventory): Promise<Inventory> {
+    const [newInventory] = await db.insert(inventory).values(inventoryItem).returning();
+    return newInventory;
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
