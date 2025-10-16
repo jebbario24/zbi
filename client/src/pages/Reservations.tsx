@@ -190,7 +190,7 @@ export default function Reservations() {
       return await apiRequest("PATCH", `/api/reservations/${id}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      queryClient.refetchQueries({ queryKey: ["/api/reservations"] });
       toast({ title: "Reservation status updated" });
     },
     onError: (error: Error) => {
