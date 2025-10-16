@@ -109,7 +109,44 @@ Preferred communication style: Simple, everyday language.
 - Static asset serving in production
 - Environment-based configuration (NODE_ENV)
 
+**File Storage:**
+- Replit Object Storage integration via @google-cloud/storage
+- Uppy file upload UI (@uppy/core, @uppy/dashboard, @uppy/react, @uppy/aws-s3)
+- Support for restaurant logos, cover photos, and menu item images
+- Public assets stored in object storage for scalable delivery
+
 **Planned Integrations:**
 - Future synchronization with "EatOut Delivery" app
 - Mobile app marketplace integration
 - Possible drag-and-drop customization platform for app owner
+
+## Recent Features (October 2025)
+
+### Online Store Customization (Completed)
+Restaurant owners can now fully customize their online storefront through the Online Store settings page:
+
+**Branding & Visuals:**
+- Upload restaurant logo (displayed in storefront header)
+- Upload cover photo (hero background image)
+- Support for JPG/PNG images via Replit Object Storage
+- Real-time preview of logo and cover image
+
+**Opening Hours Management:**
+- Configure daily opening/closing times for all 7 days
+- Toggle days as open/closed
+- Opening hours displayed on storefront
+- Validates time format and prevents invalid entries
+
+**Menu Item Images:**
+- Upload photos for individual menu items
+- Images displayed on both admin menu and public storefront
+- Improves visual appeal and helps customers make selections
+
+**Implementation Details:**
+- Frontend: OnlineStore.tsx for settings management
+- File uploads: ObjectUploader component with Uppy integration
+- Backend routes: /api/restaurant/logo, /api/restaurant/cover-image, /api/restaurant/opening-hours
+- Database: Added logo_url, cover_image_url, opening_hours (jsonb) to restaurants table
+- Database: Added image_url to menu_items table
+- Storefront: Updated to display all branding elements dynamically
+- Navigation: Added "Online Store" link to admin sidebar
