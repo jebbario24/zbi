@@ -225,7 +225,7 @@ export default function Reservations() {
     }
   };
 
-  const formatDateTime = (dateString: string) => {
+  const formatDateTime = (dateString: string | Date) => {
     const date = new Date(dateString);
     return {
       date: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
@@ -341,11 +341,10 @@ export default function Reservations() {
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-table">
-                            <SelectValue placeholder="Select a table" />
+                            <SelectValue placeholder="No specific table" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">No specific table</SelectItem>
                           {tables?.map((table) => (
                             <SelectItem key={table.id} value={table.id}>
                               Table {table.tableNumber} {table.category ? `(${table.category})` : ""} - {table.capacity} seats

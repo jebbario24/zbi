@@ -14,7 +14,14 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import Stripe from "stripe";
-import { Client, Environment, OrdersController } from '@paypal/paypal-server-sdk';
+import { 
+  Client, 
+  Environment, 
+  OrdersController, 
+  CheckoutPaymentIntent,
+  OrderApplicationContextLandingPage,
+  OrderApplicationContextUserAction 
+} from '@paypal/paypal-server-sdk';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -1330,7 +1337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const orderRequest = {
         body: {
-          intent: 'CAPTURE',
+          intent: CheckoutPaymentIntent.Capture,
           purchaseUnits: [
             {
               referenceId: orderId,
@@ -1343,13 +1350,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ],
           applicationContext: {
             brandName: 'EatOut',
-            landingPage: 'NO_PREFERENCE',
-            userAction: 'PAY_NOW'
+            landingPage: OrderApplicationContextLandingPage.NoPreference,
+            userAction: OrderApplicationContextUserAction.PayNow
           }
         }
       };
 
-      const paypalOrder = await paypalOrdersController.ordersCreate(orderRequest);
+      const paypalOrder = await paypalOrdersController.createOrder(orderRequest);
       res.json({ paypalOrderId: paypalOrder.result.id });
     } catch (error) {
       console.error('PayPal create order error:', error);
@@ -1368,19 +1375,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         prefer: 'return=representation'
       };
 
-      const capture = await paypalOrdersController.ordersCapture(captureRequest);
+      const capture = await paypalOrdersController.captureOrder(captureRequest);
       
       if (capture.result.status === 'COMPLETED') {
-        // Update order payment status
-        await storage.updateOrder(orderId, { 
-          paymentStatus: 'paid',
-          status: 'confirmed'
-        });
+        // Update order status to confirmed
+        await storage.updateOrderStatus(orderId, 'confirmed');
         
+        const captureId = capture.result.purchaseUnits?.[0]?.payments?.captures?.[0]?.id;
         res.json({ 
           success: true,
           orderId,
-          captureId: capture.result.purchaseUnits[0].payments.captures[0].id
+          captureId
         });
       } else {
         res.status(400).json({ message: 'Payment not completed' });
