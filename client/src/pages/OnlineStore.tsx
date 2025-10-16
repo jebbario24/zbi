@@ -799,7 +799,7 @@ export default function OnlineStore() {
         </CardHeader>
         <CardContent>
           <Form {...marketingForm}>
-            <form onSubmit={marketingForm.handleSubmit((data) => updateMarketingMutation.mutate(data))} className="space-y-6">
+            <form onSubmit={marketingForm.handleSubmit((data) => updateMarketingMutation.mutate(data))} className="space-y-4">
               <Tabs defaultValue="upsell" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="upsell" data-testid="tab-upsell">
@@ -816,7 +816,7 @@ export default function OnlineStore() {
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="upsell" className="space-y-6 mt-6">
+                <TabsContent value="upsell" className="space-y-6">
                   <div className="space-y-4">
                     <h3 className="font-semibold flex items-center gap-2">
                       <TrendingUp className="h-4 w-4" />
@@ -1183,7 +1183,7 @@ export default function OnlineStore() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="urgency" className="space-y-6 mt-6">
+                <TabsContent value="urgency" className="space-y-6">
                   <div className="space-y-4">
                     <h3 className="font-semibold flex items-center gap-2">
                       <Clock className="h-4 w-4" />
@@ -1462,7 +1462,7 @@ export default function OnlineStore() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="social" className="space-y-6 mt-6">
+                <TabsContent value="social" className="space-y-6">
                   <div className="space-y-4">
                     <h3 className="font-semibold flex items-center gap-2">
                       <Award className="h-4 w-4" />
