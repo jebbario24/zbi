@@ -63,7 +63,7 @@ export interface IStorage {
   // Order operations
   getOrders(restaurantId: string): Promise<Order[]>;
   getRecentOrders(restaurantId: string, limit: number): Promise<Order[]>;
-  createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
+  createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order>;
   
   // Staff operations
   getStaff(restaurantId: string): Promise<Staff[]>;
@@ -173,7 +173,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(orders).where(eq(orders.restaurantId, restaurantId)).orderBy(desc(orders.createdAt)).limit(limit);
   }
 
-  async createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
+  async createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order> {
     const [newOrder] = await db.insert(orders).values(order).returning();
     
     if (items.length > 0) {
