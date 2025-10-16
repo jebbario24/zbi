@@ -43,7 +43,7 @@ export default function Storefront() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal'>('paypal');
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'cash'>('cash');
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [paypalReady, setPaypalReady] = useState(false);
   const paypalButtonsRef = useRef<HTMLDivElement>(null);
@@ -266,9 +266,221 @@ export default function Storefront() {
   }
 
   const openingHours = restaurant.openingHours as Record<string, { open: string; close: string; closed: boolean }> | null;
+  const enabledPaymentMethods = restaurant.paymentMethods as { stripe?: boolean; paypal?: boolean; cash?: boolean } | null;
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Top Navigation with Cart */}
+      <div className="sticky top-0 z-50 bg-background border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-3">
+              {restaurant.logoUrl ? (
+                <img 
+                  src={restaurant.logoUrl} 
+                  alt={`${restaurant.name} logo`}
+                  className="h-10 w-10 rounded object-cover"
+                />
+              ) : (
+                <Store className="h-6 w-6 text-primary" />
+              )}
+              <span className="font-display font-bold text-lg">{restaurant.name}</span>
+            </div>
+            
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="default"
+                  className="relative"
+                  data-testid="button-view-cart"
+                >
+                  <ShoppingCart className="mr-2 h-5 w-5" />
+                  <span className="hidden sm:inline">Cart</span>
+                  {cart.length > 0 && (
+                    <Badge className="ml-2 h-5 min-w-5 px-1 flex items-center justify-center">
+                      {cart.length}
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-full sm:max-w-lg flex flex-col">
+                <SheetHeader>
+                  <SheetTitle>Your Order</SheetTitle>
+                </SheetHeader>
+
+                <ScrollArea className="flex-1 -mx-6 px-6">
+                  <div className="space-y-3 py-4">
+                    {cart.length > 0 ? (
+                      cart.map((item) => (
+                        <div
+                          key={item.menuItem.id}
+                          className="flex items-start gap-3 p-3 border rounded-lg"
+                          data-testid={`cart-item-${item.menuItem.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium">{item.menuItem.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              ${parseFloat(item.menuItem.price).toFixed(2)} each
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="h-8 w-8"
+                              onClick={() => updateQuantity(item.menuItem.id, -1)}
+                              data-testid={`decrease-${item.menuItem.id}`}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-8 text-center">{item.quantity}</span>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="h-8 w-8"
+                              onClick={() => updateQuantity(item.menuItem.id, 1)}
+                              data-testid={`increase-${item.menuItem.id}`}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => removeFromCart(item.menuItem.id)}
+                              data-testid={`remove-${item.menuItem.id}`}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">
+                        Your cart is empty
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+
+                {cart.length > 0 && (
+                  <>
+                    <div className="space-y-3 border-t pt-4">
+                      <Input
+                        placeholder="Your name *"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        data-testid="input-customer-name"
+                      />
+                      <Input
+                        placeholder="Phone number *"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        data-testid="input-customer-phone"
+                      />
+                      <Input
+                        type="email"
+                        placeholder="Email (optional)"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        data-testid="input-customer-email"
+                      />
+                    </div>
+
+                    <SheetFooter className="flex-col gap-3 border-t pt-4">
+                      <div className="space-y-2 w-full">
+                        <div className="flex justify-between text-sm">
+                          <span>Subtotal</span>
+                          <span data-testid="subtotal">${subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Tax (10%)</span>
+                          <span data-testid="tax">${tax.toFixed(2)}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between text-lg font-bold">
+                          <span>Total</span>
+                          <span data-testid="total">${total.toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      <div className="w-full space-y-3">
+                        <Label className="text-sm font-medium">Payment Method</Label>
+                        <RadioGroup 
+                          value={paymentMethod} 
+                          onValueChange={(value: 'stripe' | 'paypal' | 'cash') => {
+                            setPaymentMethod(value);
+                            setCurrentOrderId(null);
+                            paypalRendered.current = false;
+                          }}
+                          className="flex flex-col gap-3"
+                          data-testid="radio-payment-method"
+                        >
+                          {enabledPaymentMethods?.cash && (
+                            <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                              <RadioGroupItem value="cash" id="cash" data-testid="radio-cash" />
+                              <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer flex-1">
+                                <CreditCard className="h-4 w-4" />
+                                <div className="flex-1">
+                                  <div className="font-medium">Cash on Delivery</div>
+                                  <div className="text-xs text-muted-foreground">Pay when you receive your order</div>
+                                </div>
+                              </Label>
+                            </div>
+                          )}
+                          
+                          {enabledPaymentMethods?.paypal && (
+                            <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                              <RadioGroupItem value="paypal" id="paypal" data-testid="radio-paypal" />
+                              <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer flex-1">
+                                <SiPaypal className="h-4 w-4" />
+                                <div className="flex-1">
+                                  <div className="font-medium">PayPal</div>
+                                  <div className="text-xs text-muted-foreground">Pay securely with PayPal</div>
+                                </div>
+                              </Label>
+                            </div>
+                          )}
+                          
+                          {enabledPaymentMethods?.stripe && (
+                            <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                              <RadioGroupItem value="stripe" id="stripe" data-testid="radio-stripe" />
+                              <Label htmlFor="stripe" className="flex items-center gap-2 cursor-pointer flex-1">
+                                <CreditCard className="h-4 w-4" />
+                                <div className="flex-1">
+                                  <div className="font-medium">Credit / Debit Card</div>
+                                  <div className="text-xs text-muted-foreground">Pay securely with Stripe</div>
+                                </div>
+                              </Label>
+                            </div>
+                          )}
+                        </RadioGroup>
+                      </div>
+
+                      {!currentOrderId || paymentMethod === 'cash' ? (
+                        <Button
+                          className="w-full h-12"
+                          disabled={!customerName || !customerPhone || checkoutMutation.isPending}
+                          onClick={() => checkoutMutation.mutate()}
+                          data-testid="button-checkout"
+                        >
+                          {checkoutMutation.isPending ? "Processing..." : paymentMethod === 'cash' ? "Place Order" : "Continue to Payment"}
+                        </Button>
+                      ) : (
+                        <div className="w-full">
+                          <div ref={paypalButtonsRef} data-testid="paypal-buttons" />
+                        </div>
+                      )}
+                    </SheetFooter>
+                  </>
+                )}
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+      </div>
+
       {/* Hero Section */}
       <div className="relative border-b">
         {/* Cover Photo Background */}
@@ -426,172 +638,6 @@ export default function Storefront() {
         </div>
       </div>
 
-      {/* Floating Cart Button */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button
-            size="lg"
-            className="fixed bottom-6 right-6 h-14 px-6 shadow-lg z-50"
-            data-testid="button-view-cart"
-          >
-            <ShoppingCart className="mr-2 h-5 w-5" />
-            Cart ({cart.length})
-            {cart.length > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                ${total.toFixed(2)}
-              </Badge>
-            )}
-          </Button>
-        </SheetTrigger>
-        <SheetContent className="w-full sm:max-w-lg flex flex-col">
-          <SheetHeader>
-            <SheetTitle>Your Order</SheetTitle>
-          </SheetHeader>
-
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            <div className="space-y-3 py-4">
-              {cart.length > 0 ? (
-                cart.map((item) => (
-                  <div
-                    key={item.menuItem.id}
-                    className="flex items-start gap-3 p-3 border rounded-lg"
-                    data-testid={`cart-item-${item.menuItem.id}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium">{item.menuItem.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        ${parseFloat(item.menuItem.price).toFixed(2)} each
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8"
-                        onClick={() => updateQuantity(item.menuItem.id, -1)}
-                        data-testid={`decrease-${item.menuItem.id}`}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-8 text-center">{item.quantity}</span>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8"
-                        onClick={() => updateQuantity(item.menuItem.id, 1)}
-                        data-testid={`increase-${item.menuItem.id}`}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={() => removeFromCart(item.menuItem.id)}
-                        data-testid={`remove-${item.menuItem.id}`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  Your cart is empty
-                </p>
-              )}
-            </div>
-          </ScrollArea>
-
-          {cart.length > 0 && (
-            <>
-              <div className="space-y-3 border-t pt-4">
-                <Input
-                  placeholder="Your name *"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  data-testid="input-customer-name"
-                />
-                <Input
-                  placeholder="Phone number *"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  data-testid="input-customer-phone"
-                />
-                <Input
-                  type="email"
-                  placeholder="Email (optional)"
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  data-testid="input-customer-email"
-                />
-              </div>
-
-              <SheetFooter className="flex-col gap-3 border-t pt-4">
-                <div className="space-y-2 w-full">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal</span>
-                    <span data-testid="subtotal">${subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Tax (10%)</span>
-                    <span data-testid="tax">${tax.toFixed(2)}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total</span>
-                    <span data-testid="total">${total.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div className="w-full space-y-3">
-                  <Label className="text-sm font-medium">Payment Method</Label>
-                  <RadioGroup 
-                    value={paymentMethod} 
-                    onValueChange={(value: 'stripe' | 'paypal') => {
-                      setPaymentMethod(value);
-                      setCurrentOrderId(null);
-                      paypalRendered.current = false;
-                    }}
-                    className="flex gap-4"
-                    data-testid="radio-payment-method"
-                  >
-                    <div className="flex items-center space-x-2 flex-1">
-                      <RadioGroupItem value="paypal" id="paypal" data-testid="radio-paypal" />
-                      <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer">
-                        <SiPaypal className="h-4 w-4" />
-                        PayPal
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2 flex-1">
-                      <RadioGroupItem value="stripe" id="stripe" data-testid="radio-stripe" />
-                      <Label htmlFor="stripe" className="flex items-center gap-2 cursor-pointer">
-                        <CreditCard className="h-4 w-4" />
-                        Card
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                {!currentOrderId ? (
-                  <Button
-                    className="w-full h-12"
-                    disabled={!customerName || !customerPhone || checkoutMutation.isPending}
-                    onClick={() => checkoutMutation.mutate()}
-                    data-testid="button-checkout"
-                  >
-                    {checkoutMutation.isPending ? "Processing..." : "Continue to Payment"}
-                  </Button>
-                ) : (
-                  <div className="w-full">
-                    <div ref={paypalButtonsRef} data-testid="paypal-buttons" />
-                  </div>
-                )}
-              </SheetFooter>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
