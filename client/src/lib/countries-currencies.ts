@@ -9,6 +9,12 @@ export interface Country {
   code: string;
 }
 
+export interface Timezone {
+  value: string;
+  label: string;
+  offset: string;
+}
+
 export const CURRENCIES: Currency[] = [
   { code: "AED", name: "UAE Dirham", symbol: "د.إ" },
   { code: "AFN", name: "Afghan Afghani", symbol: "؋" },
@@ -372,4 +378,120 @@ export const COUNTRIES: Country[] = [
   { name: "Yemen", code: "YE" },
   { name: "Zambia", code: "ZM" },
   { name: "Zimbabwe", code: "ZW" },
+];
+
+export const TIMEZONES: Timezone[] = [
+  // UTC
+  { value: "UTC", label: "UTC (Coordinated Universal Time)", offset: "+00:00" },
+  
+  // Africa
+  { value: "Africa/Cairo", label: "Cairo", offset: "+02:00" },
+  { value: "Africa/Johannesburg", label: "Johannesburg", offset: "+02:00" },
+  { value: "Africa/Lagos", label: "Lagos", offset: "+01:00" },
+  { value: "Africa/Nairobi", label: "Nairobi", offset: "+03:00" },
+  { value: "Africa/Casablanca", label: "Casablanca", offset: "+01:00" },
+  { value: "Africa/Algiers", label: "Algiers", offset: "+01:00" },
+  { value: "Africa/Tunis", label: "Tunis", offset: "+01:00" },
+  
+  // America - North America
+  { value: "America/New_York", label: "New York (Eastern Time)", offset: "-05:00" },
+  { value: "America/Chicago", label: "Chicago (Central Time)", offset: "-06:00" },
+  { value: "America/Denver", label: "Denver (Mountain Time)", offset: "-07:00" },
+  { value: "America/Los_Angeles", label: "Los Angeles (Pacific Time)", offset: "-08:00" },
+  { value: "America/Anchorage", label: "Anchorage (Alaska)", offset: "-09:00" },
+  { value: "Pacific/Honolulu", label: "Honolulu (Hawaii)", offset: "-10:00" },
+  { value: "America/Phoenix", label: "Phoenix (Arizona)", offset: "-07:00" },
+  { value: "America/Toronto", label: "Toronto", offset: "-05:00" },
+  { value: "America/Vancouver", label: "Vancouver", offset: "-08:00" },
+  { value: "America/Mexico_City", label: "Mexico City", offset: "-06:00" },
+  
+  // America - Central & South America
+  { value: "America/Bogota", label: "Bogota", offset: "-05:00" },
+  { value: "America/Lima", label: "Lima", offset: "-05:00" },
+  { value: "America/Santiago", label: "Santiago", offset: "-03:00" },
+  { value: "America/Buenos_Aires", label: "Buenos Aires", offset: "-03:00" },
+  { value: "America/Sao_Paulo", label: "São Paulo", offset: "-03:00" },
+  { value: "America/Caracas", label: "Caracas", offset: "-04:00" },
+  { value: "America/Panama", label: "Panama", offset: "-05:00" },
+  { value: "America/Costa_Rica", label: "Costa Rica", offset: "-06:00" },
+  { value: "America/Guatemala", label: "Guatemala", offset: "-06:00" },
+  { value: "America/Havana", label: "Havana", offset: "-05:00" },
+  
+  // Asia - Middle East
+  { value: "Asia/Dubai", label: "Dubai", offset: "+04:00" },
+  { value: "Asia/Riyadh", label: "Riyadh", offset: "+03:00" },
+  { value: "Asia/Kuwait", label: "Kuwait", offset: "+03:00" },
+  { value: "Asia/Doha", label: "Doha", offset: "+03:00" },
+  { value: "Asia/Bahrain", label: "Bahrain", offset: "+03:00" },
+  { value: "Asia/Baghdad", label: "Baghdad", offset: "+03:00" },
+  { value: "Asia/Tehran", label: "Tehran", offset: "+03:30" },
+  { value: "Asia/Jerusalem", label: "Jerusalem", offset: "+02:00" },
+  { value: "Asia/Beirut", label: "Beirut", offset: "+02:00" },
+  { value: "Asia/Amman", label: "Amman", offset: "+03:00" },
+  
+  // Asia - South Asia
+  { value: "Asia/Karachi", label: "Karachi", offset: "+05:00" },
+  { value: "Asia/Kolkata", label: "Kolkata (India)", offset: "+05:30" },
+  { value: "Asia/Dhaka", label: "Dhaka", offset: "+06:00" },
+  { value: "Asia/Colombo", label: "Colombo", offset: "+05:30" },
+  { value: "Asia/Kathmandu", label: "Kathmandu", offset: "+05:45" },
+  
+  // Asia - East & Southeast Asia
+  { value: "Asia/Shanghai", label: "Shanghai (China)", offset: "+08:00" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong", offset: "+08:00" },
+  { value: "Asia/Tokyo", label: "Tokyo", offset: "+09:00" },
+  { value: "Asia/Seoul", label: "Seoul", offset: "+09:00" },
+  { value: "Asia/Singapore", label: "Singapore", offset: "+08:00" },
+  { value: "Asia/Bangkok", label: "Bangkok", offset: "+07:00" },
+  { value: "Asia/Jakarta", label: "Jakarta", offset: "+07:00" },
+  { value: "Asia/Manila", label: "Manila", offset: "+08:00" },
+  { value: "Asia/Kuala_Lumpur", label: "Kuala Lumpur", offset: "+08:00" },
+  { value: "Asia/Ho_Chi_Minh", label: "Ho Chi Minh City", offset: "+07:00" },
+  { value: "Asia/Taipei", label: "Taipei", offset: "+08:00" },
+  
+  // Asia - Central Asia
+  { value: "Asia/Almaty", label: "Almaty", offset: "+06:00" },
+  { value: "Asia/Tashkent", label: "Tashkent", offset: "+05:00" },
+  { value: "Asia/Baku", label: "Baku", offset: "+04:00" },
+  { value: "Asia/Tbilisi", label: "Tbilisi", offset: "+04:00" },
+  { value: "Asia/Yerevan", label: "Yerevan", offset: "+04:00" },
+  
+  // Europe
+  { value: "Europe/London", label: "London", offset: "+00:00" },
+  { value: "Europe/Paris", label: "Paris", offset: "+01:00" },
+  { value: "Europe/Berlin", label: "Berlin", offset: "+01:00" },
+  { value: "Europe/Madrid", label: "Madrid", offset: "+01:00" },
+  { value: "Europe/Rome", label: "Rome", offset: "+01:00" },
+  { value: "Europe/Amsterdam", label: "Amsterdam", offset: "+01:00" },
+  { value: "Europe/Brussels", label: "Brussels", offset: "+01:00" },
+  { value: "Europe/Vienna", label: "Vienna", offset: "+01:00" },
+  { value: "Europe/Zurich", label: "Zurich", offset: "+01:00" },
+  { value: "Europe/Athens", label: "Athens", offset: "+02:00" },
+  { value: "Europe/Istanbul", label: "Istanbul", offset: "+03:00" },
+  { value: "Europe/Moscow", label: "Moscow", offset: "+03:00" },
+  { value: "Europe/Helsinki", label: "Helsinki", offset: "+02:00" },
+  { value: "Europe/Stockholm", label: "Stockholm", offset: "+01:00" },
+  { value: "Europe/Oslo", label: "Oslo", offset: "+01:00" },
+  { value: "Europe/Copenhagen", label: "Copenhagen", offset: "+01:00" },
+  { value: "Europe/Warsaw", label: "Warsaw", offset: "+01:00" },
+  { value: "Europe/Prague", label: "Prague", offset: "+01:00" },
+  { value: "Europe/Budapest", label: "Budapest", offset: "+01:00" },
+  { value: "Europe/Bucharest", label: "Bucharest", offset: "+02:00" },
+  { value: "Europe/Dublin", label: "Dublin", offset: "+00:00" },
+  { value: "Europe/Lisbon", label: "Lisbon", offset: "+00:00" },
+  
+  // Australia & Oceania
+  { value: "Australia/Sydney", label: "Sydney", offset: "+10:00" },
+  { value: "Australia/Melbourne", label: "Melbourne", offset: "+10:00" },
+  { value: "Australia/Brisbane", label: "Brisbane", offset: "+10:00" },
+  { value: "Australia/Perth", label: "Perth", offset: "+08:00" },
+  { value: "Australia/Adelaide", label: "Adelaide", offset: "+09:30" },
+  { value: "Pacific/Auckland", label: "Auckland", offset: "+12:00" },
+  { value: "Pacific/Fiji", label: "Fiji", offset: "+12:00" },
+  { value: "Pacific/Guam", label: "Guam", offset: "+10:00" },
+  
+  // Atlantic
+  { value: "Atlantic/Reykjavik", label: "Reykjavik", offset: "+00:00" },
+  { value: "Atlantic/Azores", label: "Azores", offset: "-01:00" },
+  { value: "Atlantic/Cape_Verde", label: "Cape Verde", offset: "-01:00" },
 ];
