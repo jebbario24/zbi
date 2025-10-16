@@ -4,12 +4,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import type { Restaurant, Order } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   DollarSign, 
   ShoppingCart, 
   TrendingUp, 
   Users,
-  AlertCircle 
+  AlertCircle,
+  Clock,
+  CreditCard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
@@ -43,6 +46,14 @@ export default function Dashboard() {
   const { data: recentOrders, isLoading: ordersLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders/recent"],
   });
+
+  const { data: subscriptionStatus } = useQuery({
+    queryKey: ['/api/subscription-status'],
+  });
+
+  const trialDaysLeft = subscriptionStatus?.trialEndsAt 
+    ? Math.ceil((new Date(subscriptionStatus.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
 
   if (authLoading || restaurantLoading) {
     return (
@@ -111,6 +122,40 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Subscription Status Banner */}
+      {subscriptionStatus?.isTrialActive && trialDaysLeft <= 3 && (
+        <Alert className="border-primary">
+          <Clock className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Your trial ends in {trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''}. Subscribe to continue using EatOut.
+            </span>
+            <Link href="/subscribe">
+              <Button size="sm" variant="default" data-testid="button-subscribe-trial">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Subscribe Now
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!subscriptionStatus?.hasAccess && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Your trial has expired. Subscribe to continue using EatOut.
+            </span>
+            <Link href="/subscribe">
+              <Button size="sm" variant="destructive" data-testid="button-subscribe-expired">
+                Subscribe Now - $79/month
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div>
         <h1 className="text-3xl font-display font-bold">Dashboard</h1>
         <p className="text-muted-foreground mt-1">

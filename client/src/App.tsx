@@ -19,6 +19,7 @@ import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
 import POS from "@/pages/POS";
 import Storefront from "@/pages/Storefront";
+import Subscribe from "@/pages/Subscribe";
 import NotFound from "@/pages/not-found";
 
 function PublicRouter() {
@@ -40,6 +41,7 @@ function AuthenticatedRouter() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/subscribe" component={Subscribe} />
       <Route path="/menu" component={Menu} />
       <Route path="/orders" component={Orders} />
       <Route path="/reservations" component={Reservations} />
