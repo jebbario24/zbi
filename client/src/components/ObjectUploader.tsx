@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { ReactNode } from "react";
 import Uppy from "@uppy/core";
 import { DashboardModal } from "@uppy/react";
@@ -29,6 +29,8 @@ export function ObjectUploader({
   children,
 }: ObjectUploaderProps) {
   const [showModal, setShowModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [uppy] = useState(() =>
     new Uppy({
       restrictions: {
@@ -48,10 +50,33 @@ export function ObjectUploader({
       })
   );
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => {
+        uppy.addFile({
+          name: file.name,
+          type: file.type,
+          data: file,
+        });
+      });
+    }
+  };
+
   return (
     <div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+        multiple={maxNumberOfFiles > 1}
+      />
+      
       <Button 
-        onClick={() => setShowModal(true)} 
+        type="button"
+        onClick={() => fileInputRef.current?.click()} 
         className={buttonClassName}
         data-testid="button-upload-file"
       >
