@@ -102,6 +102,7 @@ export const tables = pgTable("tables", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   tableNumber: varchar("table_number", { length: 50 }).notNull(),
+  category: varchar("category", { length: 100 }),
   capacity: integer("capacity").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),

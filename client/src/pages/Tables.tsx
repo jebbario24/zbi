@@ -33,6 +33,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 
 const tableSchema = z.object({
   tableNumber: z.string().min(1, "Table number is required"),
+  category: z.string().optional(),
   capacity: z.string().min(1, "Capacity is required"),
 });
 
@@ -60,7 +61,7 @@ export default function Tables() {
 
   const form = useForm({
     resolver: zodResolver(tableSchema),
-    defaultValues: { tableNumber: "", capacity: "" },
+    defaultValues: { tableNumber: "", category: "", capacity: "" },
   });
 
   const createMutation = useMutation({
@@ -139,6 +140,19 @@ export default function Tables() {
                 />
                 <FormField
                   control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category (Optional)</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="e.g., Interior, Exterior, VIP, 1st Floor" data-testid="input-table-category" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="capacity"
                   render={({ field }) => (
                     <FormItem>
@@ -162,21 +176,37 @@ export default function Tables() {
       </div>
 
       {tables && tables.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {tables.map((table) => (
-            <Card key={table.id} className="hover-elevate" data-testid={`table-${table.id}`}>
-              <CardContent className="p-6 flex flex-col items-center text-center">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                  <Users className="h-8 w-8 text-primary" />
+        <>
+          {(() => {
+            const groupedTables = tables.reduce((acc, table) => {
+              const category = table.category || "Uncategorized";
+              if (!acc[category]) acc[category] = [];
+              acc[category].push(table);
+              return acc;
+            }, {} as Record<string, typeof tables>);
+
+            return Object.entries(groupedTables).map(([category, categoryTables]) => (
+              <div key={category} className="space-y-4">
+                <h2 className="text-xl font-semibold text-muted-foreground">{category}</h2>
+                <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {categoryTables.map((table) => (
+                    <Card key={table.id} className="hover-elevate" data-testid={`table-${table.id}`}>
+                      <CardContent className="p-6 flex flex-col items-center text-center">
+                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                          <Users className="h-8 w-8 text-primary" />
+                        </div>
+                        <h3 className="text-xl font-bold mb-1">Table {table.tableNumber}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Capacity: {table.capacity} {table.capacity === 1 ? "person" : "people"}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-                <h3 className="text-xl font-bold mb-1">Table {table.tableNumber}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Capacity: {table.capacity} {table.capacity === 1 ? "person" : "people"}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </div>
+            ));
+          })()}
+        </>
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
