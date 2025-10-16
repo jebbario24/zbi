@@ -69,44 +69,44 @@ const marketingSchema = z.object({
   
   // Urgency Triggers
   enableCountdownTimer: z.boolean().default(false),
-  countdownMinutes: z.number().optional(),
+  countdownMinutes: z.coerce.number().optional(),
   countdownMessage: z.string().optional(),
   enableStockWarning: z.boolean().default(false),
-  lowStockThreshold: z.number().optional(),
+  lowStockThreshold: z.coerce.number().optional(),
   enableReservationTimer: z.boolean().default(false),
-  reservationMinutes: z.number().optional(),
+  reservationMinutes: z.coerce.number().optional(),
   
   // Scarcity Triggers
   enableLimitedEdition: z.boolean().default(false),
   limitedEditionMessage: z.string().optional(),
   enableMonthlyLimit: z.boolean().default(false),
-  monthlyUnits: z.number().optional(),
+  monthlyUnits: z.coerce.number().optional(),
   enableExclusiveOffer: z.boolean().default(false),
   exclusiveOfferMessage: z.string().optional(),
   
   // Social Proof
   enableRecentPurchases: z.boolean().default(false),
-  recentPurchaseHours: z.number().optional(),
+  recentPurchaseHours: z.coerce.number().optional(),
   enableTopSeller: z.boolean().default(false),
   enableLiveNotifications: z.boolean().default(false),
   
   // Cart Value Incentives
   enableFreeShipping: z.boolean().default(false),
-  freeShippingThreshold: z.number().optional(),
+  freeShippingThreshold: z.coerce.number().optional(),
   enableBuyXGetY: z.boolean().default(false),
-  buyQuantity: z.number().optional(),
-  getQuantity: z.number().optional(),
+  buyQuantity: z.coerce.number().optional(),
+  getQuantity: z.coerce.number().optional(),
   enableMysteryGift: z.boolean().default(false),
-  mysteryGiftThreshold: z.number().optional(),
+  mysteryGiftThreshold: z.coerce.number().optional(),
   enableSpinWheel: z.boolean().default(false),
   
   // Post-Purchase
   enablePostPurchaseUpsell: z.boolean().default(false),
   postUpsellMessage: z.string().optional(),
-  postUpsellAmount: z.number().optional(),
+  postUpsellAmount: z.coerce.number().optional(),
   enableThankYouCoupon: z.boolean().default(false),
   thankYouCouponCode: z.string().optional(),
-  thankYouDiscount: z.number().optional(),
+  thankYouDiscount: z.coerce.number().optional(),
 });
 
 export default function Settings() {
