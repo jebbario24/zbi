@@ -32,13 +32,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit, TrendingUp, AlertTriangle, Users, Zap } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FormDescription } from "@/components/ui/form";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { ObjectUploader, type ObjectUploaderRef } from "@/components/ObjectUploader";
 import type { UploadResult } from "@uppy/core";
@@ -56,6 +59,21 @@ const itemSchema = z.object({
   imageUrl: z.string().optional(),
   isAvailable: z.boolean().default(true),
   preparationTime: z.string().optional(),
+  // Marketing tactics
+  upsellItemIds: z.array(z.string()).optional(),
+  crossSellItemIds: z.array(z.string()).optional(),
+  downsellItemIds: z.array(z.string()).optional(),
+  marketingTactics: z.object({
+    enableUrgencyTimer: z.boolean().optional(),
+    urgencyTimerMinutes: z.coerce.number().optional(),
+    urgencyTimerMessage: z.string().optional(),
+    enableScarcityNotice: z.boolean().optional(),
+    scarcityThreshold: z.coerce.number().optional(),
+    scarcityMessage: z.string().optional(),
+    enableSocialProof: z.boolean().optional(),
+    socialProofMessage: z.string().optional(),
+    socialProofCount: z.coerce.number().optional(),
+  }).optional(),
 });
 
 export default function Menu() {
@@ -103,6 +121,20 @@ export default function Menu() {
       imageUrl: "",
       isAvailable: true,
       preparationTime: "",
+      upsellItemIds: [] as string[],
+      crossSellItemIds: [] as string[],
+      downsellItemIds: [] as string[],
+      marketingTactics: {
+        enableUrgencyTimer: false,
+        urgencyTimerMinutes: 30,
+        urgencyTimerMessage: "",
+        enableScarcityNotice: false,
+        scarcityThreshold: 5,
+        scarcityMessage: "",
+        enableSocialProof: false,
+        socialProofMessage: "",
+        socialProofCount: 0,
+      },
     },
   });
 
@@ -116,6 +148,20 @@ export default function Menu() {
         imageUrl: editingMenuItem.imageUrl || "",
         isAvailable: editingMenuItem.isAvailable,
         preparationTime: editingMenuItem.preparationTime ? String(editingMenuItem.preparationTime) : "",
+        upsellItemIds: editingMenuItem.upsellItemIds || [],
+        crossSellItemIds: editingMenuItem.crossSellItemIds || [],
+        downsellItemIds: editingMenuItem.downsellItemIds || [],
+        marketingTactics: editingMenuItem.marketingTactics || {
+          enableUrgencyTimer: false,
+          urgencyTimerMinutes: 30,
+          urgencyTimerMessage: "",
+          enableScarcityNotice: false,
+          scarcityThreshold: 5,
+          scarcityMessage: "",
+          enableSocialProof: false,
+          socialProofMessage: "",
+          socialProofCount: 0,
+        },
       });
       setItemDialogOpen(true);
     }
@@ -543,6 +589,343 @@ export default function Menu() {
                         )}
                       />
                     </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Marketing Triggers */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <Zap className="h-4 w-4" />
+                      <span>Marketing Triggers</span>
+                    </div>
+
+                    {/* Upsell Items */}
+                    <FormField
+                      control={itemForm.control}
+                      name="upsellItemIds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center justify-between mb-2">
+                            <FormLabel className="flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4" />
+                              Upsell Items
+                            </FormLabel>
+                          </div>
+                          <FormDescription className="mb-3">
+                            Suggest premium alternatives when this item is viewed
+                          </FormDescription>
+                          <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                            {items?.filter(item => item.id !== editingMenuItem?.id).map((item) => (
+                              <div key={item.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  checked={field.value?.includes(item.id)}
+                                  onCheckedChange={(checked) => {
+                                    const current = field.value || [];
+                                    if (checked) {
+                                      field.onChange([...current, item.id]);
+                                    } else {
+                                      field.onChange(current.filter(id => id !== item.id));
+                                    }
+                                  }}
+                                  data-testid={`checkbox-upsell-${item.id}`}
+                                />
+                                <label className="text-sm cursor-pointer flex-1">
+                                  {item.name} - ${item.price}
+                                </label>
+                              </div>
+                            ))}
+                            {!items?.length && (
+                              <p className="text-sm text-muted-foreground">No other items available</p>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Cross-Sell Items */}
+                    <FormField
+                      control={itemForm.control}
+                      name="crossSellItemIds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center justify-between mb-2">
+                            <FormLabel className="flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4" />
+                              Cross-Sell / Frequently Bought Together
+                            </FormLabel>
+                          </div>
+                          <FormDescription className="mb-3">
+                            Suggest complementary items when this item is added to cart
+                          </FormDescription>
+                          <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                            {items?.filter(item => item.id !== editingMenuItem?.id).map((item) => (
+                              <div key={item.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  checked={field.value?.includes(item.id)}
+                                  onCheckedChange={(checked) => {
+                                    const current = field.value || [];
+                                    if (checked) {
+                                      field.onChange([...current, item.id]);
+                                    } else {
+                                      field.onChange(current.filter(id => id !== item.id));
+                                    }
+                                  }}
+                                  data-testid={`checkbox-cross-sell-${item.id}`}
+                                />
+                                <label className="text-sm cursor-pointer flex-1">
+                                  {item.name} - ${item.price}
+                                </label>
+                              </div>
+                            ))}
+                            {!items?.length && (
+                              <p className="text-sm text-muted-foreground">No other items available</p>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Downsell Items */}
+                    <FormField
+                      control={itemForm.control}
+                      name="downsellItemIds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center justify-between mb-2">
+                            <FormLabel className="flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4" />
+                              Downsell / Drop-Sell Items
+                            </FormLabel>
+                          </div>
+                          <FormDescription className="mb-3">
+                            Suggest budget-friendly alternatives if customer hesitates
+                          </FormDescription>
+                          <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                            {items?.filter(item => item.id !== editingMenuItem?.id).map((item) => (
+                              <div key={item.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  checked={field.value?.includes(item.id)}
+                                  onCheckedChange={(checked) => {
+                                    const current = field.value || [];
+                                    if (checked) {
+                                      field.onChange([...current, item.id]);
+                                    } else {
+                                      field.onChange(current.filter(id => id !== item.id));
+                                    }
+                                  }}
+                                  data-testid={`checkbox-downsell-${item.id}`}
+                                />
+                                <label className="text-sm cursor-pointer flex-1">
+                                  {item.name} - ${item.price}
+                                </label>
+                              </div>
+                            ))}
+                            {!items?.length && (
+                              <p className="text-sm text-muted-foreground">No other items available</p>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Urgency Timer */}
+                    <FormField
+                      control={itemForm.control}
+                      name="marketingTactics.enableUrgencyTimer"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              Urgency Timer
+                            </FormLabel>
+                            <FormDescription>
+                              Show countdown timer to create urgency
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-urgency-timer"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {itemForm.watch("marketingTactics.enableUrgencyTimer") && (
+                      <div className="grid grid-cols-2 gap-4 ml-6">
+                        <FormField
+                          control={itemForm.control}
+                          name="marketingTactics.urgencyTimerMinutes"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Duration (minutes)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  onChange={(e) => field.onChange(parseInt(e.target.value))}
+                                  placeholder="30"
+                                  data-testid="input-urgency-timer-minutes"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={itemForm.control}
+                          name="marketingTactics.urgencyTimerMessage"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Message</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="Offer ends in"
+                                  data-testid="input-urgency-timer-message"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {/* Scarcity Notice */}
+                    <FormField
+                      control={itemForm.control}
+                      name="marketingTactics.enableScarcityNotice"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4" />
+                              Scarcity Notice
+                            </FormLabel>
+                            <FormDescription>
+                              Display low stock warnings
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-scarcity-notice"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {itemForm.watch("marketingTactics.enableScarcityNotice") && (
+                      <div className="grid grid-cols-2 gap-4 ml-6">
+                        <FormField
+                          control={itemForm.control}
+                          name="marketingTactics.scarcityThreshold"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Low Stock Threshold</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  onChange={(e) => field.onChange(parseInt(e.target.value))}
+                                  placeholder="5"
+                                  data-testid="input-scarcity-threshold"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={itemForm.control}
+                          name="marketingTactics.scarcityMessage"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Message</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="Only X left in stock!"
+                                  data-testid="input-scarcity-message"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {/* Social Proof */}
+                    <FormField
+                      control={itemForm.control}
+                      name="marketingTactics.enableSocialProof"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              Social Proof Badge
+                            </FormLabel>
+                            <FormDescription>
+                              Show popularity indicators
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-social-proof"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {itemForm.watch("marketingTactics.enableSocialProof") && (
+                      <div className="grid grid-cols-2 gap-4 ml-6">
+                        <FormField
+                          control={itemForm.control}
+                          name="marketingTactics.socialProofCount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Number of Orders/Views</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  onChange={(e) => field.onChange(parseInt(e.target.value))}
+                                  placeholder="127"
+                                  data-testid="input-social-proof-count"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={itemForm.control}
+                          name="marketingTactics.socialProofMessage"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Message</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="X people ordered this"
+                                  data-testid="input-social-proof-message"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <DialogFooter className="gap-2 sm:gap-0">

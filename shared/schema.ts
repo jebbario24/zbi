@@ -94,6 +94,11 @@ export const menuItems = pgTable("menu_items", {
   imageUrl: text("image_url"),
   isAvailable: boolean("is_available").notNull().default(true),
   preparationTime: integer("preparation_time"),
+  // Marketing tactics - per item configuration
+  upsellItemIds: text("upsell_item_ids").array(),
+  crossSellItemIds: text("cross_sell_item_ids").array(),
+  downsellItemIds: text("downsell_item_ids").array(),
+  marketingTactics: jsonb("marketing_tactics"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -325,7 +330,22 @@ export const insertMenuCategorySchema = createInsertSchema(menuCategories).omit(
 export type InsertMenuCategory = z.infer<typeof insertMenuCategorySchema>;
 export type MenuCategory = typeof menuCategories.$inferSelect;
 
-export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
+export const insertMenuItemSchema = createInsertSchema(menuItems, {
+  upsellItemIds: z.array(z.string()).optional(),
+  crossSellItemIds: z.array(z.string()).optional(),
+  downsellItemIds: z.array(z.string()).optional(),
+  marketingTactics: z.object({
+    enableUrgencyTimer: z.boolean().optional(),
+    urgencyTimerMinutes: z.number().optional(),
+    urgencyTimerMessage: z.string().optional(),
+    enableScarcityNotice: z.boolean().optional(),
+    scarcityThreshold: z.number().optional(),
+    scarcityMessage: z.string().optional(),
+    enableSocialProof: z.boolean().optional(),
+    socialProofMessage: z.string().optional(),
+    socialProofCount: z.number().optional(),
+  }).optional(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
