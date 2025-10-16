@@ -182,3 +182,42 @@ Restaurant owners can now configure their payment processing options:
 - Checkout route: Handles cash orders without payment gateway processing
 - Frontend: Payment Settings section in OnlineStore.tsx
 - Storefront: Conditional rendering of payment options based on restaurant settings
+
+### Multi-Currency & Regional Settings (Completed - October 2025)
+Platform now supports multiple currencies and countries with proper localization and formatting:
+
+**Regional Settings Configuration:**
+- Currency selector with 12 supported currencies: USD, EUR, GBP, MAD, CAD, AUD, JPY, CNY, INR, AED, SAR, EGP
+- Country selector with 15+ supported countries for locale mapping
+- Settings accessible in Online Store page
+- Real-time save and persistence via backend API
+- Auto-reloads restaurant data after changes
+
+**Currency Formatting System:**
+- Locale-aware price formatting using Intl.NumberFormat
+- Automatic currency symbol and decimal placement based on country/currency combination
+- Examples: France/EUR → "15,99 €", USA/USD → "$15.99", Morocco/MAD → "DH 50"
+- Applied to all price displays: menu items, cart items, subtotal, tax, total
+
+**Payment Integration:**
+- PayPal SDK dynamically loads with correct currency parameter
+- Stripe checkout uses restaurant's configured currency
+- Currency passed to payment gateways for accurate transactions
+- Prevents hardcoded USD issues in multi-currency environments
+
+**Storefront Design Updates:**
+- Redesigned to match klit.ma reference design
+- Large cover photo with circular logo overlay
+- Horizontal category pills navigation
+- Modern grid layout for menu items
+- Responsive design for mobile, tablet, and desktop
+- Hover effects and smooth animations
+
+**Implementation Details:**
+- Backend route: /api/restaurant/regional-settings (PUT) for currency/country updates
+- Database: Added currency (varchar 10) and country (varchar 100) to restaurants table
+- Frontend: Regional Settings section in OnlineStore.tsx with Globe icon
+- Storefront: formatPrice() function maps country to locale codes (en-US, fr-FR, ar-MA, etc.)
+- PayPal SDK: useEffect loads script with dynamic currency parameter
+- File uploads: Fixed ObjectUploader component for better file browsing UX
+- All prices throughout storefront use consistent currency formatting
