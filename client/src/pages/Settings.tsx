@@ -154,6 +154,32 @@ export default function Settings() {
         </Button>
       </div>
 
+      {restaurant?.slug && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h3 className="font-semibold mb-1">Your Storefront URL</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  This is where your customers can browse your menu and place orders
+                </p>
+                <code className="text-sm bg-muted px-2 py-1 rounded">
+                  {storefrontUrl}
+                </code>
+              </div>
+              <Button
+                onClick={() => window.open(storefrontUrl, '_blank')}
+                variant="default"
+                data-testid="button-preview-storefront"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Preview Storefront
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Restaurant Information</CardTitle>
