@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Image as ImageIcon, Clock, ExternalLink } from "lucide-react";
+import { Upload, Image as ImageIcon, Clock, ExternalLink, CreditCard, Wallet } from "lucide-react";
 import type { UploadResult } from "@uppy/core";
 
 interface OpeningHours {
@@ -26,9 +27,28 @@ const defaultOpeningHours: OpeningHours = {
   sunday: { open: "10:00", close: "21:00", closed: false },
 };
 
+interface PaymentMethods {
+  stripe: boolean;
+  paypal: boolean;
+  cash: boolean;
+}
+
+const defaultPaymentMethods: PaymentMethods = {
+  stripe: false,
+  paypal: false,
+  cash: true,
+};
+
 export default function OnlineStore() {
   const { toast } = useToast();
   const [openingHours, setOpeningHours] = useState<OpeningHours>(defaultOpeningHours);
+  const [paymentSettings, setPaymentSettings] = useState({
+    stripePublicKey: "",
+    stripeSecretKey: "",
+    paypalClientId: "",
+    paypalClientSecret: "",
+  });
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethods>(defaultPaymentMethods);
 
   const { data: restaurant, isLoading } = useQuery<Restaurant>({
     queryKey: ["/api/restaurants/me"],
@@ -73,6 +93,32 @@ export default function OnlineStore() {
     },
   });
 
+  const paymentSettingsMutation = useMutation({
+    mutationFn: async (settings: typeof paymentSettings) => {
+      return apiRequest("PUT", "/api/restaurant/payment-settings", settings);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
+      toast({ title: "Payment settings updated successfully!" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update payment settings", variant: "destructive" });
+    },
+  });
+
+  const paymentMethodsMutation = useMutation({
+    mutationFn: async (methods: PaymentMethods) => {
+      return apiRequest("PUT", "/api/restaurant/payment-methods", { paymentMethods: methods });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
+      toast({ title: "Payment methods updated successfully!" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update payment methods", variant: "destructive" });
+    },
+  });
+
   const handleGetUploadParameters = async () => {
     const response = await fetch("/api/objects/upload", {
       method: "POST",
@@ -86,13 +132,13 @@ export default function OnlineStore() {
   };
 
   const handleLogoComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful[0]) {
+    if (result.successful && result.successful[0] && result.successful[0].uploadURL) {
       logoMutation.mutate(result.successful[0].uploadURL);
     }
   };
 
   const handleCoverComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful[0]) {
+    if (result.successful && result.successful[0] && result.successful[0].uploadURL) {
       coverImageMutation.mutate(result.successful[0].uploadURL);
     }
   };
@@ -121,6 +167,25 @@ export default function OnlineStore() {
       setOpeningHours(restaurant.openingHours as OpeningHours);
     }
   }, [restaurant?.openingHours]);
+
+  // Load existing payment settings
+  useEffect(() => {
+    if (restaurant) {
+      setPaymentSettings({
+        stripePublicKey: restaurant.stripePublicKey || "",
+        stripeSecretKey: restaurant.stripeSecretKey || "",
+        paypalClientId: restaurant.paypalClientId || "",
+        paypalClientSecret: restaurant.paypalClientSecret || "",
+      });
+    }
+  }, [restaurant]);
+
+  // Load existing payment methods
+  useEffect(() => {
+    if (restaurant?.paymentMethods) {
+      setPaymentMethods(restaurant.paymentMethods as PaymentMethods);
+    }
+  }, [restaurant?.paymentMethods]);
 
   if (isLoading) {
     return (
@@ -297,6 +362,146 @@ export default function OnlineStore() {
             data-testid="button-save-opening-hours"
           >
             Save Opening Hours
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Payment Settings Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Payment Settings
+          </CardTitle>
+          <CardDescription>Configure your payment credentials and methods</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Stripe Settings */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              <h3 className="font-semibold">Stripe</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="stripe-public-key">Public Key</Label>
+                <Input
+                  id="stripe-public-key"
+                  type="text"
+                  value={paymentSettings.stripePublicKey}
+                  onChange={(e) => setPaymentSettings(prev => ({ ...prev, stripePublicKey: e.target.value }))}
+                  placeholder="pk_live_..."
+                  data-testid="input-stripe-public-key"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="stripe-secret-key">Secret Key</Label>
+                <Input
+                  id="stripe-secret-key"
+                  type="password"
+                  value={paymentSettings.stripeSecretKey}
+                  onChange={(e) => setPaymentSettings(prev => ({ ...prev, stripeSecretKey: e.target.value }))}
+                  placeholder="sk_live_..."
+                  data-testid="input-stripe-secret-key"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* PayPal Settings */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              <h3 className="font-semibold">PayPal</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="paypal-client-id">Client ID</Label>
+                <Input
+                  id="paypal-client-id"
+                  type="text"
+                  value={paymentSettings.paypalClientId}
+                  onChange={(e) => setPaymentSettings(prev => ({ ...prev, paypalClientId: e.target.value }))}
+                  placeholder="AYourPayPalClientId..."
+                  data-testid="input-paypal-client-id"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paypal-client-secret">Client Secret</Label>
+                <Input
+                  id="paypal-client-secret"
+                  type="password"
+                  value={paymentSettings.paypalClientSecret}
+                  onChange={(e) => setPaymentSettings(prev => ({ ...prev, paypalClientSecret: e.target.value }))}
+                  placeholder="EYourPayPalSecret..."
+                  data-testid="input-paypal-client-secret"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Button 
+            onClick={() => paymentSettingsMutation.mutate(paymentSettings)}
+            disabled={paymentSettingsMutation.isPending}
+            data-testid="button-save-payment-settings"
+          >
+            Save Payment Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Payment Methods Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Enable Payment Methods</CardTitle>
+          <CardDescription>Choose which payment methods to show on your online store</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between" data-testid="payment-method-stripe">
+            <div className="space-y-0.5">
+              <Label htmlFor="enable-stripe">Stripe</Label>
+              <p className="text-sm text-muted-foreground">Accept credit/debit card payments online</p>
+            </div>
+            <Switch
+              id="enable-stripe"
+              checked={paymentMethods.stripe}
+              onCheckedChange={(checked) => setPaymentMethods(prev => ({ ...prev, stripe: checked }))}
+              data-testid="switch-stripe"
+            />
+          </div>
+
+          <div className="flex items-center justify-between" data-testid="payment-method-paypal">
+            <div className="space-y-0.5">
+              <Label htmlFor="enable-paypal">PayPal</Label>
+              <p className="text-sm text-muted-foreground">Accept PayPal payments online</p>
+            </div>
+            <Switch
+              id="enable-paypal"
+              checked={paymentMethods.paypal}
+              onCheckedChange={(checked) => setPaymentMethods(prev => ({ ...prev, paypal: checked }))}
+              data-testid="switch-paypal"
+            />
+          </div>
+
+          <div className="flex items-center justify-between" data-testid="payment-method-cash">
+            <div className="space-y-0.5">
+              <Label htmlFor="enable-cash">Cash on Delivery</Label>
+              <p className="text-sm text-muted-foreground">Allow customers to pay with cash upon delivery</p>
+            </div>
+            <Switch
+              id="enable-cash"
+              checked={paymentMethods.cash}
+              onCheckedChange={(checked) => setPaymentMethods(prev => ({ ...prev, cash: checked }))}
+              data-testid="switch-cash"
+            />
+          </div>
+
+          <Button 
+            onClick={() => paymentMethodsMutation.mutate(paymentMethods)}
+            disabled={paymentMethodsMutation.isPending}
+            data-testid="button-save-payment-methods"
+          >
+            Save Payment Methods
           </Button>
         </CardContent>
       </Card>

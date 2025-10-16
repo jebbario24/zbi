@@ -1023,6 +1023,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/restaurant/payment-settings", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const { stripePublicKey, stripeSecretKey, paypalClientId, paypalClientSecret } = req.body;
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      await storage.updateRestaurant(restaurant.id, {
+        stripePublicKey,
+        stripeSecretKey,
+        paypalClientId,
+        paypalClientSecret
+      });
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error updating payment settings:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/restaurant/payment-methods", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    if (!req.body.paymentMethods) {
+      return res.status(400).json({ error: "paymentMethods is required" });
+    }
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      await storage.updateRestaurant(restaurant.id, { paymentMethods: req.body.paymentMethods });
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error updating payment methods:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.put("/api/menu-item/:id/image", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     const { id } = req.params;
