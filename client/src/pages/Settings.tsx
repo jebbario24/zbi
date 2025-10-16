@@ -34,6 +34,8 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 const restaurantSchema = z.object({
   name: z.string().min(1, "Restaurant name is required"),
   slug: z.string().min(1, "URL slug is required").regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens allowed"),
+  subdomain: z.string().regex(/^[a-z0-9-]*$/, "Only lowercase letters, numbers, and hyphens allowed").optional().or(z.literal("")),
+  customDomain: z.string().optional().or(z.literal("")),
   description: z.string().optional(),
   address: z.string().optional(),
   phone: z.string().optional(),
@@ -68,6 +70,8 @@ export default function Settings() {
     defaultValues: {
       name: "",
       slug: "",
+      subdomain: "",
+      customDomain: "",
       description: "",
       address: "",
       phone: "",
@@ -82,6 +86,8 @@ export default function Settings() {
       form.reset({
         name: restaurant.name || "",
         slug: restaurant.slug || "",
+        subdomain: restaurant.subdomain || "",
+        customDomain: restaurant.customDomain || "",
         description: restaurant.description || "",
         address: restaurant.address || "",
         phone: restaurant.phone || "",
@@ -185,6 +191,41 @@ export default function Settings() {
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="subdomain"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Subdomain (Optional)</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="myrestaurant" data-testid="input-subdomain" />
+                      </FormControl>
+                      <FormDescription>
+                        Your online menu will be accessible at: {field.value || 'subdomain'}.yourdomain.com
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="customDomain"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Custom Domain (Optional)</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="myrestaurant.com" data-testid="input-custom-domain" />
+                      </FormControl>
+                      <FormDescription>
+                        Point your domain's DNS to this app to use a custom domain
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}

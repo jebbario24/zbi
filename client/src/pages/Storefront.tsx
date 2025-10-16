@@ -35,10 +35,18 @@ export default function Storefront() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
 
+  // Try hostname-based lookup first, fallback to slug
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
-    queryKey: ["/api/storefront/restaurant", slug],
+    queryKey: slug ? ["/api/storefront/restaurant", slug] : ["/api/storefront/by-hostname"],
     queryFn: async () => {
-      const response = await fetch(`/api/storefront/${slug}`);
+      // If slug is provided, use slug-based lookup
+      if (slug) {
+        const response = await fetch(`/api/storefront/${slug}`);
+        if (!response.ok) throw new Error("Restaurant not found");
+        return response.json();
+      }
+      // Otherwise, use hostname-based lookup
+      const response = await fetch(`/api/storefront/by-hostname`);
       if (!response.ok) throw new Error("Restaurant not found");
       return response.json();
     },
@@ -48,7 +56,8 @@ export default function Storefront() {
     queryKey: ["/api/storefront/categories", restaurant?.id],
     enabled: !!restaurant,
     queryFn: async () => {
-      const response = await fetch(`/api/storefront/${slug}/categories`);
+      const endpoint = slug ? `/api/storefront/${slug}/categories` : `/api/storefront/${restaurant?.slug}/categories`;
+      const response = await fetch(endpoint);
       return response.json();
     },
   });
@@ -57,7 +66,8 @@ export default function Storefront() {
     queryKey: ["/api/storefront/items", restaurant?.id],
     enabled: !!restaurant,
     queryFn: async () => {
-      const response = await fetch(`/api/storefront/${slug}/items`);
+      const endpoint = slug ? `/api/storefront/${slug}/items` : `/api/storefront/${restaurant?.slug}/items`;
+      const response = await fetch(endpoint);
       return response.json();
     },
   });
@@ -106,7 +116,8 @@ export default function Storefront() {
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
-      return await fetch(`/api/storefront/${slug}/checkout`, {
+      const endpoint = slug ? `/api/storefront/${slug}/checkout` : `/api/storefront/${restaurant?.slug}/checkout`;
+      return await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

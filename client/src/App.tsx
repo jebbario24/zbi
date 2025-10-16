@@ -22,9 +22,13 @@ import Storefront from "@/pages/Storefront";
 import NotFound from "@/pages/not-found";
 
 function PublicRouter() {
+  // Check if we're on a subdomain or custom domain (not the main app domain)
+  const hostname = window.location.hostname;
+  const isStorefrontDomain = !hostname.includes('replit.app') || hostname.split('.').length > 2;
+  
   return (
     <Switch>
-      <Route path="/" component={Landing} />
+      <Route path="/">{isStorefrontDomain ? <Storefront /> : <Landing />}</Route>
       <Route path="/store/:slug" component={Storefront} />
       <Route component={NotFound} />
     </Switch>

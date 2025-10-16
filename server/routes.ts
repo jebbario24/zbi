@@ -33,6 +33,40 @@ const orderSchema = z.object({
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
+  // Hostname-based storefront middleware - check for custom domain or subdomain
+  app.use(async (req: any, res, next) => {
+    const hostname = req.hostname;
+    
+    // Skip if it's an API route or static asset
+    if (req.path.startsWith('/api/') || req.path.startsWith('/assets/')) {
+      return next();
+    }
+    
+    // Check if this is a custom domain or subdomain
+    let restaurant = null;
+    
+    // First, check for custom domain (exact match)
+    restaurant = await storage.getRestaurantByCustomDomain(hostname);
+    
+    // If not found, check for subdomain (e.g., restaurant.eatout.app)
+    if (!restaurant && hostname.includes('.')) {
+      const subdomain = hostname.split('.')[0];
+      // Exclude common subdomains like www, api, app
+      if (!['www', 'api', 'app'].includes(subdomain)) {
+        restaurant = await storage.getRestaurantBySubdomain(subdomain);
+      }
+    }
+    
+    // If restaurant found via domain/subdomain, store in request for later use
+    if (restaurant && restaurant.isActive) {
+      req.storefrontRestaurant = restaurant;
+      // If not already on storefront route, we can optionally serve storefront here
+      // For now, just pass along - the frontend will handle rendering
+    }
+    
+    next();
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
@@ -421,6 +455,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Public storefront routes (no auth required)
+  
+  // Get restaurant by current hostname (for subdomain/custom domain)
+  app.get('/api/storefront/by-hostname', async (req: any, res) => {
+    try {
+      if (req.storefrontRestaurant) {
+        return res.json(req.storefrontRestaurant);
+      }
+      res.status(404).json({ message: "No restaurant found for this domain" });
+    } catch (error) {
+      console.error("Error fetching restaurant by hostname:", error);
+      res.status(500).json({ message: "Failed to fetch restaurant" });
+    }
+  });
+
   app.get('/api/storefront/:slug', async (req, res) => {
     try {
       const restaurant = await storage.getRestaurantBySlug(req.params.slug);

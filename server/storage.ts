@@ -41,6 +41,8 @@ export interface IStorage {
   // Restaurant operations
   getRestaurantByOwnerId(ownerId: string): Promise<Restaurant | undefined>;
   getRestaurantBySlug(slug: string): Promise<Restaurant | undefined>;
+  getRestaurantBySubdomain(subdomain: string): Promise<Restaurant | undefined>;
+  getRestaurantByCustomDomain(customDomain: string): Promise<Restaurant | undefined>;
   createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant>;
   updateRestaurant(id: string, restaurant: Partial<InsertRestaurant>): Promise<Restaurant>;
   
@@ -100,6 +102,16 @@ export class DatabaseStorage implements IStorage {
 
   async getRestaurantBySlug(slug: string): Promise<Restaurant | undefined> {
     const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.slug, slug));
+    return restaurant;
+  }
+
+  async getRestaurantBySubdomain(subdomain: string): Promise<Restaurant | undefined> {
+    const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.subdomain, subdomain));
+    return restaurant;
+  }
+
+  async getRestaurantByCustomDomain(customDomain: string): Promise<Restaurant | undefined> {
+    const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.customDomain, customDomain));
     return restaurant;
   }
 
