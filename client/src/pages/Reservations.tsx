@@ -247,7 +247,7 @@ export default function Reservations() {
               New Reservation
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl">
                 {editingReservation ? "Edit Reservation" : "Create New Reservation"}
