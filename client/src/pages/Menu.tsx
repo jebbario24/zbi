@@ -32,12 +32,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import type { UploadResult } from "@uppy/core";
@@ -257,122 +258,218 @@ export default function Menu() {
                 Add Item
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>New Menu Item</DialogTitle>
-                <DialogDescription>Add a new item to your menu</DialogDescription>
+                <DialogTitle className="flex items-center gap-2 text-2xl">
+                  <UtensilsCrossed className="h-6 w-6 text-primary" />
+                  New Menu Item
+                </DialogTitle>
+                <DialogDescription>Create a delicious new item for your menu</DialogDescription>
               </DialogHeader>
               <Form {...itemForm}>
-                <form onSubmit={itemForm.handleSubmit((data) => createItemMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={itemForm.control}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                <form onSubmit={itemForm.handleSubmit((data) => createItemMutation.mutate(data))} className="space-y-6">
+                  {/* Basic Information */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <Tag className="h-4 w-4" />
+                      <span>Basic Information</span>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField
+                        control={itemForm.control}
+                        name="categoryId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Category</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-item-category">
+                                  <SelectValue placeholder="Select a category" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {categories?.map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={itemForm.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Item Name</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                placeholder="e.g., Margherita Pizza" 
+                                data-testid="input-item-name" 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={itemForm.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            Description
+                          </FormLabel>
                           <FormControl>
-                            <SelectTrigger data-testid="select-item-category">
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories?.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>
-                                {cat.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={itemForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Item Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-item-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={itemForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} data-testid="input-item-description" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={itemForm.control}
-                    name="imageUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Menu Item Photo (Optional)</FormLabel>
-                        <div className="space-y-3">
-                          {field.value && (
-                            <img
-                              src={field.value}
-                              alt="Menu item preview"
-                              className="w-32 h-32 object-cover rounded-md"
+                            <Textarea 
+                              {...field} 
+                              placeholder="Describe your dish, its ingredients, and what makes it special..."
+                              className="min-h-[100px]"
+                              data-testid="input-item-description" 
                             />
-                          )}
-                          <ObjectUploader
-                            maxNumberOfFiles={1}
-                            maxFileSize={5242880}
-                            onGetUploadParameters={handleGetUploadParameters}
-                            onComplete={handleItemImageComplete}
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            {field.value ? "Change Photo" : "Upload Photo"}
-                          </ObjectUploader>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={itemForm.control}
-                      name="price"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Price</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" {...field} data-testid="input-item-price" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={itemForm.control}
-                      name="preparationTime"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Prep Time (min)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} data-testid="input-item-prep-time" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
-                  <DialogFooter>
-                    <Button type="submit" disabled={createItemMutation.isPending} data-testid="button-save-item">
-                      {createItemMutation.isPending ? "Creating..." : "Create Item"}
+
+                  <Separator />
+
+                  {/* Photo Upload */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <ImagePlus className="h-4 w-4" />
+                      <span>Item Photo</span>
+                    </div>
+                    <FormField
+                      control={itemForm.control}
+                      name="imageUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-start gap-4">
+                            {field.value && (
+                              <div className="relative group">
+                                <img
+                                  src={field.value}
+                                  alt="Menu item preview"
+                                  className="w-32 h-32 object-cover rounded-lg border-2 border-border"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                                  <Upload className="h-6 w-6 text-white" />
+                                </div>
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <ObjectUploader
+                                maxNumberOfFiles={1}
+                                maxFileSize={5242880}
+                                onGetUploadParameters={handleGetUploadParameters}
+                                onComplete={handleItemImageComplete}
+                              >
+                                <Upload className="h-4 w-4 mr-2" />
+                                {field.value ? "Change Photo" : "Upload Photo"}
+                              </ObjectUploader>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Add an appetizing photo of your dish (max 5MB)
+                              </p>
+                            </div>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  {/* Pricing & Time */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <DollarSign className="h-4 w-4" />
+                      <span>Pricing & Preparation</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={itemForm.control}
+                        name="price"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                              <DollarSign className="h-4 w-4" />
+                              Price
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                step="0.01" 
+                                placeholder="0.00"
+                                {...field} 
+                                data-testid="input-item-price" 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={itemForm.control}
+                        name="preparationTime"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              Preparation Time
+                            </FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input 
+                                  type="number" 
+                                  placeholder="15"
+                                  {...field} 
+                                  data-testid="input-item-prep-time" 
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                  minutes
+                                </span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter className="gap-2 sm:gap-0">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setItemDialogOpen(false)}
+                      disabled={createItemMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={createItemMutation.isPending} 
+                      data-testid="button-save-item"
+                      className="gap-2"
+                    >
+                      {createItemMutation.isPending ? (
+                        <>Creating...</>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4" />
+                          Create Item
+                        </>
+                      )}
                     </Button>
                   </DialogFooter>
                 </form>
