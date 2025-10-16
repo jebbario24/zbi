@@ -299,7 +299,7 @@ export default function Orders() {
 
       {/* Order Details Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-        <DialogContent className="max-w-2xl" data-testid="dialog-order-details">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto" data-testid="dialog-order-details">
           <DialogHeader>
             <DialogTitle>Order Details</DialogTitle>
             <DialogDescription>
