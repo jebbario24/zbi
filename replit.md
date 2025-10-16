@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 ### System Design Choices
 - **Online Store Customization:** Restaurant owners can customize branding (logo, cover photo), manage opening hours, and add images to menu items.
 - **Payment Settings & Methods:** Configuration of Stripe and PayPal credentials, with options to enable/disable various payment methods (Stripe, PayPal, Cash on Delivery).
-- **Multi-Currency & Regional Settings:** Supports 12 currencies and 15+ countries with locale-aware price formatting using `Intl.NumberFormat`.
+- **Multi-Currency & Regional Settings:** Comprehensive worldwide support with 170+ currencies (ISO-4217 aligned) and 195+ countries (all 193 UN members plus key territories like Palestine, Taiwan, Kosovo, Western Sahara). Features searchable Command/Popover selectors with real-time filtering for easy currency and country selection. Locale-aware price formatting using `Intl.NumberFormat`.
 - **Table Categories & Management:** Full CRUD for tables with optional categorization (e.g., Interior, Exterior) and capacity tracking.
 - **Staff Management:** Full CRUD for staff members with active/inactive status toggling and detailed information.
 - **Comprehensive CRUD Operations:** Complete create, read, update, and delete functionality for menu items, reservations, and inventory, ensuring consistent UI patterns and optimistic UI updates with React Query cache invalidation.
