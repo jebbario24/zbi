@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useImperativeHandle, forwardRef } from "react";
 import type { ReactNode } from "react";
 import Uppy from "@uppy/core";
 import AwsS3 from "@uppy/aws-s3";
@@ -19,14 +19,18 @@ interface ObjectUploaderProps {
   children: ReactNode;
 }
 
-export function ObjectUploader({
+export interface ObjectUploaderRef {
+  triggerUpload: () => void;
+}
+
+export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>(({
   maxNumberOfFiles = 1,
   maxFileSize = 10485760,
   onGetUploadParameters,
   onComplete,
   buttonClassName,
   children,
-}: ObjectUploaderProps) {
+}, ref) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [uppy] = useState(() =>
@@ -46,6 +50,12 @@ export function ObjectUploader({
         onComplete?.(result);
       })
   );
+
+  useImperativeHandle(ref, () => ({
+    triggerUpload: () => {
+      fileInputRef.current?.click();
+    }
+  }));
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -81,4 +91,4 @@ export function ObjectUploader({
       </Button>
     </div>
   );
-}
+});

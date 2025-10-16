@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -40,7 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { ObjectUploader } from "@/components/ObjectUploader";
+import { ObjectUploader, type ObjectUploaderRef } from "@/components/ObjectUploader";
 import type { UploadResult } from "@uppy/core";
 
 const categorySchema = z.object({
@@ -64,6 +64,7 @@ export default function Menu() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const imageUploaderRef = useRef<ObjectUploaderRef>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -355,7 +356,10 @@ export default function Menu() {
                         <FormItem>
                           <div className="flex items-start gap-4">
                             {field.value ? (
-                              <div className="relative group">
+                              <div 
+                                className="relative group cursor-pointer"
+                                onClick={() => imageUploaderRef.current?.triggerUpload()}
+                              >
                                 <img
                                   src={field.value}
                                   alt="Menu item preview"
@@ -366,12 +370,16 @@ export default function Menu() {
                                 </div>
                               </div>
                             ) : (
-                              <div className="w-32 h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/20">
+                              <div 
+                                className="w-32 h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/20 cursor-pointer hover-elevate active-elevate-2"
+                                onClick={() => imageUploaderRef.current?.triggerUpload()}
+                              >
                                 <ImagePlus className="h-12 w-12 text-muted-foreground/40" />
                               </div>
                             )}
                             <div className="flex-1">
                               <ObjectUploader
+                                ref={imageUploaderRef}
                                 maxNumberOfFiles={1}
                                 maxFileSize={5242880}
                                 onGetUploadParameters={handleGetUploadParameters}
