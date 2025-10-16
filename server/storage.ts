@@ -69,7 +69,9 @@ export interface IStorage {
   // Order operations
   getOrders(restaurantId: string): Promise<Order[]>;
   getRecentOrders(restaurantId: string, limit: number): Promise<Order[]>;
+  getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem: MenuItem })[] } | undefined>;
   createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order>;
+  updateOrderStatus(orderId: string, status: string): Promise<Order>;
   
   // Staff operations
   getStaff(restaurantId: string): Promise<Staff[]>;
@@ -203,6 +205,34 @@ export class DatabaseStorage implements IStorage {
     }
     
     return newOrder;
+  }
+
+  async getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem: MenuItem })[] } | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+    if (!order) return undefined;
+    
+    const items = await db
+      .select()
+      .from(orderItems)
+      .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .where(eq(orderItems.orderId, orderId));
+    
+    return {
+      order,
+      items: items.map(item => ({
+        ...item.order_items,
+        menuItem: item.menu_items
+      }))
+    };
+  }
+
+  async updateOrderStatus(orderId: string, status: string): Promise<Order> {
+    const [updated] = await db
+      .update(orders)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(orders.id, orderId))
+      .returning();
+    return updated;
   }
 
   async getStaff(restaurantId: string): Promise<Staff[]> {

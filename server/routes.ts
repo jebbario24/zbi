@@ -228,7 +228,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateUserSubscription(userId, updateData);
           
           // Recalculate access based on fresh Stripe data
-          actualSubscriptionActive = subscription.status === 'active' && freshSubscriptionEndsAt > now;
+          actualSubscriptionActive = subscription.status === 'active' && 
+                                      freshSubscriptionEndsAt !== null && 
+                                      freshSubscriptionEndsAt > now;
         } catch (error) {
           console.error("Error checking subscription status:", error);
         }
@@ -510,6 +512,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating order:", error);
       res.status(400).json({ message: "Failed to create order" });
+    }
+  });
+
+  app.get('/api/orders/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      const orderData = await storage.getOrderWithItems(id);
+      if (!orderData) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verify order belongs to this restaurant
+      if (orderData.order.restaurantId !== restaurant.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      res.json(orderData);
+    } catch (error) {
+      console.error("Error fetching order:", error);
+      res.status(500).json({ message: "Failed to fetch order" });
+    }
+  });
+
+  app.patch('/api/orders/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Get order to verify ownership
+      const orderData = await storage.getOrderWithItems(id);
+      if (!orderData) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      if (orderData.order.restaurantId !== restaurant.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const updated = await storage.updateOrderStatus(id, status);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      res.status(400).json({ message: "Failed to update order status" });
     }
   });
 
