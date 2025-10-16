@@ -495,6 +495,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/tables/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const { id } = req.params;
+      const data = insertTableSchema.partial().parse(req.body);
+      const table = await storage.updateTable(id, data);
+      res.json(table);
+    } catch (error) {
+      console.error("Error updating table:", error);
+      res.status(400).json({ message: "Failed to update table" });
+    }
+  });
+
+  app.delete('/api/tables/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const { id } = req.params;
+      await storage.deleteTable(id);
+      res.json({ message: "Table deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting table:", error);
+      res.status(400).json({ message: "Failed to delete table" });
+    }
+  });
+
   // Reservation routes
   app.get('/api/reservations', isAuthenticated, async (req: any, res) => {
     try {

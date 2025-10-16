@@ -64,6 +64,8 @@ export interface IStorage {
   // Table operations
   getTables(restaurantId: string): Promise<Table[]>;
   createTable(table: InsertTable): Promise<Table>;
+  updateTable(id: string, table: Partial<InsertTable>): Promise<Table>;
+  deleteTable(id: string): Promise<void>;
   
   // Reservation operations
   getReservations(restaurantId: string): Promise<Reservation[]>;
@@ -186,6 +188,18 @@ export class DatabaseStorage implements IStorage {
   async createTable(table: InsertTable): Promise<Table> {
     const [newTable] = await db.insert(tables).values(table).returning();
     return newTable;
+  }
+
+  async updateTable(id: string, table: Partial<InsertTable>): Promise<Table> {
+    const [updatedTable] = await db.update(tables)
+      .set({ ...table, updatedAt: new Date() })
+      .where(eq(tables.id, id))
+      .returning();
+    return updatedTable;
+  }
+
+  async deleteTable(id: string): Promise<void> {
+    await db.delete(tables).where(eq(tables.id, id));
   }
 
   async getReservations(restaurantId: string): Promise<Reservation[]> {
