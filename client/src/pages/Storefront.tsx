@@ -49,21 +49,6 @@ export default function Storefront() {
   const paypalButtonsRef = useRef<HTMLDivElement>(null);
   const paypalRendered = useRef(false);
 
-  // Load PayPal SDK
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = `https://www.paypal.com/sdk/js?client-id=${import.meta.env.VITE_PAYPAL_CLIENT_ID || 'test'}&currency=USD`;
-    script.async = true;
-    script.onload = () => setPaypalReady(true);
-    document.body.appendChild(script);
-    
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
-
   // Try hostname-based lookup first, fallback to slug
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: slug ? ["/api/storefront/restaurant", slug] : ["/api/storefront/by-hostname"],
@@ -98,6 +83,24 @@ export default function Storefront() {
       return response.json();
     },
   });
+
+  // Load PayPal SDK with restaurant's currency
+  useEffect(() => {
+    if (!restaurant) return;
+    
+    const script = document.createElement('script');
+    const currency = restaurant.currency || 'USD';
+    script.src = `https://www.paypal.com/sdk/js?client-id=${import.meta.env.VITE_PAYPAL_CLIENT_ID || 'test'}&currency=${currency}`;
+    script.async = true;
+    script.onload = () => setPaypalReady(true);
+    document.body.appendChild(script);
+    
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, [restaurant?.currency]);
 
   const filteredItems = selectedCategory
     ? items?.filter((item) => item.categoryId === selectedCategory)
@@ -253,7 +256,39 @@ export default function Storefront() {
   }
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const currencySymbol = restaurant.currency === 'MAD' ? 'DH' : restaurant.currency === 'USD' ? '$' : restaurant.currency;
+  
+  // Currency formatter using Intl.NumberFormat
+  const formatPrice = (price: number | string) => {
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    const currency = restaurant.currency || 'USD';
+    const country = restaurant.country || 'United States';
+    
+    // Map countries to locale codes
+    const localeMap: { [key: string]: string } = {
+      'United States': 'en-US',
+      'Canada': 'en-CA',
+      'United Kingdom': 'en-GB',
+      'Morocco': 'ar-MA',
+      'France': 'fr-FR',
+      'Germany': 'de-DE',
+      'Spain': 'es-ES',
+      'Italy': 'it-IT',
+      'UAE': 'ar-AE',
+      'Saudi Arabia': 'ar-SA',
+      'Egypt': 'ar-EG',
+      'India': 'en-IN',
+      'China': 'zh-CN',
+      'Japan': 'ja-JP',
+      'Australia': 'en-AU',
+    };
+    
+    const locale = localeMap[country] || 'en-US';
+    
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+    }).format(numPrice);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -309,7 +344,7 @@ export default function Storefront() {
                           <div className="flex-1">
                             <h4 className="font-medium mb-1">{item.menuItem.name}</h4>
                             <p className="text-sm text-primary font-medium">
-                              {currencySymbol === 'DH' ? `${parseFloat(item.menuItem.price).toFixed(0)} ${currencySymbol}` : `${currencySymbol}${item.menuItem.price}`}
+                              {formatPrice(item.menuItem.price)}
                             </p>
                             <div className="flex items-center gap-2 mt-2">
                               <Button
@@ -374,20 +409,20 @@ export default function Storefront() {
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
                         <span data-testid="subtotal">
-                          {currencySymbol === 'DH' ? `${subtotal.toFixed(0)} ${currencySymbol}` : `${currencySymbol}${subtotal.toFixed(2)}`}
+                          {formatPrice(subtotal)}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Tax (10%)</span>
                         <span data-testid="tax">
-                          {currencySymbol === 'DH' ? `${tax.toFixed(0)} ${currencySymbol}` : `${currencySymbol}${tax.toFixed(2)}`}
+                          {formatPrice(tax)}
                         </span>
                       </div>
                       <Separator />
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total</span>
                         <span data-testid="total">
-                          {currencySymbol === 'DH' ? `${total.toFixed(0)} ${currencySymbol}` : `${currencySymbol}${total.toFixed(2)}`}
+                          {formatPrice(total)}
                         </span>
                       </div>
                     </div>
@@ -572,7 +607,7 @@ export default function Storefront() {
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-primary">
-                      {currencySymbol === 'DH' ? `${parseFloat(item.price).toFixed(0)} ${currencySymbol}` : `${currencySymbol}${item.price}`}
+                      {formatPrice(item.price)}
                     </span>
                     {item.isAvailable && (
                       <Button 
