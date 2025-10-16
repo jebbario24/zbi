@@ -39,6 +39,7 @@ import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { ObjectUploader } from "@/components/ObjectUploader";
 
 const categorySchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -294,6 +295,41 @@ export default function Menu() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={itemForm.control}
+                    name="imageUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Menu Item Photo (Optional)</FormLabel>
+                        <FormControl>
+                          <ObjectUploader
+                            maxNumberOfFiles={1}
+                            allowedFileTypes={["image/jpeg", "image/png", "image/webp"]}
+                            onComplete={(urls) => {
+                              if (urls.length > 0) {
+                                field.onChange(urls[0]);
+                              }
+                            }}
+                            trigger={
+                              <Button type="button" variant="outline" data-testid="button-upload-item-photo">
+                                {field.value ? "Change Photo" : "Upload Photo"}
+                              </Button>
+                            }
+                          />
+                        </FormControl>
+                        {field.value && (
+                          <div className="mt-2">
+                            <img
+                              src={field.value}
+                              alt="Menu item preview"
+                              className="w-32 h-32 object-cover rounded-md"
+                            />
+                          </div>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={itemForm.control}
@@ -363,7 +399,16 @@ export default function Menu() {
       ) : filteredItems && filteredItems.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((item) => (
-            <Card key={item.id} className="hover-elevate" data-testid={`menu-item-${item.id}`}>
+            <Card key={item.id} className="hover-elevate overflow-hidden" data-testid={`menu-item-${item.id}`}>
+              {item.imageUrl && (
+                <div className="aspect-video w-full overflow-hidden">
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-lg">{item.name}</CardTitle>
