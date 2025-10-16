@@ -43,7 +43,7 @@ const orderSchema = z.object({
   customerName: z.string().nullable().optional(),
   customerPhone: z.string().nullable().optional(),
   customerEmail: z.string().nullable().optional(),
-  paymentMethod: z.enum(['stripe', 'paypal']).optional().default('stripe'),
+  paymentMethod: z.enum(['stripe', 'paypal', 'cash']).optional().default('cash'),
   items: z.array(z.object({
     menuItemId: z.string(),
     quantity: z.number(),
@@ -911,9 +911,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal: (parseFloat(item.unitPrice) * item.quantity).toFixed(2),
       })));
       
-      if (data.paymentMethod === 'paypal') {
+      if (data.paymentMethod === 'cash') {
+        // Cash on delivery - mark order as confirmed, payment will be collected on delivery
+        res.json({ orderId: order.id, paymentMethod: 'cash', success: true });
+      } else if (data.paymentMethod === 'paypal') {
         res.json({ orderId: order.id, paymentMethod: 'paypal' });
       } else {
+        // Stripe payment
         res.json({ orderId: order.id, checkoutUrl: null });
       }
     } catch (error) {

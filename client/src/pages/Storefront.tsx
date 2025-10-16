@@ -166,7 +166,14 @@ export default function Storefront() {
       }).then((res) => res.json());
     },
     onSuccess: (data) => {
-      if (data.paymentMethod === 'paypal') {
+      if (data.paymentMethod === 'cash') {
+        toast({ title: "Order placed successfully! Pay cash on delivery." });
+        setCart([]);
+        setCustomerName("");
+        setCustomerPhone("");
+        setCustomerEmail("");
+        setPaymentMethod('cash');
+      } else if (data.paymentMethod === 'paypal') {
         setCurrentOrderId(data.orderId);
         renderPayPalButtons(data.orderId, total);
       } else if (data.checkoutUrl) {
@@ -177,7 +184,7 @@ export default function Storefront() {
         setCustomerName("");
         setCustomerPhone("");
         setCustomerEmail("");
-        setPaymentMethod('paypal');
+        setPaymentMethod('cash');
       }
     },
     onError: () => {
