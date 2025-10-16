@@ -265,7 +265,9 @@ Enhanced staff management with edit functionality and active/inactive status tra
 - Database: isActive boolean field already present in staff table
 - Backend routes: PUT /api/staff/:id for updates, DELETE /api/staff/:id for deletion
 - Storage methods: updateStaff() and deleteStaff() added to DatabaseStorage
-- Frontend: Edit/delete/toggle buttons appear on hover with visual icons
-- Toggle uses CheckCircle (green) for inactive → active, XCircle (orange) for active → inactive
+- Frontend: Edit/delete buttons appear on hover with visual icons
+- Toggle switch design: Green pill for active (circle right), red pill for inactive (circle left)
+- Toggle switch includes text label ("ACTIVE"/"INACTIVE") with smooth transitions
+- Accessibility: role="switch" and aria-checked attributes for screen readers
 - Same dialog component reused for both create and edit modes
 - Form pre-filled with existing data when editing
