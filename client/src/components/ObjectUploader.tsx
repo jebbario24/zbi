@@ -91,25 +91,27 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
       </Button>
       
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setIsOpen(false)}>
-          <div className="relative w-full max-w-2xl mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setIsOpen(false)}>
+          <div className="relative w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="outline"
               size="icon"
-              className="absolute -top-12 right-0 z-10 bg-white hover:bg-gray-100"
+              className="absolute -top-12 right-0 z-10 bg-white hover:bg-gray-100 sm:-top-12 -top-14"
               onClick={() => setIsOpen(false)}
               data-testid="button-close-uploader"
             >
               ✕
             </Button>
-            <Dashboard
-              uppy={uppy}
-              proudlyDisplayPoweredByUppy={false}
-              width="100%"
-              height={450}
-              note={note || "Images only, up to 10 MB"}
-              theme="light"
-            />
+            <div className="h-[350px] sm:h-[450px] md:h-[500px]">
+              <Dashboard
+                uppy={uppy}
+                proudlyDisplayPoweredByUppy={false}
+                width="100%"
+                height="100%"
+                note={note || "Images only, up to 10 MB"}
+                theme="light"
+              />
+            </div>
           </div>
         </div>
       )}
