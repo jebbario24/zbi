@@ -97,21 +97,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Check if already has a subscription - reuse any non-canceled subscription!
+      // Check if already has a subscription
       if (user.stripeSubscriptionId) {
         const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId, {
-          expand: ['latest_invoice.payment_intent'],  // Must expand to get client secret!
+          expand: ['latest_invoice.payment_intent'],
         });
         
-        // Reuse any existing subscription except canceled/incomplete_expired
-        // This prevents duplicate subscriptions for past_due, unpaid, etc.
-        if (subscription.status !== 'canceled' && subscription.status !== 'incomplete_expired') {
-          // Always update to fresh Stripe data
+        // Reuse active, past_due, or unpaid subscriptions
+        if (['active', 'past_due', 'unpaid'].includes(subscription.status)) {
           const updateData: any = {
             subscriptionStatus: subscription.status,
           };
           
-          // Only set subscriptionEndsAt if subscription has a valid period
           const currentPeriodEnd = (subscription as any).current_period_end;
           if (currentPeriodEnd && !isNaN(currentPeriodEnd)) {
             updateData.subscriptionEndsAt = new Date(currentPeriodEnd * 1000);
@@ -119,11 +116,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
           await storage.updateUserSubscription(userId, updateData);
           
+          const clientSecret = (subscription.latest_invoice as any)?.payment_intent?.client_secret;
           return res.json({ 
             subscriptionId: subscription.id,
-            clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,
+            clientSecret,
             status: subscription.status,
           });
+        }
+        
+        // Cancel incomplete or incomplete_expired subscriptions and create new one
+        if (['incomplete', 'incomplete_expired'].includes(subscription.status)) {
+          await stripe.subscriptions.cancel(subscription.id);
         }
       }
 
@@ -168,9 +171,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscriptionStatus: subscription.status,
       });
 
+      const clientSecret = (subscription.latest_invoice as any)?.payment_intent?.client_secret;
+      
       res.json({
         subscriptionId: subscription.id,
-        clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,
+        clientSecret,
         status: subscription.status,
       });
     } catch (error: any) {

@@ -26,7 +26,12 @@ import NotFound from "@/pages/not-found";
 function PublicRouter() {
   // Check if we're on a subdomain or custom domain (not the main app domain)
   const hostname = window.location.hostname;
-  const isStorefrontDomain = !hostname.includes('replit.app') || hostname.split('.').length > 2;
+  const parts = hostname.split('.');
+  
+  // Main app domains: xxx.replit.app or xxx.replit.dev (2 parts on replit)
+  // Storefront domains: subdomain.xxx.replit.app (3+ parts) or customdomain.com (non-replit)
+  const isReplitDomain = hostname.includes('replit.app') || hostname.includes('replit.dev');
+  const isStorefrontDomain = isReplitDomain ? parts.length > 2 : true;
   
   return (
     <Switch>
