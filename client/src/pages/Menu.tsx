@@ -133,7 +133,6 @@ export default function Menu() {
     mutationFn: async (data: z.infer<typeof itemSchema>) => {
       return await apiRequest("POST", "/api/menu/items", {
         ...data,
-        price: parseFloat(data.price),
         preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
       });
     },
@@ -170,18 +169,12 @@ export default function Menu() {
   };
 
   const handleItemImageComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    console.log("Upload complete result:", result);
     if (result.successful && result.successful[0]) {
       const uploadURL = result.successful[0].uploadURL as string | undefined;
-      console.log("Setting imageUrl to:", uploadURL);
       if (uploadURL) {
         itemForm.setValue("imageUrl", uploadURL);
         toast({ title: "Image uploaded successfully" });
-      } else {
-        toast({ title: "Image upload failed: No URL returned", variant: "destructive" });
       }
-    } else {
-      toast({ title: "Image upload failed", variant: "destructive" });
     }
   };
 
