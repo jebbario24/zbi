@@ -158,22 +158,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateUserSubscription(userId, { stripeCustomerId: customerId });
       }
 
-      // Create or retrieve the subscription product and price
-      const product = await stripe.products.create({
-        name: 'EatOut Monthly Subscription',
-      });
+      // Reuse existing product and price or create if doesn't exist
+      let priceId = process.env.STRIPE_PRICE_ID;
       
-      const price = await stripe.prices.create({
-        product: product.id,
-        currency: 'usd',
-        recurring: { interval: 'month' },
-        unit_amount: 7900, // $79 in cents
-      });
+      if (!priceId) {
+        // Search for existing product
+        const products = await stripe.products.list({ 
+          active: true, 
+          limit: 100 
+        });
+        let product = products.data.find(p => p.name === 'EatOut Monthly Subscription');
+        
+        if (!product) {
+          product = await stripe.products.create({
+            name: 'EatOut Monthly Subscription',
+          });
+        }
+        
+        // Search for existing price
+        const prices = await stripe.prices.list({ 
+          product: product.id,
+          active: true,
+          limit: 100
+        });
+        let price = prices.data.find(p => 
+          p.currency === 'usd' && 
+          p.recurring?.interval === 'month' && 
+          p.unit_amount === 7900
+        );
+        
+        if (!price) {
+          price = await stripe.prices.create({
+            product: product.id,
+            currency: 'usd',
+            recurring: { interval: 'month' },
+            unit_amount: 7900, // $79 in cents
+          });
+        }
+        
+        priceId = price.id;
+      }
 
       // Create subscription ($79/month)
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
-        items: [{ price: price.id }],
+        items: [{ price: priceId }],
         payment_behavior: 'default_incomplete',
         payment_settings: { save_default_payment_method: 'on_subscription' },
         expand: ['latest_invoice.payment_intent'],
