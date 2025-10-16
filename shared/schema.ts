@@ -134,6 +134,7 @@ export const orders = pgTable("orders", {
   customerName: varchar("customer_name", { length: 255 }),
   customerPhone: varchar("customer_phone", { length: 50 }),
   customerEmail: varchar("customer_email", { length: 255 }),
+  shippingAddress: text("shipping_address"),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
   tax: decimal("tax", { precision: 10, scale: 2 }).notNull().default('0'),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),

@@ -43,6 +43,7 @@ export default function Storefront() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [shippingAddress, setShippingAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'cash'>('cash');
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [paypalReady, setPaypalReady] = useState(false);
@@ -155,6 +156,7 @@ export default function Storefront() {
           customerName,
           customerPhone,
           customerEmail: customerEmail || null,
+          shippingAddress: shippingAddress || null,
           paymentMethod,
           items: cart.map((ci) => ({
             menuItemId: ci.menuItem.id,
@@ -402,6 +404,12 @@ export default function Storefront() {
                       onChange={(e) => setCustomerEmail(e.target.value)}
                       data-testid="input-customer-email"
                     />
+                    <Input
+                      placeholder="Shipping address *"
+                      value={shippingAddress}
+                      onChange={(e) => setShippingAddress(e.target.value)}
+                      data-testid="input-shipping-address"
+                    />
                   </div>
 
                   <SheetFooter className="flex-col gap-3 border-t pt-4">
@@ -483,7 +491,7 @@ export default function Storefront() {
                     {!currentOrderId || paymentMethod === 'cash' ? (
                       <Button
                         className="w-full h-12"
-                        disabled={!customerName || !customerPhone || checkoutMutation.isPending}
+                        disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
                         onClick={() => checkoutMutation.mutate()}
                         data-testid="button-checkout"
                       >

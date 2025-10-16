@@ -172,6 +172,7 @@ Restaurant owners can now configure their payment processing options:
 - Responsive cart button with item count badge
 - Dynamic payment options display (only shows enabled methods)
 - Cash on Delivery option with clear messaging
+- Shipping address input field for customer deliveries
 - Improved checkout flow for all payment types
 - Mobile-optimized cart and checkout experience
 

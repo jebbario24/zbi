@@ -59,6 +59,7 @@ const onlineOrderSchema = z.object({
   customerName: z.string().nullable().optional(),
   customerPhone: z.string().nullable().optional(),
   customerEmail: z.string().nullable().optional(),
+  shippingAddress: z.string().nullable().optional(),
   paymentMethod: z.enum(['stripe', 'paypal', 'cash']).optional().default('cash'),
   items: z.array(z.object({
     menuItemId: z.string(),
@@ -914,6 +915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerName: data.customerName || null,
         customerPhone: data.customerPhone || null,
         customerEmail: data.customerEmail || null,
+        shippingAddress: data.shippingAddress || null,
         subtotal: data.subtotal,
         tax: data.tax,
         total: data.total,
