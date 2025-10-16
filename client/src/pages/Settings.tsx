@@ -82,6 +82,15 @@ export default function Settings() {
     queryKey: ["/api/restaurants/me"],
   });
 
+  // Auto-detect timezone from browser
+  const detectedTimezone = (() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch (e) {
+      return "UTC";
+    }
+  })();
+
   const form = useForm({
     resolver: zodResolver(restaurantSchema),
     defaultValues: {
@@ -94,7 +103,7 @@ export default function Settings() {
       phone: "",
       email: "",
       currency: "USD",
-      timezone: "UTC",
+      timezone: detectedTimezone,
     },
   });
 
@@ -110,10 +119,10 @@ export default function Settings() {
         phone: restaurant.phone || "",
         email: restaurant.email || "",
         currency: restaurant.currency || "USD",
-        timezone: restaurant.timezone || "UTC",
+        timezone: restaurant.timezone || detectedTimezone,
       });
     }
-  }, [restaurant, form]);
+  }, [restaurant, form, detectedTimezone]);
 
   const updateMutation = useMutation({
     mutationFn: async (data: z.infer<typeof restaurantSchema>) => {
