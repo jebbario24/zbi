@@ -10,15 +10,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Image as ImageIcon, Clock, ExternalLink, CreditCard, Wallet, Globe } from "lucide-react";
+import { Upload, Image as ImageIcon, Clock, ExternalLink, CreditCard, Wallet, Globe, Check, ChevronsUpDown } from "lucide-react";
 import type { UploadResult } from "@uppy/core";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { CURRENCIES, COUNTRIES } from "@/lib/countries-currencies";
 
 interface OpeningHours {
   [key: string]: { open: string; close: string; closed: boolean };
@@ -51,6 +59,8 @@ export default function OnlineStore() {
   const [openingHours, setOpeningHours] = useState<OpeningHours>(defaultOpeningHours);
   const [currency, setCurrency] = useState("USD");
   const [country, setCountry] = useState("United States");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [countryOpen, setCountryOpen] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState({
     stripePublicKey: "",
     stripeSecretKey: "",
@@ -355,52 +365,97 @@ export default function OnlineStore() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger id="currency" data-testid="select-currency">
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="USD">USD - US Dollar ($)</SelectItem>
-                  <SelectItem value="EUR">EUR - Euro (€)</SelectItem>
-                  <SelectItem value="GBP">GBP - British Pound (£)</SelectItem>
-                  <SelectItem value="MAD">MAD - Moroccan Dirham (DH)</SelectItem>
-                  <SelectItem value="CAD">CAD - Canadian Dollar (C$)</SelectItem>
-                  <SelectItem value="AUD">AUD - Australian Dollar (A$)</SelectItem>
-                  <SelectItem value="JPY">JPY - Japanese Yen (¥)</SelectItem>
-                  <SelectItem value="CNY">CNY - Chinese Yuan (¥)</SelectItem>
-                  <SelectItem value="INR">INR - Indian Rupee (₹)</SelectItem>
-                  <SelectItem value="AED">AED - UAE Dirham (د.إ)</SelectItem>
-                  <SelectItem value="SAR">SAR - Saudi Riyal (﷼)</SelectItem>
-                  <SelectItem value="EGP">EGP - Egyptian Pound (E£)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Popover open={currencyOpen} onOpenChange={setCurrencyOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={currencyOpen}
+                    className="w-full justify-between"
+                    data-testid="select-currency"
+                  >
+                    {currency ? CURRENCIES.find((c) => c.code === currency)?.code + " - " + CURRENCIES.find((c) => c.code === currency)?.name + " (" + CURRENCIES.find((c) => c.code === currency)?.symbol + ")" : "Select currency"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search currency..." />
+                    <CommandList>
+                      <CommandEmpty>No currency found.</CommandEmpty>
+                      <CommandGroup>
+                        {CURRENCIES.map((curr) => (
+                          <CommandItem
+                            key={curr.code}
+                            value={`${curr.code} ${curr.name} ${curr.symbol}`}
+                            onSelect={() => {
+                              setCurrency(curr.code);
+                              setCurrencyOpen(false);
+                            }}
+                            data-testid={`currency-option-${curr.code}`}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                currency === curr.code ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {curr.code} - {curr.name} ({curr.symbol})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <p className="text-xs text-muted-foreground">Select your local currency</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="country">Country</Label>
-              <Select value={country} onValueChange={setCountry}>
-                <SelectTrigger id="country" data-testid="select-country">
-                  <SelectValue placeholder="Select country" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="United States">United States</SelectItem>
-                  <SelectItem value="Canada">Canada</SelectItem>
-                  <SelectItem value="United Kingdom">United Kingdom</SelectItem>
-                  <SelectItem value="Morocco">Morocco</SelectItem>
-                  <SelectItem value="France">France</SelectItem>
-                  <SelectItem value="Germany">Germany</SelectItem>
-                  <SelectItem value="Spain">Spain</SelectItem>
-                  <SelectItem value="Italy">Italy</SelectItem>
-                  <SelectItem value="UAE">United Arab Emirates</SelectItem>
-                  <SelectItem value="Saudi Arabia">Saudi Arabia</SelectItem>
-                  <SelectItem value="Egypt">Egypt</SelectItem>
-                  <SelectItem value="India">India</SelectItem>
-                  <SelectItem value="China">China</SelectItem>
-                  <SelectItem value="Japan">Japan</SelectItem>
-                  <SelectItem value="Australia">Australia</SelectItem>
-                </SelectContent>
-              </Select>
+              <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={countryOpen}
+                    className="w-full justify-between"
+                    data-testid="select-country"
+                  >
+                    {country || "Select country"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search country..." />
+                    <CommandList>
+                      <CommandEmpty>No country found.</CommandEmpty>
+                      <CommandGroup>
+                        {COUNTRIES.map((ctry) => (
+                          <CommandItem
+                            key={ctry.code}
+                            value={ctry.name}
+                            onSelect={() => {
+                              setCountry(ctry.name);
+                              setCountryOpen(false);
+                            }}
+                            data-testid={`country-option-${ctry.code}`}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                country === ctry.name ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {ctry.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <p className="text-xs text-muted-foreground">Select your restaurant's location</p>
             </div>
           </div>
