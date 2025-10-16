@@ -1,9 +1,14 @@
-import { useState, useRef, useImperativeHandle, forwardRef } from "react";
+import { useState, useRef, useImperativeHandle, forwardRef, useEffect } from "react";
 import type { ReactNode } from "react";
 import Uppy from "@uppy/core";
 import AwsS3 from "@uppy/aws-s3";
+import { Dashboard } from "@uppy/react";
 import type { UploadResult } from "@uppy/core";
 import { Button } from "@/components/ui/button";
+
+// Import Uppy styles
+import "@uppy/core/css/style.css";
+import "@uppy/dashboard/css/style.css";
 
 interface ObjectUploaderProps {
   maxNumberOfFiles?: number;
@@ -17,6 +22,7 @@ interface ObjectUploaderProps {
   ) => void;
   buttonClassName?: string;
   children: ReactNode;
+  note?: string;
 }
 
 export interface ObjectUploaderRef {
@@ -30,8 +36,9 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
   onComplete,
   buttonClassName,
   children,
+  note,
 }, ref) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
   
   const [uppy] = useState(() =>
     new Uppy({
@@ -40,7 +47,7 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
         maxFileSize,
         allowedFileTypes: ['image/*'],
       },
-      autoProceed: true,
+      autoProceed: false,
     })
       .use(AwsS3, {
         shouldUseMultipart: false,
@@ -48,57 +55,62 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
       })
       .on("complete", (result) => {
         onComplete?.(result);
+        setIsOpen(false);
         // Clear all files after upload completes
-        uppy.cancelAll();
+        setTimeout(() => {
+          uppy.cancelAll();
+        }, 100);
       })
   );
 
+  useEffect(() => {
+    return () => {
+      uppy.cancelAll();
+    };
+  }, [uppy]);
+
   useImperativeHandle(ref, () => ({
     triggerUpload: () => {
-      fileInputRef.current?.click();
+      setIsOpen(true);
     }
   }));
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      // Clear any existing files first
-      uppy.cancelAll();
-      
-      Array.from(files).forEach(file => {
-        uppy.addFile({
-          name: file.name,
-          type: file.type,
-          data: file,
-        });
-      });
-    }
-    
-    // Reset the file input so the same file can be selected again if needed
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   return (
     <div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        className="hidden"
-        multiple={maxNumberOfFiles > 1}
-      />
-      
       <Button 
         type="button"
-        onClick={() => fileInputRef.current?.click()} 
+        onClick={() => setIsOpen(true)} 
         className={buttonClassName}
         data-testid="button-upload-file"
       >
         {children}
       </Button>
+      
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setIsOpen(false)}>
+          <div className="relative w-full max-w-2xl mx-4" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute -top-12 right-0 z-10 bg-white hover:bg-gray-100"
+              onClick={() => setIsOpen(false)}
+              data-testid="button-close-uploader"
+            >
+              ✕
+            </Button>
+            <Dashboard
+              uppy={uppy}
+              proudlyDisplayPoweredByUppy={false}
+              width="100%"
+              height={450}
+              note={note || "Images only, up to 10 MB"}
+              theme="light"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 });
+
+ObjectUploader.displayName = "ObjectUploader";
