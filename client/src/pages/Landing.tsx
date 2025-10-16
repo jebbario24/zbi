@@ -155,7 +155,7 @@ export default function Landing() {
               <span className="text-xl font-display font-bold">EatOut</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 EatOut. All rights reserved.
+              © 2025 EatOut. All rights reserved.
             </p>
           </div>
         </div>
