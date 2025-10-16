@@ -152,24 +152,34 @@ export class ObjectStorageService {
   }
 
   normalizeObjectEntityPath(rawPath: string): string {
+    console.log("[NORMALIZE] Input rawPath:", rawPath);
+    
     if (!rawPath.startsWith("https://storage.googleapis.com/")) {
+      console.log("[NORMALIZE] Not a googleapis URL, returning as-is");
       return rawPath;
     }
 
     const url = new URL(rawPath);
     const rawObjectPath = url.pathname;
+    console.log("[NORMALIZE] URL pathname:", rawObjectPath);
 
     let objectEntityDir = this.getPrivateObjectDir();
+    console.log("[NORMALIZE] Private object dir:", objectEntityDir);
+    
     if (!objectEntityDir.endsWith("/")) {
       objectEntityDir = `${objectEntityDir}/`;
     }
+    console.log("[NORMALIZE] Private object dir with slash:", objectEntityDir);
 
     if (!rawObjectPath.startsWith(objectEntityDir)) {
+      console.log("[NORMALIZE] Path doesn't start with private dir, returning pathname");
       return rawObjectPath;
     }
 
     const entityId = rawObjectPath.slice(objectEntityDir.length);
-    return `/objects/${entityId}`;
+    const result = `/objects/${entityId}`;
+    console.log("[NORMALIZE] Final result:", result);
+    return result;
   }
 
   async trySetObjectEntityAclPolicy(

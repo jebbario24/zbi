@@ -485,11 +485,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If imageUrl is provided, make it publicly accessible
       if (data.imageUrl) {
+        console.log("[MENU ITEM CREATE] Original imageUrl:", data.imageUrl);
         const objectStorageService = new ObjectStorageService();
         const publicImagePath = await objectStorageService.trySetObjectEntityAclPolicy(
           data.imageUrl,
           { owner: userId, visibility: "public" }
         );
+        console.log("[MENU ITEM CREATE] Public imageUrl:", publicImagePath);
         data.imageUrl = publicImagePath;
       }
       
@@ -512,11 +514,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If imageUrl is provided, make it publicly accessible
       if (data.imageUrl) {
+        console.log("[MENU ITEM UPDATE] Original imageUrl:", data.imageUrl);
         const objectStorageService = new ObjectStorageService();
         const publicImagePath = await objectStorageService.trySetObjectEntityAclPolicy(
           data.imageUrl,
           { owner: userId, visibility: "public" }
         );
+        console.log("[MENU ITEM UPDATE] Public imageUrl:", publicImagePath);
         data.imageUrl = publicImagePath;
       }
       
