@@ -25,7 +25,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Plus, UserCheck, Edit, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { Plus, UserCheck, Edit, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -328,24 +328,34 @@ export default function Staff() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={member.isActive ? "default" : "secondary"}>
-                      {member.isActive ? "Active" : "Inactive"}
-                    </Badge>
+                    <button
+                      onClick={() => toggleActiveMutation.mutate({ id: member.id, isActive: !member.isActive })}
+                      disabled={toggleActiveMutation.isPending}
+                      data-testid={`button-toggle-active-${member.id}`}
+                      role="switch"
+                      aria-checked={member.isActive}
+                      aria-label={`Toggle staff status: ${member.isActive ? 'Active' : 'Inactive'}`}
+                      className={`
+                        relative inline-flex items-center h-8 rounded-full w-24 transition-colors
+                        ${member.isActive 
+                          ? 'bg-green-500 hover:bg-green-600' 
+                          : 'bg-red-500 hover:bg-red-600'
+                        }
+                        ${toggleActiveMutation.isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                      `}
+                    >
+                      <span className={`
+                        absolute inset-0 flex items-center px-2 text-xs font-bold text-white uppercase
+                        ${member.isActive ? 'justify-start' : 'justify-end'}
+                      `}>
+                        {member.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                      <span className={`
+                        inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform
+                        ${member.isActive ? 'translate-x-16' : 'translate-x-1'}
+                      `} />
+                    </button>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => toggleActiveMutation.mutate({ id: member.id, isActive: !member.isActive })}
-                        disabled={toggleActiveMutation.isPending}
-                        data-testid={`button-toggle-active-${member.id}`}
-                        title={member.isActive ? "Mark as Inactive" : "Mark as Active"}
-                      >
-                        {member.isActive ? (
-                          <XCircle className="h-4 w-4 text-orange-500" />
-                        ) : (
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                        )}
-                      </Button>
                       <Button
                         size="icon"
                         variant="ghost"
