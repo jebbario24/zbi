@@ -102,12 +102,22 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
             >
               ✕
             </Button>
-            <div className="h-[350px] sm:h-[450px] md:h-[500px]">
+            <div className="hidden sm:block">
               <Dashboard
                 uppy={uppy}
                 proudlyDisplayPoweredByUppy={false}
                 width="100%"
-                height="100%"
+                height={450}
+                note={note || "Images only, up to 10 MB"}
+                theme="light"
+              />
+            </div>
+            <div className="block sm:hidden">
+              <Dashboard
+                uppy={uppy}
+                proudlyDisplayPoweredByUppy={false}
+                width="100%"
+                height={350}
                 note={note || "Images only, up to 10 MB"}
                 theme="light"
               />
