@@ -107,10 +107,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // This prevents duplicate subscriptions for past_due, unpaid, etc.
         if (subscription.status !== 'canceled' && subscription.status !== 'incomplete_expired') {
           // Always update to fresh Stripe data
-          await storage.updateUserSubscription(userId, {
+          const updateData: any = {
             subscriptionStatus: subscription.status,
-            subscriptionEndsAt: new Date((subscription as any).current_period_end * 1000),
-          });
+          };
+          
+          // Only set subscriptionEndsAt if subscription has a valid period
+          const currentPeriodEnd = (subscription as any).current_period_end;
+          if (currentPeriodEnd && !isNaN(currentPeriodEnd)) {
+            updateData.subscriptionEndsAt = new Date(currentPeriodEnd * 1000);
+          }
+            
+          await storage.updateUserSubscription(userId, updateData);
           
           return res.json({ 
             subscriptionId: subscription.id,
@@ -132,27 +139,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateUserSubscription(userId, { stripeCustomerId: customerId });
       }
 
+      // Create or retrieve the subscription product and price
+      const product = await stripe.products.create({
+        name: 'EatOut Monthly Subscription',
+      });
+      
+      const price = await stripe.prices.create({
+        product: product.id,
+        currency: 'usd',
+        recurring: { interval: 'month' },
+        unit_amount: 7900, // $79 in cents
+      });
+
       // Create subscription ($79/month)
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
-        items: [{ 
-          price_data: {
-            currency: 'usd',
-            product_data: { name: 'EatOut Monthly Subscription' },
-            recurring: { interval: 'month' },
-            unit_amount: 7900, // $79 in cents
-          } as any
-        }],
+        items: [{ price: price.id }],
         payment_behavior: 'default_incomplete',
         payment_settings: { save_default_payment_method: 'on_subscription' },
         expand: ['latest_invoice.payment_intent'],
+        metadata: { plan: 'eatout-monthly' },
       });
 
-      // Update user with subscription ID (status will be updated via webhook or on next check)
-      await storage.updateUserSubscription(userId, { 
+      // Update user with subscription ID
+      // Note: subscriptionEndsAt will be set later when subscription becomes active
+      await storage.updateUserSubscription(userId, {
         stripeSubscriptionId: subscription.id,
-        subscriptionStatus: subscription.status,  // Use actual Stripe status (incomplete, active, etc)
-        subscriptionEndsAt: new Date((subscription as any).current_period_end * 1000),
+        subscriptionStatus: subscription.status,
       });
 
       res.json({
@@ -191,13 +204,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
           freshStatus = subscription.status;
-          freshSubscriptionEndsAt = new Date((subscription as any).current_period_end * 1000);
+          const currentPeriodEnd = (subscription as any).current_period_end;
           
-          // ALWAYS update local data to match Stripe (not just when status changes)
-          await storage.updateUserSubscription(userId, {
+          // Only set endsAt if we have a valid period
+          if (currentPeriodEnd && !isNaN(currentPeriodEnd)) {
+            freshSubscriptionEndsAt = new Date(currentPeriodEnd * 1000);
+          }
+          
+          // ALWAYS update local data to match Stripe
+          const updateData: any = {
             subscriptionStatus: subscription.status,
-            subscriptionEndsAt: freshSubscriptionEndsAt,
-          });
+          };
+          
+          if (currentPeriodEnd && !isNaN(currentPeriodEnd)) {
+            updateData.subscriptionEndsAt = freshSubscriptionEndsAt;
+          }
+          
+          await storage.updateUserSubscription(userId, updateData);
           
           // Recalculate access based on fresh Stripe data
           actualSubscriptionActive = subscription.status === 'active' && freshSubscriptionEndsAt > now;
