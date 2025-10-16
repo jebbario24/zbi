@@ -25,7 +25,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Plus, UserCheck } from "lucide-react";
+import { Plus, UserCheck, Edit, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -43,6 +43,16 @@ export default function Staff() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+
+  const { data: staff, isLoading } = useQuery<Staff[]>({
+    queryKey: ["/api/staff"],
+  });
+
+  const form = useForm({
+    resolver: zodResolver(staffSchema),
+    defaultValues: { name: "", email: "", phone: "", role: "" },
+  });
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -57,14 +67,17 @@ export default function Staff() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const { data: staff, isLoading } = useQuery<Staff[]>({
-    queryKey: ["/api/staff"],
-  });
-
-  const form = useForm({
-    resolver: zodResolver(staffSchema),
-    defaultValues: { name: "", email: "", phone: "", role: "" },
-  });
+  useEffect(() => {
+    if (editingStaff) {
+      form.reset({
+        name: editingStaff.name,
+        email: editingStaff.email || "",
+        phone: editingStaff.phone || "",
+        role: editingStaff.role,
+      });
+      setDialogOpen(true);
+    }
+  }, [editingStaff, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof staffSchema>) => {
@@ -94,6 +107,79 @@ export default function Staff() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof staffSchema> }) => {
+      return await apiRequest("PUT", `/api/staff/${id}`, {
+        ...data,
+        email: data.email || null,
+        phone: data.phone || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      toast({ title: "Staff member updated successfully" });
+      setDialogOpen(false);
+      setEditingStaff(null);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to update staff member", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/staff/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      toast({ title: "Staff member deleted successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to delete staff member", variant: "destructive" });
+    },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return await apiRequest("PUT", `/api/staff/${id}`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      toast({ title: "Staff status updated successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to update staff status", variant: "destructive" });
+    },
+  });
+
   if (authLoading || isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -110,7 +196,16 @@ export default function Staff() {
           <h1 className="text-3xl font-display font-bold">Staff Management</h1>
           <p className="text-muted-foreground mt-1">Manage your team members</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog 
+          open={dialogOpen} 
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              setEditingStaff(null);
+              form.reset();
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button data-testid="button-add-staff">
               <Plus className="mr-2 h-4 w-4" />
@@ -119,11 +214,22 @@ export default function Staff() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>New Staff Member</DialogTitle>
-              <DialogDescription>Add a new team member</DialogDescription>
+              <DialogTitle>{editingStaff ? "Edit Staff Member" : "New Staff Member"}</DialogTitle>
+              <DialogDescription>
+                {editingStaff ? "Update team member information" : "Add a new team member"}
+              </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
+              <form 
+                onSubmit={form.handleSubmit((data) => {
+                  if (editingStaff) {
+                    updateMutation.mutate({ id: editingStaff.id, data });
+                  } else {
+                    createMutation.mutate(data);
+                  }
+                })} 
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="name"
@@ -177,8 +283,15 @@ export default function Staff() {
                   )}
                 />
                 <DialogFooter>
-                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-staff">
-                    {createMutation.isPending ? "Adding..." : "Add Staff"}
+                  <Button 
+                    type="submit" 
+                    disabled={createMutation.isPending || updateMutation.isPending} 
+                    data-testid="button-save-staff"
+                  >
+                    {editingStaff 
+                      ? (updateMutation.isPending ? "Updating..." : "Update Staff")
+                      : (createMutation.isPending ? "Adding..." : "Add Staff")
+                    }
                   </Button>
                 </DialogFooter>
               </form>
@@ -197,7 +310,7 @@ export default function Staff() {
               {staff.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate group relative"
                   data-testid={`staff-${member.id}`}
                 >
                   <div className="flex items-center gap-4">
@@ -214,9 +327,44 @@ export default function Staff() {
                       )}
                     </div>
                   </div>
-                  <Badge variant={member.isActive ? "default" : "secondary"}>
-                    {member.isActive ? "Active" : "Inactive"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={member.isActive ? "default" : "secondary"}>
+                      {member.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => toggleActiveMutation.mutate({ id: member.id, isActive: !member.isActive })}
+                        disabled={toggleActiveMutation.isPending}
+                        data-testid={`button-toggle-active-${member.id}`}
+                        title={member.isActive ? "Mark as Inactive" : "Mark as Active"}
+                      >
+                        {member.isActive ? (
+                          <XCircle className="h-4 w-4 text-orange-500" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        )}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setEditingStaff(member)}
+                        data-testid={`button-edit-staff-${member.id}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteMutation.mutate(member.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-staff-${member.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

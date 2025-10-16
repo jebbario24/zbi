@@ -245,3 +245,27 @@ Enhanced table management with categorization and full CRUD operations:
 - Storage methods: updateTable() and deleteTable() added to DatabaseStorage
 - Frontend: Edit/delete buttons appear on hover, modal dialog for both create and edit
 - Form validation with Zod schema, handles both create and update flows
+
+### Staff Management with Active/Inactive Status (Completed - October 2025)
+Enhanced staff management with edit functionality and active/inactive status tracking for shift workers:
+
+**Staff Status Management:**
+- Active/Inactive toggle for shift workers
+- Visual status indicator with color-coded badges (Active: primary, Inactive: secondary)
+- Quick toggle button on hover to mark staff active/inactive
+- Status persisted in database (isActive boolean field)
+
+**Staff CRUD Operations:**
+- Create new staff members with name, role, email, phone
+- Edit existing staff members (hover to reveal edit button)
+- Delete staff members (hover to reveal delete button)
+- Toggle active/inactive status for shift management
+
+**Implementation Details:**
+- Database: isActive boolean field already present in staff table
+- Backend routes: PUT /api/staff/:id for updates, DELETE /api/staff/:id for deletion
+- Storage methods: updateStaff() and deleteStaff() added to DatabaseStorage
+- Frontend: Edit/delete/toggle buttons appear on hover with visual icons
+- Toggle uses CheckCircle (green) for inactive → active, XCircle (orange) for active → inactive
+- Same dialog component reused for both create and edit modes
+- Form pre-filled with existing data when editing
