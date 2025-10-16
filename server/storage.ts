@@ -82,6 +82,8 @@ export interface IStorage {
   // Staff operations
   getStaff(restaurantId: string): Promise<Staff[]>;
   createStaff(staff: InsertStaff): Promise<Staff>;
+  updateStaff(id: string, staff: Partial<InsertStaff>): Promise<Staff>;
+  deleteStaff(id: string): Promise<void>;
   
   // Inventory operations
   getInventory(restaurantId: string): Promise<Inventory[]>;
@@ -280,6 +282,19 @@ export class DatabaseStorage implements IStorage {
   async createStaff(staffMember: InsertStaff): Promise<Staff> {
     const [newStaff] = await db.insert(staff).values(staffMember).returning();
     return newStaff;
+  }
+
+  async updateStaff(id: string, staffData: Partial<InsertStaff>): Promise<Staff> {
+    const [updated] = await db
+      .update(staff)
+      .set({ ...staffData, updatedAt: new Date() })
+      .where(eq(staff.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteStaff(id: string): Promise<void> {
+    await db.delete(staff).where(eq(staff.id, id));
   }
 
   async getInventory(restaurantId: string): Promise<Inventory[]> {

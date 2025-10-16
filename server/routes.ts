@@ -721,6 +721,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/staff/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const data = insertStaffSchema.partial().parse(req.body);
+      const updatedStaff = await storage.updateStaff(req.params.id, data);
+      res.json(updatedStaff);
+    } catch (error) {
+      console.error("Error updating staff:", error);
+      res.status(400).json({ message: "Failed to update staff" });
+    }
+  });
+
+  app.delete('/api/staff/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      await storage.deleteStaff(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting staff:", error);
+      res.status(400).json({ message: "Failed to delete staff" });
+    }
+  });
+
   // Inventory routes
   app.get('/api/inventory', isAuthenticated, async (req: any, res) => {
     try {
