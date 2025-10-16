@@ -24,7 +24,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, Edit, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,6 +41,7 @@ export default function Tables() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTable, setEditingTable] = useState<Table | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -63,6 +64,19 @@ export default function Tables() {
     resolver: zodResolver(tableSchema),
     defaultValues: { tableNumber: "", category: "", capacity: "" },
   });
+
+  useEffect(() => {
+    if (editingTable) {
+      form.reset({
+        tableNumber: editingTable.tableNumber,
+        category: editingTable.category || "",
+        capacity: String(editingTable.capacity),
+      });
+      setDialogOpen(true);
+    } else {
+      form.reset({ tableNumber: "", category: "", capacity: "" });
+    }
+  }, [editingTable, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof tableSchema>) => {
@@ -91,6 +105,73 @@ export default function Tables() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof tableSchema>) => {
+      if (!editingTable) throw new Error("No table selected");
+      return await apiRequest("PUT", `/api/tables/${editingTable.id}`, {
+        ...data,
+        capacity: parseInt(data.capacity),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      toast({ title: "Table updated successfully" });
+      setDialogOpen(false);
+      setEditingTable(null);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to update table", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (tableId: string) => {
+      return await apiRequest("DELETE", `/api/tables/${tableId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      toast({ title: "Table deleted successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to delete table", variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = (data: z.infer<typeof tableSchema>) => {
+    if (editingTable) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setEditingTable(null);
+      form.reset();
+    }
+    setDialogOpen(open);
+  };
+
   if (authLoading || isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -111,7 +192,7 @@ export default function Tables() {
           <h1 className="text-3xl font-display font-bold">Tables</h1>
           <p className="text-muted-foreground mt-1">Manage restaurant tables</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-table">
               <Plus className="mr-2 h-4 w-4" />
@@ -120,11 +201,13 @@ export default function Tables() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>New Table</DialogTitle>
-              <DialogDescription>Add a new table to your restaurant</DialogDescription>
+              <DialogTitle>{editingTable ? "Edit Table" : "New Table"}</DialogTitle>
+              <DialogDescription>
+                {editingTable ? "Update table information" : "Add a new table to your restaurant"}
+              </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="tableNumber"
@@ -165,8 +248,15 @@ export default function Tables() {
                   )}
                 />
                 <DialogFooter>
-                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-table">
-                    {createMutation.isPending ? "Creating..." : "Create Table"}
+                  <Button 
+                    type="submit" 
+                    disabled={createMutation.isPending || updateMutation.isPending} 
+                    data-testid="button-save-table"
+                  >
+                    {editingTable 
+                      ? (updateMutation.isPending ? "Updating..." : "Update Table")
+                      : (createMutation.isPending ? "Creating..." : "Create Table")
+                    }
                   </Button>
                 </DialogFooter>
               </form>
@@ -190,8 +280,27 @@ export default function Tables() {
                 <h2 className="text-xl font-semibold text-muted-foreground">{category}</h2>
                 <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                   {categoryTables.map((table) => (
-                    <Card key={table.id} className="hover-elevate" data-testid={`table-${table.id}`}>
+                    <Card key={table.id} className="hover-elevate group relative" data-testid={`table-${table.id}`}>
                       <CardContent className="p-6 flex flex-col items-center text-center">
+                        <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setEditingTable(table)}
+                            data-testid={`button-edit-table-${table.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteMutation.mutate(table.id)}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-table-${table.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                         <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                           <Users className="h-8 w-8 text-primary" />
                         </div>
