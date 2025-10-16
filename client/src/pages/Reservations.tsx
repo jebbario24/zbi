@@ -321,7 +321,7 @@ export default function Reservations() {
                     control={form.control}
                     name="reservationDate"
                     render={({ field }) => (
-                      <FormItem className="md:col-span-2">
+                      <FormItem>
                         <FormLabel>Date & Time</FormLabel>
                         <FormControl>
                           <Input type="datetime-local" {...field} data-testid="input-reservation-date" />
@@ -330,32 +330,31 @@ export default function Reservations() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="tableId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Table (Optional)</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-table">
+                              <SelectValue placeholder="No specific table" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {tables?.map((table) => (
+                              <SelectItem key={table.id} value={table.id}>
+                                Table {table.tableNumber} {table.category ? `(${table.category})` : ""} - {table.capacity} seats
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-
-                <FormField
-                  control={form.control}
-                  name="tableId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Table (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-table">
-                            <SelectValue placeholder="No specific table" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {tables?.map((table) => (
-                            <SelectItem key={table.id} value={table.id}>
-                              Table {table.tableNumber} {table.category ? `(${table.category})` : ""} - {table.capacity} seats
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}
