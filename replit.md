@@ -222,3 +222,26 @@ Platform now supports multiple currencies and countries with proper localization
 - PayPal SDK: useEffect loads script with dynamic currency parameter
 - File uploads: Fixed ObjectUploader component for better file browsing UX
 - All prices throughout storefront use consistent currency formatting
+
+### Table Categories & Management (Completed - October 2025)
+Enhanced table management with categorization and full CRUD operations:
+
+**Table Categories:**
+- Optional category field for organizing tables by location/type
+- Examples: Interior, Exterior, VIP, 1st Floor, 2nd Floor, Terrace
+- Tables automatically grouped by category on Tables page
+- Uncategorized tables shown under "Uncategorized" section
+
+**Table Management Features:**
+- Add new tables with number, category, and capacity
+- Edit existing tables (hover to reveal edit button)
+- Delete tables (hover to reveal delete button)
+- Category-based grouping for better organization
+- Responsive grid layout with visual card design
+
+**Implementation Details:**
+- Database: Added category (varchar 100) column to tables table
+- Backend routes: PUT /api/tables/:id for updates, DELETE /api/tables/:id for deletion
+- Storage methods: updateTable() and deleteTable() added to DatabaseStorage
+- Frontend: Edit/delete buttons appear on hover, modal dialog for both create and edit
+- Form validation with Zod schema, handles both create and update flows
