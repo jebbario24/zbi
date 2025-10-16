@@ -45,6 +45,7 @@ export default function Storefront() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal'>('paypal');
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [paypalReady, setPaypalReady] = useState(false);
   const paypalButtonsRef = useRef<HTMLDivElement>(null);
   const paypalRendered = useRef(false);
 
@@ -53,10 +54,13 @@ export default function Storefront() {
     const script = document.createElement('script');
     script.src = `https://www.paypal.com/sdk/js?client-id=${import.meta.env.VITE_PAYPAL_CLIENT_ID || 'test'}&currency=USD`;
     script.async = true;
+    script.onload = () => setPaypalReady(true);
     document.body.appendChild(script);
     
     return () => {
-      document.body.removeChild(script);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
   }, []);
 
@@ -219,16 +223,20 @@ export default function Storefront() {
       onError: () => {
         toast({ title: "Payment failed", variant: "destructive" });
         paypalRendered.current = false;
+      },
+      onCancel: () => {
+        toast({ title: "Payment cancelled" });
+        paypalRendered.current = false;
       }
     }).render(paypalButtonsRef.current);
   };
 
-  // Re-render PayPal buttons when needed
+  // Re-render PayPal buttons when SDK loads and order is ready
   useEffect(() => {
-    if (currentOrderId && window.paypal && paypalButtonsRef.current && !paypalRendered.current) {
+    if (currentOrderId && paypalReady && paypalButtonsRef.current && !paypalRendered.current) {
       renderPayPalButtons(currentOrderId, total);
     }
-  }, [currentOrderId, total]);
+  }, [currentOrderId, total, paypalReady]);
 
   if (restaurantLoading) {
     return (
