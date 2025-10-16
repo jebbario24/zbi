@@ -44,7 +44,7 @@ import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { cn } from "@/lib/utils";
-import { CURRENCIES } from "@/lib/countries-currencies";
+import { CURRENCIES, TIMEZONES } from "@/lib/countries-currencies";
 
 const restaurantSchema = z.object({
   name: z.string().min(1, "Restaurant name is required"),
@@ -63,6 +63,7 @@ export default function Settings() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [timezoneOpen, setTimezoneOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -386,22 +387,53 @@ export default function Settings() {
                   control={form.control}
                   name="timezone"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>Timezone</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-timezone">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="UTC">UTC</SelectItem>
-                          <SelectItem value="America/New_York">Eastern Time</SelectItem>
-                          <SelectItem value="America/Chicago">Central Time</SelectItem>
-                          <SelectItem value="America/Denver">Mountain Time</SelectItem>
-                          <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Popover open={timezoneOpen} onOpenChange={setTimezoneOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={timezoneOpen}
+                              className="w-full justify-between"
+                              data-testid="select-timezone"
+                            >
+                              {field.value ? TIMEZONES.find((tz) => tz.value === field.value)?.label || field.value : "Select timezone"}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search timezone..." />
+                            <CommandList>
+                              <CommandEmpty>No timezone found.</CommandEmpty>
+                              <CommandGroup>
+                                {TIMEZONES.map((tz) => (
+                                  <CommandItem
+                                    key={tz.value}
+                                    value={`${tz.value} ${tz.label} ${tz.offset}`}
+                                    onSelect={() => {
+                                      field.onChange(tz.value);
+                                      setTimezoneOpen(false);
+                                    }}
+                                    data-testid={`timezone-option-${tz.value}`}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === tz.value ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {tz.label} (UTC{tz.offset})
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
                   )}
