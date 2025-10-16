@@ -406,6 +406,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/restaurants/:id/marketing', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      
+      if (!restaurant || restaurant.id !== req.params.id) {
+        return res.status(403).json({ message: "Forbidden: You can only update your own restaurant" });
+      }
+      
+      // Update marketing settings in the restaurant's marketingSettings JSONB field
+      const updated = await storage.updateRestaurant(req.params.id, {
+        marketingSettings: req.body
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating marketing settings:", error);
+      res.status(400).json({ message: "Failed to update marketing settings" });
+    }
+  });
+
   // Menu category routes
   app.get('/api/menu/categories', isAuthenticated, async (req: any, res) => {
     try {

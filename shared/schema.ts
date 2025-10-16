@@ -57,6 +57,7 @@ export const restaurants = pgTable("restaurants", {
   coverImageUrl: text("cover_image_url"),
   openingHours: jsonb("opening_hours"),
   themeSettings: jsonb("theme_settings"),
+  marketingSettings: jsonb("marketing_settings"),
   stripePublicKey: text("stripe_public_key"),
   stripeSecretKey: text("stripe_secret_key"),
   paypalClientId: text("paypal_client_id"),
