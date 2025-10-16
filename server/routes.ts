@@ -55,6 +55,21 @@ const orderSchema = z.object({
   total: z.string(),
 });
 
+const onlineOrderSchema = z.object({
+  customerName: z.string().nullable().optional(),
+  customerPhone: z.string().nullable().optional(),
+  customerEmail: z.string().nullable().optional(),
+  paymentMethod: z.enum(['stripe', 'paypal', 'cash']).optional().default('cash'),
+  items: z.array(z.object({
+    menuItemId: z.string(),
+    quantity: z.number(),
+    unitPrice: z.string(),
+  })),
+  subtotal: z.string(),
+  tax: z.string(),
+  total: z.string(),
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
@@ -889,7 +904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Restaurant not found" });
       }
       
-      const data = orderSchema.parse(req.body);
+      const data = onlineOrderSchema.parse(req.body);
       const orderNumber = `WEB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       
       const order = await storage.createOrder({
