@@ -583,7 +583,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Restaurant not found" });
       }
       const data = insertReservationSchema.parse({ 
-        ...req.body, 
+        ...req.body,
+        reservationDate: req.body.reservationDate ? new Date(req.body.reservationDate) : undefined,
         restaurantId: restaurant.id,
         status: 'pending'
       });
@@ -602,7 +603,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
       }
-      const data = insertReservationSchema.partial().parse(req.body);
+      const data = insertReservationSchema.partial().parse({
+        ...req.body,
+        reservationDate: req.body.reservationDate ? new Date(req.body.reservationDate) : undefined,
+      });
       const updatedReservation = await storage.updateReservation(req.params.id, data);
       res.json(updatedReservation);
     } catch (error) {
