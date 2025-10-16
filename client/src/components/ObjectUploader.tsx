@@ -1,7 +1,6 @@
 import { useState, useRef } from "react";
 import type { ReactNode } from "react";
 import Uppy from "@uppy/core";
-import { DashboardModal } from "@uppy/react";
 import AwsS3 from "@uppy/aws-s3";
 import type { UploadResult } from "@uppy/core";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,6 @@ export function ObjectUploader({
   buttonClassName,
   children,
 }: ObjectUploaderProps) {
-  const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [uppy] = useState(() =>
@@ -46,7 +44,6 @@ export function ObjectUploader({
       })
       .on("complete", (result) => {
         onComplete?.(result);
-        setShowModal(false);
       })
   );
 
@@ -82,20 +79,6 @@ export function ObjectUploader({
       >
         {children}
       </Button>
-
-      <DashboardModal
-        uppy={uppy}
-        open={showModal}
-        onRequestClose={() => setShowModal(false)}
-        proudlyDisplayPoweredByUppy={false}
-        note="Images only, max 5MB"
-        locale={{
-          strings: {
-            dropPasteFiles: 'Drop files here or %{browseFiles}',
-            browseFiles: 'browse files',
-          }
-        }}
-      />
     </div>
   );
 }
