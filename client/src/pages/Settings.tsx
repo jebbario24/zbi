@@ -24,12 +24,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LogOut, Save, ExternalLink } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { LogOut, Save, ExternalLink, Check, ChevronsUpDown } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { cn } from "@/lib/utils";
+import { CURRENCIES } from "@/lib/countries-currencies";
 
 const restaurantSchema = z.object({
   name: z.string().min(1, "Restaurant name is required"),
@@ -47,6 +62,7 @@ const restaurantSchema = z.object({
 export default function Settings() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -315,21 +331,53 @@ export default function Settings() {
                   control={form.control}
                   name="currency"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>Currency</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-currency">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="USD">USD ($)</SelectItem>
-                          <SelectItem value="EUR">EUR (€)</SelectItem>
-                          <SelectItem value="GBP">GBP (£)</SelectItem>
-                          <SelectItem value="CAD">CAD ($)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Popover open={currencyOpen} onOpenChange={setCurrencyOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={currencyOpen}
+                              className="w-full justify-between"
+                              data-testid="select-currency"
+                            >
+                              {field.value ? CURRENCIES.find((c) => c.code === field.value)?.code + " - " + CURRENCIES.find((c) => c.code === field.value)?.name + " (" + CURRENCIES.find((c) => c.code === field.value)?.symbol + ")" : "Select currency"}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search currency..." />
+                            <CommandList>
+                              <CommandEmpty>No currency found.</CommandEmpty>
+                              <CommandGroup>
+                                {CURRENCIES.map((curr) => (
+                                  <CommandItem
+                                    key={curr.code}
+                                    value={`${curr.code} ${curr.name} ${curr.symbol}`}
+                                    onSelect={() => {
+                                      field.onChange(curr.code);
+                                      setCurrencyOpen(false);
+                                    }}
+                                    data-testid={`currency-option-${curr.code}`}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === curr.code ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {curr.code} - {curr.name} ({curr.symbol})
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
                   )}
