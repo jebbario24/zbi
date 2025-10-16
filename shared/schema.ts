@@ -55,6 +55,8 @@ export const restaurants = pgTable("restaurants", {
   email: varchar("email", { length: 255 }),
   logoUrl: text("logo_url"),
   coverImageUrl: text("cover_image_url"),
+  openingHours: jsonb("opening_hours"),
+  themeSettings: jsonb("theme_settings"),
   currency: varchar("currency", { length: 10 }).notNull().default('USD'),
   timezone: varchar("timezone", { length: 100 }).default('UTC'),
   isActive: boolean("is_active").notNull().default(true),

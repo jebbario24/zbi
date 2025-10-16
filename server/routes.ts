@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 import Stripe from "stripe";
 import { Client, Environment, OrdersController } from '@paypal/paypal-server-sdk';
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -918,6 +919,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating online order:", error);
       res.status(400).json({ message: "Failed to create order" });
+    }
+  });
+
+  // Object Storage routes
+  app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
+    const userId = req.user?.claims?.sub;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error checking object access:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    res.json({ uploadURL });
+  });
+
+  app.put("/api/restaurant/logo", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    if (!req.body.logoUrl) {
+      return res.status(400).json({ error: "logoUrl is required" });
+    }
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.logoUrl,
+        { owner: userId, visibility: "public" }
+      );
+
+      await storage.updateRestaurant(restaurant.id, { logoUrl: objectPath });
+      res.status(200).json({ objectPath });
+    } catch (error) {
+      console.error("Error setting logo:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/restaurant/cover-image", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    if (!req.body.coverImageUrl) {
+      return res.status(400).json({ error: "coverImageUrl is required" });
+    }
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.coverImageUrl,
+        { owner: userId, visibility: "public" }
+      );
+
+      await storage.updateRestaurant(restaurant.id, { coverImageUrl: objectPath });
+      res.status(200).json({ objectPath });
+    } catch (error) {
+      console.error("Error setting cover image:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/restaurant/opening-hours", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    if (!req.body.openingHours) {
+      return res.status(400).json({ error: "openingHours is required" });
+    }
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      await storage.updateRestaurant(restaurant.id, { openingHours: req.body.openingHours });
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error updating opening hours:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/menu-item/:id/image", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const { id } = req.params;
+    if (!req.body.imageUrl) {
+      return res.status(400).json({ error: "imageUrl is required" });
+    }
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.imageUrl,
+        { owner: userId, visibility: "public" }
+      );
+
+      await storage.updateMenuItem(id, { imageUrl: objectPath });
+      res.status(200).json({ objectPath });
+    } catch (error) {
+      console.error("Error setting menu item image:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

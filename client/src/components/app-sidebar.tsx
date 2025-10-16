@@ -9,7 +9,8 @@ import {
   Settings,
   Store,
   ChefHat,
-  MapPin
+  MapPin,
+  Palette
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -72,6 +73,11 @@ const menuItems = [
     title: "Analytics",
     url: "/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Online Store",
+    url: "/online-store",
+    icon: Palette,
   },
 ];
 

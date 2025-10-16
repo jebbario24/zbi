@@ -22,6 +22,7 @@ import POS from "@/pages/POS";
 import Storefront from "@/pages/Storefront";
 import Subscribe from "@/pages/Subscribe";
 import DeliveryZones from "@/pages/DeliveryZones";
+import OnlineStore from "@/pages/OnlineStore";
 import NotFound from "@/pages/not-found";
 
 function PublicRouter() {
@@ -57,6 +58,7 @@ function AuthenticatedRouter() {
       <Route path="/inventory" component={Inventory} />
       <Route path="/delivery-zones" component={DeliveryZones} />
       <Route path="/analytics" component={Analytics} />
+      <Route path="/online-store" component={OnlineStore} />
       <Route path="/settings" component={Settings} />
       <Route path="/pos" component={POS} />
       <Route path="/store/:slug" component={Storefront} />
