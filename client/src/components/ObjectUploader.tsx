@@ -65,7 +65,11 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
 
   useEffect(() => {
     return () => {
+      // Cancel all uploads and clear files on unmount
       uppy.cancelAll();
+      uppy.getFiles().forEach(file => uppy.removeFile(file.id));
+      // Close Uppy instance to release event listeners
+      (uppy as any).close?.();
     };
   }, [uppy]);
 
