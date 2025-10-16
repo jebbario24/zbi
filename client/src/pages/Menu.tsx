@@ -170,8 +170,18 @@ export default function Menu() {
   };
 
   const handleItemImageComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful[0] && result.successful[0].uploadURL) {
-      itemForm.setValue("imageUrl", result.successful[0].uploadURL);
+    console.log("Upload complete result:", result);
+    if (result.successful && result.successful[0]) {
+      const uploadURL = result.successful[0].uploadURL as string | undefined;
+      console.log("Setting imageUrl to:", uploadURL);
+      if (uploadURL) {
+        itemForm.setValue("imageUrl", uploadURL);
+        toast({ title: "Image uploaded successfully" });
+      } else {
+        toast({ title: "Image upload failed: No URL returned", variant: "destructive" });
+      }
+    } else {
+      toast({ title: "Image upload failed", variant: "destructive" });
     }
   };
 
