@@ -637,6 +637,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/reservations/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Verify reservation belongs to this restaurant
+      const reservation = await storage.getReservations(restaurant.id);
+      const targetReservation = reservation.find(r => r.id === id);
+      if (!targetReservation) {
+        return res.status(404).json({ message: "Reservation not found" });
+      }
+      
+      const updated = await storage.updateReservation(id, { status });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating reservation status:", error);
+      res.status(400).json({ message: "Failed to update reservation status" });
+    }
+  });
+
   // Order routes
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {
     try {

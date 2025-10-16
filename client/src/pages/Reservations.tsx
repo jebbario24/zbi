@@ -38,6 +38,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { isUnauthorizedError } from "@/lib/authUtils";
 
 const reservationSchema = z.object({
@@ -177,6 +179,23 @@ export default function Reservations() {
     onError: (error: Error) => {
       toast({
         title: "Failed to delete reservation",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return await apiRequest("PATCH", `/api/reservations/${id}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      toast({ title: "Reservation status updated" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update status",
         description: error.message,
         variant: "destructive",
       });
@@ -455,9 +474,29 @@ export default function Reservations() {
 
                     {/* Actions Column */}
                     <div className="flex items-center gap-3">
-                      <Badge variant={getStatusColor(reservation.status)} className="capitalize">
-                        {reservation.status}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant={getStatusColor(reservation.status)} className="capitalize">
+                          {reservation.status}
+                        </Badge>
+                        {reservation.status === 'pending' && (
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`confirm-${reservation.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                              Guest arrived?
+                            </Label>
+                            <Switch
+                              id={`confirm-${reservation.id}`}
+                              checked={false}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  toggleStatusMutation.mutate({ id: reservation.id, status: 'confirmed' });
+                                }
+                              }}
+                              disabled={toggleStatusMutation.isPending}
+                              data-testid={`switch-confirm-reservation-${reservation.id}`}
+                            />
+                          </div>
+                        )}
+                      </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           size="icon"
