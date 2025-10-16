@@ -265,6 +265,8 @@ export default function Storefront() {
     );
   }
 
+  const openingHours = restaurant.openingHours as Record<string, { open: string; close: string; closed: boolean }> | null;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -320,7 +322,7 @@ export default function Storefront() {
                 {restaurant.phone}
               </div>
             )}
-            {restaurant.openingHours && (
+            {openingHours && (
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
                 <span>See hours below</span>
@@ -331,7 +333,7 @@ export default function Storefront() {
       </div>
 
       {/* Opening Hours Section */}
-      {restaurant.openingHours && (
+      {openingHours && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <Card>
             <CardContent className="p-6">
@@ -340,7 +342,7 @@ export default function Storefront() {
                 Opening Hours
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {Object.entries(restaurant.openingHours as Record<string, { open: string; close: string; closed: boolean }>).map(([day, hours]) => (
+                {Object.entries(openingHours).map(([day, hours]) => (
                   <div key={day} className="flex justify-between items-center">
                     <span className="capitalize font-medium">{day}</span>
                     <span className="text-muted-foreground">

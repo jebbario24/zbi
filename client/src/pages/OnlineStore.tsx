@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Restaurant } from "@shared/schema";
@@ -31,19 +31,15 @@ export default function OnlineStore() {
   const [openingHours, setOpeningHours] = useState<OpeningHours>(defaultOpeningHours);
 
   const { data: restaurant, isLoading } = useQuery<Restaurant>({
-    queryKey: ["/api/restaurant"],
+    queryKey: ["/api/restaurants/me"],
   });
 
   const logoMutation = useMutation({
     mutationFn: async (logoUrl: string) => {
-      return apiRequest("/api/restaurant/logo", {
-        method: "PUT",
-        body: JSON.stringify({ logoUrl }),
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest("PUT", "/api/restaurant/logo", { logoUrl });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurant"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
       toast({ title: "Logo uploaded successfully!" });
     },
     onError: () => {
@@ -53,14 +49,10 @@ export default function OnlineStore() {
 
   const coverImageMutation = useMutation({
     mutationFn: async (coverImageUrl: string) => {
-      return apiRequest("/api/restaurant/cover-image", {
-        method: "PUT",
-        body: JSON.stringify({ coverImageUrl }),
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest("PUT", "/api/restaurant/cover-image", { coverImageUrl });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurant"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
       toast({ title: "Cover photo uploaded successfully!" });
     },
     onError: () => {
@@ -70,14 +62,10 @@ export default function OnlineStore() {
 
   const openingHoursMutation = useMutation({
     mutationFn: async (hours: OpeningHours) => {
-      return apiRequest("/api/restaurant/opening-hours", {
-        method: "PUT",
-        body: JSON.stringify({ openingHours: hours }),
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest("PUT", "/api/restaurant/opening-hours", { openingHours: hours });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurant"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
       toast({ title: "Opening hours updated successfully!" });
     },
     onError: () => {
@@ -127,6 +115,13 @@ export default function OnlineStore() {
     openingHoursMutation.mutate(openingHours);
   };
 
+  // Load existing opening hours when restaurant data is available
+  useEffect(() => {
+    if (restaurant?.openingHours) {
+      setOpeningHours(restaurant.openingHours as OpeningHours);
+    }
+  }, [restaurant?.openingHours]);
+
   if (isLoading) {
     return (
       <div className="p-8 space-y-6">
@@ -146,11 +141,6 @@ export default function OnlineStore() {
         </Card>
       </div>
     );
-  }
-
-  // Load existing opening hours
-  if (restaurant.openingHours && Object.keys(openingHours).every(k => openingHours[k].open === defaultOpeningHours[k].open)) {
-    setOpeningHours(restaurant.openingHours as OpeningHours);
   }
 
   const storefrontUrl = restaurant.slug ? `/store/${restaurant.slug}` : '#';
