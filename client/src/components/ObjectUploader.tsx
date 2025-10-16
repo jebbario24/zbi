@@ -6,6 +6,26 @@ import { Dashboard } from "@uppy/react";
 import type { UploadResult } from "@uppy/core";
 import { Button } from "@/components/ui/button";
 
+// Hook to get window size
+function useWindowSize() {
+  const [height, setHeight] = useState(450);
+  
+  useEffect(() => {
+    function handleResize() {
+      // Mobile: 350px, Desktop: 450px
+      setHeight(window.innerWidth < 640 ? 350 : 450);
+    }
+    
+    // Set initial height
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  return height;
+}
+
 // Import Uppy styles
 import "@uppy/core/css/style.css";
 import "@uppy/dashboard/css/style.css";
@@ -39,6 +59,7 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
   note,
 }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
+  const dashboardHeight = useWindowSize();
   
   const [uppy] = useState(() =>
     new Uppy({
@@ -102,26 +123,14 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
             >
               ✕
             </Button>
-            <div className="hidden sm:block">
-              <Dashboard
-                uppy={uppy}
-                proudlyDisplayPoweredByUppy={false}
-                width="100%"
-                height={450}
-                note={note || "Images only, up to 10 MB"}
-                theme="light"
-              />
-            </div>
-            <div className="block sm:hidden">
-              <Dashboard
-                uppy={uppy}
-                proudlyDisplayPoweredByUppy={false}
-                width="100%"
-                height={350}
-                note={note || "Images only, up to 10 MB"}
-                theme="light"
-              />
-            </div>
+            <Dashboard
+              uppy={uppy}
+              proudlyDisplayPoweredByUppy={false}
+              width="100%"
+              height={dashboardHeight}
+              note={note || "Images only, up to 10 MB"}
+              theme="light"
+            />
           </div>
         </div>
       )}
