@@ -482,6 +482,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Restaurant not found" });
       }
       const data = insertMenuItemSchema.parse({ ...req.body, restaurantId: restaurant.id });
+      
+      // If imageUrl is provided, make it publicly accessible
+      if (data.imageUrl) {
+        const objectStorageService = new ObjectStorageService();
+        const publicImagePath = await objectStorageService.trySetObjectEntityAclPolicy(
+          data.imageUrl,
+          { owner: userId, visibility: "public" }
+        );
+        data.imageUrl = publicImagePath;
+      }
+      
       const item = await storage.createMenuItem(data);
       res.json(item);
     } catch (error) {
@@ -498,6 +509,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Restaurant not found" });
       }
       const data = insertMenuItemSchema.partial().parse(req.body);
+      
+      // If imageUrl is provided, make it publicly accessible
+      if (data.imageUrl) {
+        const objectStorageService = new ObjectStorageService();
+        const publicImagePath = await objectStorageService.trySetObjectEntityAclPolicy(
+          data.imageUrl,
+          { owner: userId, visibility: "public" }
+        );
+        data.imageUrl = publicImagePath;
+      }
+      
       const updatedItem = await storage.updateMenuItem(req.params.id, data);
       res.json(updatedItem);
     } catch (error) {
