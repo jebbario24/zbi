@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -40,6 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
 
 const categorySchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -153,6 +154,24 @@ export default function Menu() {
       toast({ title: "Failed to create menu item", variant: "destructive" });
     },
   });
+
+  const handleGetUploadParameters = async () => {
+    const response = await fetch("/api/objects/upload", {
+      method: "POST",
+      credentials: "include",
+    });
+    const data = await response.json();
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+    };
+  };
+
+  const handleItemImageComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful[0] && result.successful[0].uploadURL) {
+      itemForm.setValue("imageUrl", result.successful[0].uploadURL);
+    }
+  };
 
   const filteredItems = selectedCategory
     ? items?.filter((item) => item.categoryId === selectedCategory)
@@ -301,31 +320,24 @@ export default function Menu() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Menu Item Photo (Optional)</FormLabel>
-                        <FormControl>
-                          <ObjectUploader
-                            maxNumberOfFiles={1}
-                            allowedFileTypes={["image/jpeg", "image/png", "image/webp"]}
-                            onComplete={(urls) => {
-                              if (urls.length > 0) {
-                                field.onChange(urls[0]);
-                              }
-                            }}
-                            trigger={
-                              <Button type="button" variant="outline" data-testid="button-upload-item-photo">
-                                {field.value ? "Change Photo" : "Upload Photo"}
-                              </Button>
-                            }
-                          />
-                        </FormControl>
-                        {field.value && (
-                          <div className="mt-2">
+                        <div className="space-y-3">
+                          {field.value && (
                             <img
                               src={field.value}
                               alt="Menu item preview"
                               className="w-32 h-32 object-cover rounded-md"
                             />
-                          </div>
-                        )}
+                          )}
+                          <ObjectUploader
+                            maxNumberOfFiles={1}
+                            maxFileSize={5242880}
+                            onGetUploadParameters={handleGetUploadParameters}
+                            onComplete={handleItemImageComplete}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {field.value ? "Change Photo" : "Upload Photo"}
+                          </ObjectUploader>
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}

@@ -20,7 +20,7 @@ import {
   SheetTrigger,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { ShoppingCart, Plus, Minus, Trash2, Store, Phone, MapPin, CreditCard } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Store, Phone, MapPin, CreditCard, Clock } from "lucide-react";
 import { SiPaypal } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 
@@ -268,38 +268,91 @@ export default function Storefront() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-primary/10 via-background to-background border-b">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-16 w-16 rounded-lg bg-primary flex items-center justify-center">
-              <Store className="h-8 w-8 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-display font-bold">{restaurant.name}</h1>
+      <div className="relative border-b">
+        {/* Cover Photo Background */}
+        {restaurant.coverImageUrl ? (
+          <div className="relative h-64 md:h-80">
+            <div 
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${restaurant.coverImageUrl})` }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
+          </div>
+        ) : (
+          <div className="relative h-64 md:h-80 bg-gradient-to-br from-primary/10 via-background to-background">
+            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
+          </div>
+        )}
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16">
+          <div className="flex items-start gap-4 mb-4">
+            {/* Logo */}
+            {restaurant.logoUrl ? (
+              <img 
+                src={restaurant.logoUrl} 
+                alt={`${restaurant.name} logo`}
+                className="h-24 w-24 md:h-32 md:w-32 rounded-lg object-cover bg-background border-4 border-background shadow-lg"
+              />
+            ) : (
+              <div className="h-24 w-24 md:h-32 md:w-32 rounded-lg bg-primary flex items-center justify-center border-4 border-background shadow-lg">
+                <Store className="h-12 w-12 md:h-16 md:w-16 text-primary-foreground" />
+              </div>
+            )}
+            
+            <div className="flex-1 mt-8">
+              <h1 className="text-3xl md:text-4xl font-display font-bold">{restaurant.name}</h1>
               {restaurant.description && (
                 <p className="text-muted-foreground mt-1">{restaurant.description}</p>
               )}
             </div>
           </div>
-          {(restaurant.address || restaurant.phone) && (
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-              {restaurant.address && (
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {restaurant.address}
-                </div>
-              )}
-              {restaurant.phone && (
-                <div className="flex items-center gap-1">
-                  <Phone className="h-4 w-4" />
-                  {restaurant.phone}
-                </div>
-              )}
-            </div>
-          )}
+          
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground pb-4">
+            {restaurant.address && (
+              <div className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {restaurant.address}
+              </div>
+            )}
+            {restaurant.phone && (
+              <div className="flex items-center gap-1">
+                <Phone className="h-4 w-4" />
+                {restaurant.phone}
+              </div>
+            )}
+            {restaurant.openingHours && (
+              <div className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                <span>See hours below</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Opening Hours Section */}
+      {restaurant.openingHours && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
+                <Clock className="h-5 w-5" />
+                Opening Hours
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Object.entries(restaurant.openingHours as Record<string, { open: string; close: string; closed: boolean }>).map(([day, hours]) => (
+                  <div key={day} className="flex justify-between items-center">
+                    <span className="capitalize font-medium">{day}</span>
+                    <span className="text-muted-foreground">
+                      {hours.closed ? "Closed" : `${hours.open} - ${hours.close}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Menu */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -331,7 +384,16 @@ export default function Storefront() {
         {/* Menu Items */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems?.map((item) => (
-            <Card key={item.id} className="hover-elevate" data-testid={`menu-item-${item.id}`}>
+            <Card key={item.id} className="hover-elevate overflow-hidden" data-testid={`menu-item-${item.id}`}>
+              {item.imageUrl && (
+                <div className="aspect-video w-full overflow-hidden">
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
