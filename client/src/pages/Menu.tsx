@@ -354,7 +354,7 @@ export default function Menu() {
                       render={({ field }) => (
                         <FormItem>
                           <div className="flex items-start gap-4">
-                            {field.value && (
+                            {field.value ? (
                               <div className="relative group">
                                 <img
                                   src={field.value}
@@ -364,6 +364,10 @@ export default function Menu() {
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                                   <Upload className="h-6 w-6 text-white" />
                                 </div>
+                              </div>
+                            ) : (
+                              <div className="w-32 h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/20">
+                                <ImagePlus className="h-12 w-12 text-muted-foreground/40" />
                               </div>
                             )}
                             <div className="flex-1">
