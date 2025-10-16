@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -64,6 +64,7 @@ export default function Menu() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
   const imageUploaderRef = useRef<ObjectUploaderRef>(null);
 
   useEffect(() => {
@@ -104,6 +105,21 @@ export default function Menu() {
       preparationTime: "",
     },
   });
+
+  useEffect(() => {
+    if (editingMenuItem) {
+      itemForm.reset({
+        categoryId: editingMenuItem.categoryId,
+        name: editingMenuItem.name,
+        description: editingMenuItem.description || "",
+        price: editingMenuItem.price,
+        imageUrl: editingMenuItem.imageUrl || "",
+        isAvailable: editingMenuItem.isAvailable,
+        preparationTime: editingMenuItem.preparationTime ? String(editingMenuItem.preparationTime) : "",
+      });
+      setItemDialogOpen(true);
+    }
+  }, [editingMenuItem, itemForm]);
 
   const createCategoryMutation = useMutation({
     mutationFn: async (data: z.infer<typeof categorySchema>) => {
@@ -153,6 +169,56 @@ export default function Menu() {
         return;
       }
       toast({ title: "Failed to create menu item", variant: "destructive" });
+    },
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof itemSchema> }) => {
+      return await apiRequest("PUT", `/api/menu/items/${id}`, {
+        ...data,
+        preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
+      toast({ title: "Menu item updated successfully" });
+      setItemDialogOpen(false);
+      setEditingMenuItem(null);
+      itemForm.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to update menu item", variant: "destructive" });
+    },
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/menu/items/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
+      toast({ title: "Menu item deleted successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to delete menu item", variant: "destructive" });
     },
   });
 
@@ -255,7 +321,16 @@ export default function Menu() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
+          <Dialog 
+            open={itemDialogOpen} 
+            onOpenChange={(open) => {
+              setItemDialogOpen(open);
+              if (!open) {
+                setEditingMenuItem(null);
+                itemForm.reset();
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button variant="outline" data-testid="button-add-item">
                 <Plus className="mr-2 h-4 w-4" />
@@ -266,12 +341,20 @@ export default function Menu() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-2xl">
                   <UtensilsCrossed className="h-6 w-6 text-primary" />
-                  New Menu Item
+                  {editingMenuItem ? "Edit Menu Item" : "New Menu Item"}
                 </DialogTitle>
-                <DialogDescription>Create a delicious new item for your menu</DialogDescription>
+                <DialogDescription>
+                  {editingMenuItem ? "Update menu item information" : "Create a delicious new item for your menu"}
+                </DialogDescription>
               </DialogHeader>
               <Form {...itemForm}>
-                <form onSubmit={itemForm.handleSubmit((data) => createItemMutation.mutate(data))} className="space-y-6">
+                <form onSubmit={itemForm.handleSubmit((data) => {
+                  if (editingMenuItem) {
+                    updateItemMutation.mutate({ id: editingMenuItem.id, data });
+                  } else {
+                    createItemMutation.mutate(data);
+                  }
+                })} className="space-y-6">
                   {/* Basic Information */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -467,24 +550,20 @@ export default function Menu() {
                       type="button" 
                       variant="outline" 
                       onClick={() => setItemDialogOpen(false)}
-                      disabled={createItemMutation.isPending}
+                      disabled={createItemMutation.isPending || updateItemMutation.isPending}
                     >
                       Cancel
                     </Button>
                     <Button 
                       type="submit" 
-                      disabled={createItemMutation.isPending} 
+                      disabled={createItemMutation.isPending || updateItemMutation.isPending} 
                       data-testid="button-save-item"
                       className="gap-2"
                     >
-                      {createItemMutation.isPending ? (
-                        <>Creating...</>
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4" />
-                          Create Item
-                        </>
-                      )}
+                      {editingMenuItem 
+                        ? (updateItemMutation.isPending ? "Updating..." : "Update Item")
+                        : (createItemMutation.isPending ? "Creating..." : "Create Item")
+                      }
                     </Button>
                   </DialogFooter>
                 </form>
@@ -523,7 +602,7 @@ export default function Menu() {
       ) : filteredItems && filteredItems.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((item) => (
-            <Card key={item.id} className="hover-elevate overflow-hidden" data-testid={`menu-item-${item.id}`}>
+            <Card key={item.id} className="hover-elevate overflow-hidden group relative" data-testid={`menu-item-${item.id}`}>
               <div className="aspect-video w-full overflow-hidden">
                 {item.imageUrl ? (
                   <img
@@ -560,6 +639,25 @@ export default function Menu() {
                   )}
                 </div>
               </CardContent>
+              <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setEditingMenuItem(item)}
+                  data-testid={`button-edit-menuitem-${item.id}`}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => deleteItemMutation.mutate(item.id)}
+                  disabled={deleteItemMutation.isPending}
+                  data-testid={`button-delete-menuitem-${item.id}`}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
             </Card>
           ))}
         </div>

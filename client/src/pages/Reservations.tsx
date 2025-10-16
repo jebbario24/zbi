@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Calendar } from "lucide-react";
+import { Plus, Calendar, Edit, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,6 +53,7 @@ export default function Reservations() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -88,6 +89,21 @@ export default function Reservations() {
     },
   });
 
+  useEffect(() => {
+    if (editingReservation) {
+      form.reset({
+        tableId: editingReservation.tableId || "",
+        customerName: editingReservation.customerName,
+        customerPhone: editingReservation.customerPhone,
+        customerEmail: editingReservation.customerEmail || "",
+        partySize: String(editingReservation.partySize),
+        reservationDate: new Date(editingReservation.reservationDate).toISOString().slice(0, 16),
+        notes: editingReservation.notes || "",
+      });
+      setDialogOpen(true);
+    }
+  }, [editingReservation, form]);
+
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof reservationSchema>) => {
       return await apiRequest("POST", "/api/reservations", {
@@ -117,6 +133,58 @@ export default function Reservations() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof reservationSchema> }) => {
+      return await apiRequest("PUT", `/api/reservations/${id}`, {
+        ...data,
+        partySize: parseInt(data.partySize),
+        tableId: data.tableId || null,
+        customerEmail: data.customerEmail || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      toast({ title: "Reservation updated successfully" });
+      setDialogOpen(false);
+      setEditingReservation(null);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to update reservation", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/reservations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
+      toast({ title: "Reservation deleted successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to delete reservation", variant: "destructive" });
+    },
+  });
+
   if (authLoading || isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -135,7 +203,16 @@ export default function Reservations() {
             Manage table reservations
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog 
+          open={dialogOpen} 
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              setEditingReservation(null);
+              form.reset();
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button data-testid="button-new-reservation">
               <Plus className="mr-2 h-4 w-4" />
@@ -144,11 +221,19 @@ export default function Reservations() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>New Reservation</DialogTitle>
-              <DialogDescription>Create a new table reservation</DialogDescription>
+              <DialogTitle>{editingReservation ? "Edit Reservation" : "New Reservation"}</DialogTitle>
+              <DialogDescription>
+                {editingReservation ? "Update reservation information" : "Create a new table reservation"}
+              </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
+              <form onSubmit={form.handleSubmit((data) => {
+                if (editingReservation) {
+                  updateMutation.mutate({ id: editingReservation.id, data });
+                } else {
+                  createMutation.mutate(data);
+                }
+              })} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -256,8 +341,15 @@ export default function Reservations() {
                   )}
                 />
                 <DialogFooter>
-                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-reservation">
-                    {createMutation.isPending ? "Creating..." : "Create Reservation"}
+                  <Button 
+                    type="submit" 
+                    disabled={createMutation.isPending || updateMutation.isPending} 
+                    data-testid="button-save-reservation"
+                  >
+                    {editingReservation 
+                      ? (updateMutation.isPending ? "Updating..." : "Update Reservation")
+                      : (createMutation.isPending ? "Creating..." : "Create Reservation")
+                    }
                   </Button>
                 </DialogFooter>
               </form>
@@ -276,7 +368,7 @@ export default function Reservations() {
               {reservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate group relative"
                   data-testid={`reservation-${reservation.id}`}
                 >
                   <div className="flex items-center gap-4">
@@ -291,9 +383,30 @@ export default function Reservations() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant={reservation.status === "confirmed" ? "default" : "secondary"}>
-                    {reservation.status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={reservation.status === "confirmed" ? "default" : "secondary"}>
+                      {reservation.status}
+                    </Badge>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setEditingReservation(reservation)}
+                        data-testid={`button-edit-reservation-${reservation.id}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteMutation.mutate(reservation.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-reservation-${reservation.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

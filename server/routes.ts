@@ -463,6 +463,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/menu/items/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const data = insertMenuItemSchema.partial().parse(req.body);
+      const updatedItem = await storage.updateMenuItem(req.params.id, data);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating menu item:", error);
+      res.status(400).json({ message: "Failed to update menu item" });
+    }
+  });
+
+  app.delete('/api/menu/items/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      await storage.deleteMenuItem(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting menu item:", error);
+      res.status(400).json({ message: "Failed to delete menu item" });
+    }
+  });
+
   // Table routes
   app.get('/api/tables', isAuthenticated, async (req: any, res) => {
     try {
@@ -561,6 +592,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating reservation:", error);
       res.status(400).json({ message: "Failed to create reservation" });
+    }
+  });
+
+  app.put('/api/reservations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const data = insertReservationSchema.partial().parse(req.body);
+      const updatedReservation = await storage.updateReservation(req.params.id, data);
+      res.json(updatedReservation);
+    } catch (error) {
+      console.error("Error updating reservation:", error);
+      res.status(400).json({ message: "Failed to update reservation" });
+    }
+  });
+
+  app.delete('/api/reservations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      await storage.deleteReservation(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting reservation:", error);
+      res.status(400).json({ message: "Failed to delete reservation" });
     }
   });
 
@@ -781,6 +843,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating inventory:", error);
       res.status(400).json({ message: "Failed to create inventory" });
+    }
+  });
+
+  app.put('/api/inventory/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const data = insertInventorySchema.partial().parse(req.body);
+      const updatedInventory = await storage.updateInventory(req.params.id, data);
+      res.json(updatedInventory);
+    } catch (error) {
+      console.error("Error updating inventory:", error);
+      res.status(400).json({ message: "Failed to update inventory" });
+    }
+  });
+
+  app.delete('/api/inventory/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      await storage.deleteInventory(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting inventory:", error);
+      res.status(400).json({ message: "Failed to delete inventory" });
     }
   });
 

@@ -60,6 +60,8 @@ export interface IStorage {
   createMenuCategory(category: InsertMenuCategory): Promise<MenuCategory>;
   getMenuItems(restaurantId: string): Promise<MenuItem[]>;
   createMenuItem(item: InsertMenuItem): Promise<MenuItem>;
+  updateMenuItem(id: string, item: Partial<InsertMenuItem>): Promise<MenuItem>;
+  deleteMenuItem(id: string): Promise<void>;
   
   // Table operations
   getTables(restaurantId: string): Promise<Table[]>;
@@ -70,6 +72,8 @@ export interface IStorage {
   // Reservation operations
   getReservations(restaurantId: string): Promise<Reservation[]>;
   createReservation(reservation: InsertReservation): Promise<Reservation>;
+  updateReservation(id: string, reservation: Partial<InsertReservation>): Promise<Reservation>;
+  deleteReservation(id: string): Promise<void>;
   
   // Order operations
   getOrders(restaurantId: string): Promise<Order[]>;
@@ -88,6 +92,8 @@ export interface IStorage {
   // Inventory operations
   getInventory(restaurantId: string): Promise<Inventory[]>;
   createInventory(inventory: InsertInventory): Promise<Inventory>;
+  updateInventory(id: string, inventory: Partial<InsertInventory>): Promise<Inventory>;
+  deleteInventory(id: string): Promise<void>;
   
   // Delivery zone operations
   getDeliveryZones(restaurantId: string): Promise<DeliveryZone[]>;
@@ -183,6 +189,19 @@ export class DatabaseStorage implements IStorage {
     return newItem;
   }
 
+  async updateMenuItem(id: string, item: Partial<InsertMenuItem>): Promise<MenuItem> {
+    const [updated] = await db
+      .update(menuItems)
+      .set({ ...item, updatedAt: new Date() })
+      .where(eq(menuItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMenuItem(id: string): Promise<void> {
+    await db.delete(menuItems).where(eq(menuItems.id, id));
+  }
+
   async getTables(restaurantId: string): Promise<Table[]> {
     return await db.select().from(tables).where(eq(tables.restaurantId, restaurantId));
   }
@@ -211,6 +230,19 @@ export class DatabaseStorage implements IStorage {
   async createReservation(reservation: InsertReservation): Promise<Reservation> {
     const [newReservation] = await db.insert(reservations).values(reservation).returning();
     return newReservation;
+  }
+
+  async updateReservation(id: string, reservation: Partial<InsertReservation>): Promise<Reservation> {
+    const [updated] = await db
+      .update(reservations)
+      .set({ ...reservation, updatedAt: new Date() })
+      .where(eq(reservations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteReservation(id: string): Promise<void> {
+    await db.delete(reservations).where(eq(reservations.id, id));
   }
 
   async getOrders(restaurantId: string): Promise<Order[]> {
@@ -304,6 +336,19 @@ export class DatabaseStorage implements IStorage {
   async createInventory(inventoryItem: InsertInventory): Promise<Inventory> {
     const [newInventory] = await db.insert(inventory).values(inventoryItem).returning();
     return newInventory;
+  }
+
+  async updateInventory(id: string, inventoryData: Partial<InsertInventory>): Promise<Inventory> {
+    const [updated] = await db
+      .update(inventory)
+      .set({ ...inventoryData, updatedAt: new Date() })
+      .where(eq(inventory.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteInventory(id: string): Promise<void> {
+    await db.delete(inventory).where(eq(inventory.id, id));
   }
 
   async getDeliveryZones(restaurantId: string): Promise<DeliveryZone[]> {

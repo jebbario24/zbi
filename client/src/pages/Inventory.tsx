@@ -25,7 +25,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Plus, AlertTriangle, Package } from "lucide-react";
+import { Plus, AlertTriangle, Package, Edit, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -43,6 +43,7 @@ export default function Inventory() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingInventory, setEditingInventory] = useState<Inventory | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -65,6 +66,18 @@ export default function Inventory() {
     resolver: zodResolver(inventorySchema),
     defaultValues: { itemName: "", quantity: "", unit: "", lowStockThreshold: "10" },
   });
+
+  useEffect(() => {
+    if (editingInventory) {
+      form.reset({
+        itemName: editingInventory.itemName,
+        quantity: String(editingInventory.quantity),
+        unit: editingInventory.unit,
+        lowStockThreshold: String(editingInventory.lowStockThreshold || 10),
+      });
+      setDialogOpen(true);
+    }
+  }, [editingInventory, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof inventorySchema>) => {
@@ -94,6 +107,57 @@ export default function Inventory() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof inventorySchema> }) => {
+      return await apiRequest("PUT", `/api/inventory/${id}`, {
+        ...data,
+        quantity: parseInt(data.quantity),
+        lowStockThreshold: data.lowStockThreshold ? parseInt(data.lowStockThreshold) : 10,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: "Inventory item updated successfully" });
+      setDialogOpen(false);
+      setEditingInventory(null);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to update inventory item", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/inventory/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      toast({ title: "Inventory item deleted successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 500);
+        return;
+      }
+      toast({ title: "Failed to delete inventory item", variant: "destructive" });
+    },
+  });
+
   if (authLoading || isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -112,7 +176,16 @@ export default function Inventory() {
           <h1 className="text-3xl font-display font-bold">Inventory</h1>
           <p className="text-muted-foreground mt-1">Track stock levels and supplies</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog 
+          open={dialogOpen} 
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              setEditingInventory(null);
+              form.reset();
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button data-testid="button-add-inventory">
               <Plus className="mr-2 h-4 w-4" />
@@ -121,11 +194,19 @@ export default function Inventory() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>New Inventory Item</DialogTitle>
-              <DialogDescription>Add a new item to inventory</DialogDescription>
+              <DialogTitle>{editingInventory ? "Edit Inventory Item" : "New Inventory Item"}</DialogTitle>
+              <DialogDescription>
+                {editingInventory ? "Update inventory item information" : "Add a new item to inventory"}
+              </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
+              <form onSubmit={form.handleSubmit((data) => {
+                if (editingInventory) {
+                  updateMutation.mutate({ id: editingInventory.id, data });
+                } else {
+                  createMutation.mutate(data);
+                }
+              })} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="itemName"
@@ -181,8 +262,15 @@ export default function Inventory() {
                   )}
                 />
                 <DialogFooter>
-                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-inventory">
-                    {createMutation.isPending ? "Adding..." : "Add Item"}
+                  <Button 
+                    type="submit" 
+                    disabled={createMutation.isPending || updateMutation.isPending} 
+                    data-testid="button-save-inventory"
+                  >
+                    {editingInventory 
+                      ? (updateMutation.isPending ? "Updating..." : "Update Item")
+                      : (createMutation.isPending ? "Adding..." : "Add Item")
+                    }
                   </Button>
                 </DialogFooter>
               </form>
@@ -224,7 +312,7 @@ export default function Inventory() {
               {inventory.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate group relative"
                   data-testid={`inventory-${item.id}`}
                 >
                   <div className="flex items-center gap-4">
@@ -236,15 +324,36 @@ export default function Inventory() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">
-                      {item.quantity} <span className="text-sm text-muted-foreground">{item.unit}</span>
-                    </p>
-                    {item.quantity <= (item.lowStockThreshold || 10) ? (
-                      <Badge variant="destructive" className="mt-1">Low Stock</Badge>
-                    ) : (
-                      <Badge variant="default" className="mt-1">In Stock</Badge>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-2xl font-bold">
+                        {item.quantity} <span className="text-sm text-muted-foreground">{item.unit}</span>
+                      </p>
+                      {item.quantity <= (item.lowStockThreshold || 10) ? (
+                        <Badge variant="destructive" className="mt-1">Low Stock</Badge>
+                      ) : (
+                        <Badge variant="default" className="mt-1">In Stock</Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setEditingInventory(item)}
+                        data-testid={`button-edit-inventory-${item.id}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteMutation.mutate(item.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-inventory-${item.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
