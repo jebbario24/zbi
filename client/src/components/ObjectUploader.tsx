@@ -48,6 +48,8 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
       })
       .on("complete", (result) => {
         onComplete?.(result);
+        // Clear all files after upload completes
+        uppy.cancelAll();
       })
   );
 
@@ -60,6 +62,9 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
+      // Clear any existing files first
+      uppy.cancelAll();
+      
       Array.from(files).forEach(file => {
         uppy.addFile({
           name: file.name,
@@ -67,6 +72,11 @@ export const ObjectUploader = forwardRef<ObjectUploaderRef, ObjectUploaderProps>
           data: file,
         });
       });
+    }
+    
+    // Reset the file input so the same file can be selected again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
