@@ -332,6 +332,18 @@ export default function Orders() {
                     {statusLabels[orderDetails.order.status]}
                   </Badge>
                 </div>
+                {orderDetails.order.paymentMethod && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Payment Method</p>
+                    <p className="font-semibold capitalize" data-testid="text-payment-method">{orderDetails.order.paymentMethod}</p>
+                  </div>
+                )}
+                {orderDetails.order.shippingAddress && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Shipping Address</p>
+                    <p className="font-semibold" data-testid="text-shipping-address">{orderDetails.order.shippingAddress}</p>
+                  </div>
+                )}
               </div>
 
               <div>

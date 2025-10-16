@@ -37,6 +37,30 @@ const paypalClient = new Client({
 });
 const paypalOrdersController = new OrdersController(paypalClient);
 
+// Helper function to generate sequential order numbers
+async function generateOrderNumber(restaurantId: string, prefix: 'ORD' | 'WEB'): Promise<string> {
+  const lastOrder = await storage.getLastOrderByPrefix(restaurantId, prefix);
+  
+  if (!lastOrder) {
+    return `${prefix}-001`;
+  }
+  
+  // Extract number from order number - only match 3-digit padded format (e.g., "WEB-001" -> 1)
+  // This regex specifically looks for exactly 3 digits to avoid matching old timestamp-based formats
+  const match = lastOrder.orderNumber.match(new RegExp(`^${prefix}-(\\d{3})$`));
+  
+  if (!match) {
+    // If no match (old format or invalid), start fresh from 001
+    return `${prefix}-001`;
+  }
+  
+  const lastNumber = parseInt(match[1], 10);
+  const nextNumber = lastNumber + 1;
+  
+  // Pad with zeros (001, 002, etc.)
+  return `${prefix}-${String(nextNumber).padStart(3, '0')}`;
+}
+
 const orderSchema = z.object({
   orderType: z.string(),
   tableId: z.string().nullable().optional(),
@@ -547,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const data = orderSchema.parse(req.body);
-      const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const orderNumber = await generateOrderNumber(restaurant.id, 'ORD');
       
       const order = await storage.createOrder({
         restaurantId: restaurant.id,
@@ -557,6 +581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerName: data.customerName || null,
         customerPhone: data.customerPhone || null,
         customerEmail: data.customerEmail || null,
+        paymentMethod: data.paymentMethod || null,
         subtotal: data.subtotal,
         tax: data.tax,
         total: data.total,
@@ -906,7 +931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const data = onlineOrderSchema.parse(req.body);
-      const orderNumber = `WEB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const orderNumber = await generateOrderNumber(restaurant.id, 'WEB');
       
       const order = await storage.createOrder({
         restaurantId: restaurant.id,
@@ -916,6 +941,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerPhone: data.customerPhone || null,
         customerEmail: data.customerEmail || null,
         shippingAddress: data.shippingAddress || null,
+        paymentMethod: data.paymentMethod || null,
         subtotal: data.subtotal,
         tax: data.tax,
         total: data.total,

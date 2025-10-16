@@ -34,7 +34,7 @@ import {
   type InsertDeliveryZone,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, like } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -75,6 +75,7 @@ export interface IStorage {
   getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem: MenuItem })[] } | undefined>;
   createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order>;
   updateOrderStatus(orderId: string, status: string): Promise<Order>;
+  getLastOrderByPrefix(restaurantId: string, prefix: string): Promise<Order | undefined>;
   
   // Staff operations
   getStaff(restaurantId: string): Promise<Staff[]>;
@@ -242,6 +243,20 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, orderId))
       .returning();
     return updated;
+  }
+
+  async getLastOrderByPrefix(restaurantId: string, prefix: string): Promise<Order | undefined> {
+    const [lastOrder] = await db
+      .select()
+      .from(orders)
+      .where(and(
+        eq(orders.restaurantId, restaurantId),
+        like(orders.orderNumber, `${prefix}-%`)
+      ))
+      .orderBy(desc(orders.createdAt))
+      .limit(1);
+    
+    return lastOrder;
   }
 
   async getStaff(restaurantId: string): Promise<Staff[]> {
