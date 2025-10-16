@@ -9,6 +9,7 @@ import {
   orderItems,
   staff,
   inventory,
+  deliveryZones,
   type User,
   type UpsertUser,
   type Restaurant,
@@ -29,6 +30,8 @@ import {
   type InsertStaff,
   type Inventory,
   type InsertInventory,
+  type DeliveryZone,
+  type InsertDeliveryZone,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -80,6 +83,12 @@ export interface IStorage {
   // Inventory operations
   getInventory(restaurantId: string): Promise<Inventory[]>;
   createInventory(inventory: InsertInventory): Promise<Inventory>;
+  
+  // Delivery zone operations
+  getDeliveryZones(restaurantId: string): Promise<DeliveryZone[]>;
+  createDeliveryZone(zone: InsertDeliveryZone): Promise<DeliveryZone>;
+  updateDeliveryZone(id: string, zone: Partial<InsertDeliveryZone>): Promise<DeliveryZone>;
+  deleteDeliveryZone(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -251,6 +260,28 @@ export class DatabaseStorage implements IStorage {
   async createInventory(inventoryItem: InsertInventory): Promise<Inventory> {
     const [newInventory] = await db.insert(inventory).values(inventoryItem).returning();
     return newInventory;
+  }
+
+  async getDeliveryZones(restaurantId: string): Promise<DeliveryZone[]> {
+    return await db.select().from(deliveryZones).where(eq(deliveryZones.restaurantId, restaurantId));
+  }
+
+  async createDeliveryZone(zone: InsertDeliveryZone): Promise<DeliveryZone> {
+    const [newZone] = await db.insert(deliveryZones).values(zone).returning();
+    return newZone;
+  }
+
+  async updateDeliveryZone(id: string, zone: Partial<InsertDeliveryZone>): Promise<DeliveryZone> {
+    const [updated] = await db
+      .update(deliveryZones)
+      .set({ ...zone, updatedAt: new Date() })
+      .where(eq(deliveryZones.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDeliveryZone(id: string): Promise<void> {
+    await db.delete(deliveryZones).where(eq(deliveryZones.id, id));
   }
 }
 

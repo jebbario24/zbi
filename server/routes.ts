@@ -10,6 +10,7 @@ import {
   insertReservationSchema,
   insertStaffSchema,
   insertInventorySchema,
+  insertDeliveryZoneSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import Stripe from "stripe";
@@ -630,6 +631,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating inventory:", error);
       res.status(400).json({ message: "Failed to create inventory" });
+    }
+  });
+
+  // Delivery zone routes
+  app.get('/api/delivery-zones', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.json([]);
+      }
+      const zones = await storage.getDeliveryZones(restaurant.id);
+      res.json(zones);
+    } catch (error) {
+      console.error("Error fetching delivery zones:", error);
+      res.status(500).json({ message: "Failed to fetch delivery zones" });
+    }
+  });
+
+  app.post('/api/delivery-zones', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const data = insertDeliveryZoneSchema.parse({ ...req.body, restaurantId: restaurant.id });
+      const zone = await storage.createDeliveryZone(data);
+      res.json(zone);
+    } catch (error) {
+      console.error("Error creating delivery zone:", error);
+      res.status(400).json({ message: "Failed to create delivery zone" });
+    }
+  });
+
+  app.patch('/api/delivery-zones/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Get zone to verify ownership
+      const zones = await storage.getDeliveryZones(restaurant.id);
+      const zone = zones.find(z => z.id === id);
+      if (!zone) {
+        return res.status(404).json({ message: "Delivery zone not found" });
+      }
+      
+      const updated = await storage.updateDeliveryZone(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating delivery zone:", error);
+      res.status(400).json({ message: "Failed to update delivery zone" });
+    }
+  });
+
+  app.delete('/api/delivery-zones/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Get zone to verify ownership
+      const zones = await storage.getDeliveryZones(restaurant.id);
+      const zone = zones.find(z => z.id === id);
+      if (!zone) {
+        return res.status(404).json({ message: "Delivery zone not found" });
+      }
+      
+      await storage.deleteDeliveryZone(id);
+      res.json({ message: "Delivery zone deleted" });
+    } catch (error) {
+      console.error("Error deleting delivery zone:", error);
+      res.status(400).json({ message: "Failed to delete delivery zone" });
     }
   });
 

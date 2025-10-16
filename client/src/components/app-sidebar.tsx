@@ -8,7 +8,8 @@ import {
   BarChart3,
   Settings,
   Store,
-  ChefHat
+  ChefHat,
+  MapPin
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -61,6 +62,11 @@ const menuItems = [
     title: "Inventory",
     url: "/inventory",
     icon: Package,
+  },
+  {
+    title: "Delivery Zones",
+    url: "/delivery-zones",
+    icon: MapPin,
   },
   {
     title: "Analytics",

@@ -21,6 +21,7 @@ import Settings from "@/pages/Settings";
 import POS from "@/pages/POS";
 import Storefront from "@/pages/Storefront";
 import Subscribe from "@/pages/Subscribe";
+import DeliveryZones from "@/pages/DeliveryZones";
 import NotFound from "@/pages/not-found";
 
 function PublicRouter() {
@@ -54,6 +55,7 @@ function AuthenticatedRouter() {
       <Route path="/tables" component={Tables} />
       <Route path="/staff" component={Staff} />
       <Route path="/inventory" component={Inventory} />
+      <Route path="/delivery-zones" component={DeliveryZones} />
       <Route path="/analytics" component={Analytics} />
       <Route path="/settings" component={Settings} />
       <Route path="/pos" component={POS} />

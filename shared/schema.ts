@@ -175,6 +175,21 @@ export const inventory = pgTable("inventory", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Delivery Zones
+export const deliveryZones = pgTable("delivery_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 255 }).notNull(),
+  centerLat: decimal("center_lat", { precision: 10, scale: 7 }).notNull(),
+  centerLng: decimal("center_lng", { precision: 10, scale: 7 }).notNull(),
+  radiusKm: decimal("radius_km", { precision: 6, scale: 2 }).notNull(),
+  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull(),
+  minimumOrder: decimal("minimum_order", { precision: 10, scale: 2 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   restaurants: many(restaurants),
@@ -192,6 +207,7 @@ export const restaurantsRelations = relations(restaurants, ({ one, many }) => ({
   orders: many(orders),
   staff: many(staff),
   inventory: many(inventory),
+  deliveryZones: many(deliveryZones),
 }));
 
 export const menuCategoriesRelations = relations(menuCategories, ({ one, many }) => ({
@@ -271,6 +287,13 @@ export const inventoryRelations = relations(inventory, ({ one }) => ({
   }),
 }));
 
+export const deliveryZonesRelations = relations(deliveryZones, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [deliveryZones.restaurantId],
+    references: [restaurants.id],
+  }),
+}));
+
 // Insert Schemas
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -345,3 +368,11 @@ export const insertInventorySchema = createInsertSchema(inventory).omit({
 });
 export type InsertInventory = z.infer<typeof insertInventorySchema>;
 export type Inventory = typeof inventory.$inferSelect;
+
+export const insertDeliveryZoneSchema = createInsertSchema(deliveryZones).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDeliveryZone = z.infer<typeof insertDeliveryZoneSchema>;
+export type DeliveryZone = typeof deliveryZones.$inferSelect;
