@@ -63,6 +63,7 @@ export const restaurants = pgTable("restaurants", {
   paypalClientSecret: text("paypal_client_secret"),
   paymentMethods: jsonb("payment_methods"),
   currency: varchar("currency", { length: 10 }).notNull().default('USD'),
+  country: varchar("country", { length: 100 }).default('United States'),
   timezone: varchar("timezone", { length: 100 }).default('UTC'),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),

@@ -20,7 +20,7 @@ import {
   SheetTrigger,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { ShoppingCart, Plus, Minus, Trash2, Store, Phone, MapPin, CreditCard, Clock } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard } from "lucide-react";
 import { SiPaypal } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 
@@ -68,13 +68,11 @@ export default function Storefront() {
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: slug ? ["/api/storefront/restaurant", slug] : ["/api/storefront/by-hostname"],
     queryFn: async () => {
-      // If slug is provided, use slug-based lookup
       if (slug) {
         const response = await fetch(`/api/storefront/${slug}`);
         if (!response.ok) throw new Error("Restaurant not found");
         return response.json();
       }
-      // Otherwise, use hostname-based lookup
       const response = await fetch(`/api/storefront/by-hostname`);
       if (!response.ok) throw new Error("Restaurant not found");
       return response.json();
@@ -102,8 +100,8 @@ export default function Storefront() {
   });
 
   const filteredItems = selectedCategory
-    ? items?.filter((item) => item.categoryId === selectedCategory && item.isAvailable)
-    : items?.filter((item) => item.isAvailable);
+    ? items?.filter((item) => item.categoryId === selectedCategory)
+    : items;
 
   const addToCart = (item: MenuItem) => {
     const existingItem = cart.find((ci) => ci.menuItem.id === item.id);
@@ -118,6 +116,7 @@ export default function Storefront() {
     } else {
       setCart([...cart, { menuItem: item, quantity: 1 }]);
     }
+    toast({ title: `${item.name} added to cart` });
   };
 
   const updateQuantity = (itemId: string, delta: number) => {
@@ -192,65 +191,46 @@ export default function Storefront() {
     },
   });
 
-  // Render PayPal buttons
-  const renderPayPalButtons = (orderId: string, total: number) => {
-    if (!window.paypal || !paypalButtonsRef.current || paypalRendered.current) return;
-    
+  const renderPayPalButtons = (orderId: string, amount: number) => {
+    if (!window.paypal || !paypalReady || !paypalButtonsRef.current || paypalRendered.current) return;
+
     paypalRendered.current = true;
     paypalButtonsRef.current.innerHTML = '';
 
     window.paypal.Buttons({
-      createOrder: async () => {
-        const res = await fetch('/api/paypal/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, total: total.toFixed(2) })
-        });
-        const data = await res.json();
-        return data.paypalOrderId;
-      },
+      createOrder: () => orderId,
       onApprove: async (data: any) => {
-        const res = await fetch(`/api/paypal/capture-order/${data.orderID}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId })
-        });
-        const result = await res.json();
-        
-        if (result.success) {
-          toast({ title: "Payment successful! Order confirmed." });
+        try {
+          await apiRequest("POST", `/api/storefront/${slug}/paypal-capture`, { orderId: data.orderID });
+          toast({ title: "Payment successful!" });
           setCart([]);
           setCustomerName("");
           setCustomerPhone("");
           setCustomerEmail("");
           setCurrentOrderId(null);
           paypalRendered.current = false;
+        } catch (error) {
+          toast({ title: "Payment failed", variant: "destructive" });
         }
       },
-      onError: () => {
-        toast({ title: "Payment failed", variant: "destructive" });
-        paypalRendered.current = false;
-      },
-      onCancel: () => {
-        toast({ title: "Payment cancelled" });
-        paypalRendered.current = false;
-      }
     }).render(paypalButtonsRef.current);
   };
 
-  // Re-render PayPal buttons when SDK loads and order is ready
   useEffect(() => {
-    if (currentOrderId && paypalReady && paypalButtonsRef.current && !paypalRendered.current) {
+    if (currentOrderId && paypalReady && paymentMethod === 'paypal') {
       renderPayPalButtons(currentOrderId, total);
     }
-  }, [currentOrderId, total, paypalReady]);
+  }, [currentOrderId, paypalReady, paymentMethod]);
+
+  const openingHours = restaurant?.openingHours as any;
+  const enabledPaymentMethods = restaurant?.paymentMethods as { stripe?: boolean; paypal?: boolean; cash?: boolean };
 
   if (restaurantLoading) {
     return (
       <div className="min-h-screen">
-        <Skeleton className="h-64 w-full" />
-        <div className="max-w-7xl mx-auto p-6">
-          <Skeleton className="h-96" />
+        <Skeleton className="h-80 w-full" />
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -259,12 +239,12 @@ export default function Storefront() {
   if (!restaurant) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Store className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <Store className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
             <h2 className="text-2xl font-bold mb-2">Restaurant Not Found</h2>
             <p className="text-muted-foreground">
-              The restaurant you're looking for doesn't exist or is not active.
+              The restaurant you're looking for doesn't exist or isn't available.
             </p>
           </CardContent>
         </Card>
@@ -272,379 +252,375 @@ export default function Storefront() {
     );
   }
 
-  const openingHours = restaurant.openingHours as Record<string, { open: string; close: string; closed: boolean }> | null;
-  const enabledPaymentMethods = restaurant.paymentMethods as { stripe?: boolean; paypal?: boolean; cash?: boolean } | null;
+  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const currencySymbol = restaurant.currency === 'MAD' ? 'DH' : restaurant.currency === 'USD' ? '$' : restaurant.currency;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top Navigation with Cart */}
-      <div className="sticky top-0 z-50 bg-background border-b">
+      {/* Sticky Header with Cart */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {restaurant.logoUrl && (
+              <img 
+                src={restaurant.logoUrl} 
+                alt={restaurant.name}
+                className="h-10 w-10 rounded-full object-cover"
+              />
+            )}
+            <span className="font-display font-bold text-lg">{restaurant.name}</span>
+          </div>
+          
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="default" className="relative" data-testid="button-cart">
+                <ShoppingCart className="h-5 w-5 mr-2" />
+                Cart
+                {cartItemCount > 0 && (
+                  <Badge className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 rounded-full" data-testid="cart-count">
+                    {cartItemCount}
+                  </Badge>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-full sm:max-w-lg">
+              <SheetHeader>
+                <SheetTitle>Your Cart ({cartItemCount} items)</SheetTitle>
+              </SheetHeader>
+
+              {cart.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <ShoppingCart className="h-16 w-16 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">Your cart is empty</p>
+                </div>
+              ) : (
+                <>
+                  <ScrollArea className="flex-1 -mx-6 px-6 my-4">
+                    <div className="space-y-4">
+                      {cart.map((item) => (
+                        <div key={item.menuItem.id} className="flex gap-4 p-3 rounded-lg border">
+                          {item.menuItem.imageUrl && (
+                            <img
+                              src={item.menuItem.imageUrl}
+                              alt={item.menuItem.name}
+                              className="h-20 w-20 object-cover rounded-md"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <h4 className="font-medium mb-1">{item.menuItem.name}</h4>
+                            <p className="text-sm text-primary font-medium">
+                              {currencySymbol === 'DH' ? `${parseFloat(item.menuItem.price).toFixed(0)} ${currencySymbol}` : `${currencySymbol}${item.menuItem.price}`}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => updateQuantity(item.menuItem.id, -1)}
+                                data-testid={`button-decrease-${item.menuItem.id}`}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <span className="w-8 text-center" data-testid={`quantity-${item.menuItem.id}`}>{item.quantity}</span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => updateQuantity(item.menuItem.id, 1)}
+                                data-testid={`button-increase-${item.menuItem.id}`}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 ml-auto"
+                                onClick={() => removeFromCart(item.menuItem.id)}
+                                data-testid={`button-remove-${item.menuItem.id}`}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+
+                  <div className="space-y-3 border-t pt-4">
+                    <Input
+                      placeholder="Your name *"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      data-testid="input-customer-name"
+                    />
+                    <Input
+                      placeholder="Phone number *"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      data-testid="input-customer-phone"
+                    />
+                    <Input
+                      type="email"
+                      placeholder="Email (optional)"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      data-testid="input-customer-email"
+                    />
+                  </div>
+
+                  <SheetFooter className="flex-col gap-3 border-t pt-4">
+                    <div className="space-y-2 w-full">
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal</span>
+                        <span data-testid="subtotal">
+                          {currencySymbol === 'DH' ? `${subtotal.toFixed(0)} ${currencySymbol}` : `${currencySymbol}${subtotal.toFixed(2)}`}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Tax (10%)</span>
+                        <span data-testid="tax">
+                          {currencySymbol === 'DH' ? `${tax.toFixed(0)} ${currencySymbol}` : `${currencySymbol}${tax.toFixed(2)}`}
+                        </span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>Total</span>
+                        <span data-testid="total">
+                          {currencySymbol === 'DH' ? `${total.toFixed(0)} ${currencySymbol}` : `${currencySymbol}${total.toFixed(2)}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="w-full space-y-3">
+                      <Label className="text-sm font-medium">Payment Method</Label>
+                      <RadioGroup 
+                        value={paymentMethod} 
+                        onValueChange={(value: 'stripe' | 'paypal' | 'cash') => {
+                          setPaymentMethod(value);
+                          setCurrentOrderId(null);
+                          paypalRendered.current = false;
+                        }}
+                        className="flex flex-col gap-3"
+                        data-testid="radio-payment-method"
+                      >
+                        {enabledPaymentMethods?.cash && (
+                          <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                            <RadioGroupItem value="cash" id="cash" data-testid="radio-cash" />
+                            <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer flex-1">
+                              <CreditCard className="h-4 w-4" />
+                              <div className="flex-1">
+                                <div className="font-medium">Cash on Delivery</div>
+                                <div className="text-xs text-muted-foreground">Pay when you receive your order</div>
+                              </div>
+                            </Label>
+                          </div>
+                        )}
+                        
+                        {enabledPaymentMethods?.paypal && (
+                          <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                            <RadioGroupItem value="paypal" id="paypal" data-testid="radio-paypal" />
+                            <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer flex-1">
+                              <SiPaypal className="h-4 w-4" />
+                              <div className="flex-1">
+                                <div className="font-medium">PayPal</div>
+                                <div className="text-xs text-muted-foreground">Pay securely with PayPal</div>
+                              </div>
+                            </Label>
+                          </div>
+                        )}
+                        
+                        {enabledPaymentMethods?.stripe && (
+                          <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                            <RadioGroupItem value="stripe" id="stripe" data-testid="radio-stripe" />
+                            <Label htmlFor="stripe" className="flex items-center gap-2 cursor-pointer flex-1">
+                              <CreditCard className="h-4 w-4" />
+                              <div className="flex-1">
+                                <div className="font-medium">Credit / Debit Card</div>
+                                <div className="text-xs text-muted-foreground">Pay securely with Stripe</div>
+                              </div>
+                            </Label>
+                          </div>
+                        )}
+                      </RadioGroup>
+                    </div>
+
+                    {!currentOrderId || paymentMethod === 'cash' ? (
+                      <Button
+                        className="w-full h-12"
+                        disabled={!customerName || !customerPhone || checkoutMutation.isPending}
+                        onClick={() => checkoutMutation.mutate()}
+                        data-testid="button-checkout"
+                      >
+                        {checkoutMutation.isPending ? "Processing..." : paymentMethod === 'cash' ? "Place Order" : "Continue to Payment"}
+                      </Button>
+                    ) : (
+                      <div className="w-full">
+                        <div ref={paypalButtonsRef} data-testid="paypal-buttons" />
+                      </div>
+                    )}
+                  </SheetFooter>
+                </>
+              )}
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+
+      {/* Hero Section with Cover Photo */}
+      <div className="relative">
+        {restaurant.coverImageUrl ? (
+          <div 
+            className="h-48 md:h-64 lg:h-80 bg-cover bg-center"
+            style={{ backgroundImage: `url(${restaurant.coverImageUrl})` }}
+          />
+        ) : (
+          <div className="h-48 md:h-64 lg:h-80 bg-gradient-to-br from-primary/20 to-primary/5" />
+        )}
+        
+        {/* Restaurant Logo & Info */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
+          <div className="-mt-16 md:-mt-20 mb-6">
+            <div className="flex items-end gap-4">
               {restaurant.logoUrl ? (
                 <img 
                   src={restaurant.logoUrl} 
-                  alt={`${restaurant.name} logo`}
-                  className="h-10 w-10 rounded object-cover"
+                  alt={restaurant.name}
+                  className="h-24 w-24 md:h-32 md:w-32 rounded-full object-cover bg-background border-4 border-background shadow-xl"
                 />
               ) : (
-                <Store className="h-6 w-6 text-primary" />
+                <div className="h-24 w-24 md:h-32 md:w-32 rounded-full bg-background border-4 border-background shadow-xl flex items-center justify-center">
+                  <Store className="h-12 w-12 md:h-16 md:w-16 text-muted-foreground" />
+                </div>
               )}
-              <span className="font-display font-bold text-lg">{restaurant.name}</span>
-            </div>
-            
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="default"
-                  className="relative"
-                  data-testid="button-view-cart"
-                >
-                  <ShoppingCart className="mr-2 h-5 w-5" />
-                  <span className="hidden sm:inline">Cart</span>
-                  {cart.length > 0 && (
-                    <Badge className="ml-2 h-5 min-w-5 px-1 flex items-center justify-center">
-                      {cart.length}
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="w-full sm:max-w-lg flex flex-col">
-                <SheetHeader>
-                  <SheetTitle>Your Order</SheetTitle>
-                </SheetHeader>
-
-                <ScrollArea className="flex-1 -mx-6 px-6">
-                  <div className="space-y-3 py-4">
-                    {cart.length > 0 ? (
-                      cart.map((item) => (
-                        <div
-                          key={item.menuItem.id}
-                          className="flex items-start gap-3 p-3 border rounded-lg"
-                          data-testid={`cart-item-${item.menuItem.id}`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium">{item.menuItem.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              ${parseFloat(item.menuItem.price).toFixed(2)} each
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              onClick={() => updateQuantity(item.menuItem.id, -1)}
-                              data-testid={`decrease-${item.menuItem.id}`}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="w-8 text-center">{item.quantity}</span>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8"
-                              onClick={() => updateQuantity(item.menuItem.id, 1)}
-                              data-testid={`increase-${item.menuItem.id}`}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8"
-                              onClick={() => removeFromCart(item.menuItem.id)}
-                              data-testid={`remove-${item.menuItem.id}`}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-center text-muted-foreground py-8">
-                        Your cart is empty
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
-
-                {cart.length > 0 && (
-                  <>
-                    <div className="space-y-3 border-t pt-4">
-                      <Input
-                        placeholder="Your name *"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        data-testid="input-customer-name"
-                      />
-                      <Input
-                        placeholder="Phone number *"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        data-testid="input-customer-phone"
-                      />
-                      <Input
-                        type="email"
-                        placeholder="Email (optional)"
-                        value={customerEmail}
-                        onChange={(e) => setCustomerEmail(e.target.value)}
-                        data-testid="input-customer-email"
-                      />
-                    </div>
-
-                    <SheetFooter className="flex-col gap-3 border-t pt-4">
-                      <div className="space-y-2 w-full">
-                        <div className="flex justify-between text-sm">
-                          <span>Subtotal</span>
-                          <span data-testid="subtotal">${subtotal.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Tax (10%)</span>
-                          <span data-testid="tax">${tax.toFixed(2)}</span>
-                        </div>
-                        <Separator />
-                        <div className="flex justify-between text-lg font-bold">
-                          <span>Total</span>
-                          <span data-testid="total">${total.toFixed(2)}</span>
-                        </div>
-                      </div>
-
-                      <div className="w-full space-y-3">
-                        <Label className="text-sm font-medium">Payment Method</Label>
-                        <RadioGroup 
-                          value={paymentMethod} 
-                          onValueChange={(value: 'stripe' | 'paypal' | 'cash') => {
-                            setPaymentMethod(value);
-                            setCurrentOrderId(null);
-                            paypalRendered.current = false;
-                          }}
-                          className="flex flex-col gap-3"
-                          data-testid="radio-payment-method"
-                        >
-                          {enabledPaymentMethods?.cash && (
-                            <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                              <RadioGroupItem value="cash" id="cash" data-testid="radio-cash" />
-                              <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer flex-1">
-                                <CreditCard className="h-4 w-4" />
-                                <div className="flex-1">
-                                  <div className="font-medium">Cash on Delivery</div>
-                                  <div className="text-xs text-muted-foreground">Pay when you receive your order</div>
-                                </div>
-                              </Label>
-                            </div>
-                          )}
-                          
-                          {enabledPaymentMethods?.paypal && (
-                            <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                              <RadioGroupItem value="paypal" id="paypal" data-testid="radio-paypal" />
-                              <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer flex-1">
-                                <SiPaypal className="h-4 w-4" />
-                                <div className="flex-1">
-                                  <div className="font-medium">PayPal</div>
-                                  <div className="text-xs text-muted-foreground">Pay securely with PayPal</div>
-                                </div>
-                              </Label>
-                            </div>
-                          )}
-                          
-                          {enabledPaymentMethods?.stripe && (
-                            <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                              <RadioGroupItem value="stripe" id="stripe" data-testid="radio-stripe" />
-                              <Label htmlFor="stripe" className="flex items-center gap-2 cursor-pointer flex-1">
-                                <CreditCard className="h-4 w-4" />
-                                <div className="flex-1">
-                                  <div className="font-medium">Credit / Debit Card</div>
-                                  <div className="text-xs text-muted-foreground">Pay securely with Stripe</div>
-                                </div>
-                              </Label>
-                            </div>
-                          )}
-                        </RadioGroup>
-                      </div>
-
-                      {!currentOrderId || paymentMethod === 'cash' ? (
-                        <Button
-                          className="w-full h-12"
-                          disabled={!customerName || !customerPhone || checkoutMutation.isPending}
-                          onClick={() => checkoutMutation.mutate()}
-                          data-testid="button-checkout"
-                        >
-                          {checkoutMutation.isPending ? "Processing..." : paymentMethod === 'cash' ? "Place Order" : "Continue to Payment"}
-                        </Button>
-                      ) : (
-                        <div className="w-full">
-                          <div ref={paypalButtonsRef} data-testid="paypal-buttons" />
-                        </div>
-                      )}
-                    </SheetFooter>
-                  </>
+              
+              <div className="pb-2">
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold">{restaurant.name}</h1>
+                {restaurant.description && (
+                  <p className="text-muted-foreground mt-1 hidden sm:block">{restaurant.description}</p>
                 )}
-              </SheetContent>
-            </Sheet>
-          </div>
-        </div>
-      </div>
-
-      {/* Hero Section */}
-      <div className="relative border-b">
-        {/* Cover Photo Background */}
-        {restaurant.coverImageUrl ? (
-          <div className="relative h-64 md:h-80">
-            <div 
-              className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: `url(${restaurant.coverImageUrl})` }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
-          </div>
-        ) : (
-          <div className="relative h-64 md:h-80 bg-gradient-to-br from-primary/10 via-background to-background">
-            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
-          </div>
-        )}
-        
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16">
-          <div className="flex items-start gap-4 mb-4">
-            {/* Logo */}
-            {restaurant.logoUrl ? (
-              <img 
-                src={restaurant.logoUrl} 
-                alt={`${restaurant.name} logo`}
-                className="h-24 w-24 md:h-32 md:w-32 rounded-lg object-cover bg-background border-4 border-background shadow-lg"
-              />
-            ) : (
-              <div className="h-24 w-24 md:h-32 md:w-32 rounded-lg bg-primary flex items-center justify-center border-4 border-background shadow-lg">
-                <Store className="h-12 w-12 md:h-16 md:w-16 text-primary-foreground" />
               </div>
-            )}
-            
-            <div className="flex-1 mt-8">
-              <h1 className="text-3xl md:text-4xl font-display font-bold">{restaurant.name}</h1>
-              {restaurant.description && (
-                <p className="text-muted-foreground mt-1">{restaurant.description}</p>
-              )}
             </div>
           </div>
-          
-          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground pb-4">
-            {restaurant.address && (
-              <div className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                {restaurant.address}
-              </div>
-            )}
-            {restaurant.phone && (
-              <div className="flex items-center gap-1">
-                <Phone className="h-4 w-4" />
-                {restaurant.phone}
-              </div>
-            )}
-            {openingHours && (
-              <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                <span>See hours below</span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Opening Hours Section */}
-      {openingHours && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
-                <Clock className="h-5 w-5" />
-                Opening Hours
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {Object.entries(openingHours).map(([day, hours]) => (
-                  <div key={day} className="flex justify-between items-center">
-                    <span className="capitalize font-medium">{day}</span>
-                    <span className="text-muted-foreground">
-                      {hours.closed ? "Closed" : `${hours.open} - ${hours.close}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Menu */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Category Filter */}
-        <div className="sticky top-0 bg-background z-10 pb-4 mb-6 border-b">
+      {/* Categories - Horizontal Pills */}
+      <div className="bg-background border-b sticky top-16 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <ScrollArea className="w-full">
-            <div className="flex gap-2">
-              <Button
+            <div className="flex gap-2 pb-2">
+              <Badge
                 variant={selectedCategory === null ? "default" : "outline"}
+                className="px-4 py-2 text-sm cursor-pointer whitespace-nowrap hover-elevate"
                 onClick={() => setSelectedCategory(null)}
-                data-testid="filter-all"
+                data-testid="category-all"
               >
                 All
-              </Button>
+              </Badge>
               {categories?.map((category) => (
-                <Button
+                <Badge
                   key={category.id}
                   variant={selectedCategory === category.id ? "default" : "outline"}
+                  className="px-4 py-2 text-sm cursor-pointer whitespace-nowrap hover-elevate"
                   onClick={() => setSelectedCategory(category.id)}
-                  data-testid={`filter-${category.name.toLowerCase()}`}
+                  data-testid={`category-${category.name.toLowerCase()}`}
                 >
                   {category.name}
-                </Button>
+                </Badge>
               ))}
             </div>
           </ScrollArea>
         </div>
-
-        {/* Menu Items */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredItems?.map((item) => (
-            <Card key={item.id} className="hover-elevate overflow-hidden" data-testid={`menu-item-${item.id}`}>
-              {item.imageUrl && (
-                <div className="aspect-video w-full overflow-hidden">
-                  <img
-                    src={item.imageUrl}
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg mb-1">{item.name}</h3>
-                    {item.description && (
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {item.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold text-primary">
-                    ${parseFloat(item.price).toFixed(2)}
-                  </span>
-                  <Button
-                    onClick={() => addToCart(item)}
-                    size="sm"
-                    data-testid={`add-to-cart-${item.id}`}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </div>
 
+      {/* Menu Items Grid */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {filteredItems && filteredItems.length > 0 ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredItems.map((item) => (
+              <Card 
+                key={item.id} 
+                className="overflow-hidden hover-elevate transition-all cursor-pointer group" 
+                onClick={() => item.isAvailable && addToCart(item)}
+                data-testid={`menu-item-${item.id}`}
+              >
+                <div className="relative aspect-square">
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                      <Store className="h-16 w-16 text-muted-foreground/50" />
+                    </div>
+                  )}
+                  
+                  {!item.isAvailable && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <Badge variant="destructive" className="text-sm">Out of Stock</Badge>
+                    </div>
+                  )}
+                </div>
+                
+                <CardContent className="p-4">
+                  <h3 className="font-bold text-lg mb-1 line-clamp-1">{item.name}</h3>
+                  {item.description && (
+                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-primary">
+                      {currencySymbol === 'DH' ? `${parseFloat(item.price).toFixed(0)} ${currencySymbol}` : `${currencySymbol}${item.price}`}
+                    </span>
+                    {item.isAvailable && (
+                      <Button 
+                        size="icon" 
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(item);
+                        }}
+                        data-testid={`button-add-${item.id}`}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Store className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">No menu items available</p>
+          </div>
+        )}
+      </div>
+
+      {/* Opening Hours - Footer */}
+      {openingHours && (
+        <div className="border-t bg-muted/30 mt-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
+              <Clock className="h-5 w-5" />
+              Opening Hours
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(openingHours).map(([day, hours]: [string, any]) => (
+                <div key={day} className="flex justify-between items-center p-3 bg-background rounded-lg">
+                  <span className="capitalize font-medium">{day}</span>
+                  <span className="text-muted-foreground">
+                    {hours.closed ? "Closed" : `${hours.open} - ${hours.close}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

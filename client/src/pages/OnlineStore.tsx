@@ -10,8 +10,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Image as ImageIcon, Clock, ExternalLink, CreditCard, Wallet } from "lucide-react";
+import { Upload, Image as ImageIcon, Clock, ExternalLink, CreditCard, Wallet, Globe } from "lucide-react";
 import type { UploadResult } from "@uppy/core";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface OpeningHours {
   [key: string]: { open: string; close: string; closed: boolean };
@@ -42,6 +49,8 @@ const defaultPaymentMethods: PaymentMethods = {
 export default function OnlineStore() {
   const { toast } = useToast();
   const [openingHours, setOpeningHours] = useState<OpeningHours>(defaultOpeningHours);
+  const [currency, setCurrency] = useState("USD");
+  const [country, setCountry] = useState("United States");
   const [paymentSettings, setPaymentSettings] = useState({
     stripePublicKey: "",
     stripeSecretKey: "",
@@ -119,6 +128,19 @@ export default function OnlineStore() {
     },
   });
 
+  const regionalSettingsMutation = useMutation({
+    mutationFn: async (settings: { currency: string; country: string }) => {
+      return apiRequest("PUT", "/api/restaurant/regional-settings", settings);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
+      toast({ title: "Regional settings updated successfully!" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update regional settings", variant: "destructive" });
+    },
+  });
+
   const handleGetUploadParameters = async () => {
     const response = await fetch("/api/objects/upload", {
       method: "POST",
@@ -186,6 +208,14 @@ export default function OnlineStore() {
       setPaymentMethods(restaurant.paymentMethods as PaymentMethods);
     }
   }, [restaurant?.paymentMethods]);
+
+  // Load existing regional settings
+  useEffect(() => {
+    if (restaurant) {
+      setCurrency(restaurant.currency || "USD");
+      setCountry(restaurant.country || "United States");
+    }
+  }, [restaurant?.currency, restaurant?.country]);
 
   if (isLoading) {
     return (
@@ -309,6 +339,79 @@ export default function OnlineStore() {
               <p className="text-xs text-muted-foreground">Recommended: 1200x400px, max 5MB</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Regional Settings Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Regional Settings
+          </CardTitle>
+          <CardDescription>Configure currency and location settings for your store</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="currency">Currency</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger id="currency" data-testid="select-currency">
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">USD - US Dollar ($)</SelectItem>
+                  <SelectItem value="EUR">EUR - Euro (€)</SelectItem>
+                  <SelectItem value="GBP">GBP - British Pound (£)</SelectItem>
+                  <SelectItem value="MAD">MAD - Moroccan Dirham (DH)</SelectItem>
+                  <SelectItem value="CAD">CAD - Canadian Dollar (C$)</SelectItem>
+                  <SelectItem value="AUD">AUD - Australian Dollar (A$)</SelectItem>
+                  <SelectItem value="JPY">JPY - Japanese Yen (¥)</SelectItem>
+                  <SelectItem value="CNY">CNY - Chinese Yuan (¥)</SelectItem>
+                  <SelectItem value="INR">INR - Indian Rupee (₹)</SelectItem>
+                  <SelectItem value="AED">AED - UAE Dirham (د.إ)</SelectItem>
+                  <SelectItem value="SAR">SAR - Saudi Riyal (﷼)</SelectItem>
+                  <SelectItem value="EGP">EGP - Egyptian Pound (E£)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Select your local currency</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger id="country" data-testid="select-country">
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="United States">United States</SelectItem>
+                  <SelectItem value="Canada">Canada</SelectItem>
+                  <SelectItem value="United Kingdom">United Kingdom</SelectItem>
+                  <SelectItem value="Morocco">Morocco</SelectItem>
+                  <SelectItem value="France">France</SelectItem>
+                  <SelectItem value="Germany">Germany</SelectItem>
+                  <SelectItem value="Spain">Spain</SelectItem>
+                  <SelectItem value="Italy">Italy</SelectItem>
+                  <SelectItem value="UAE">United Arab Emirates</SelectItem>
+                  <SelectItem value="Saudi Arabia">Saudi Arabia</SelectItem>
+                  <SelectItem value="Egypt">Egypt</SelectItem>
+                  <SelectItem value="India">India</SelectItem>
+                  <SelectItem value="China">China</SelectItem>
+                  <SelectItem value="Japan">Japan</SelectItem>
+                  <SelectItem value="Australia">Australia</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Select your restaurant's location</p>
+            </div>
+          </div>
+
+          <Button 
+            onClick={() => regionalSettingsMutation.mutate({ currency, country })}
+            disabled={regionalSettingsMutation.isPending}
+            data-testid="button-save-regional-settings"
+          >
+            Save Regional Settings
+          </Button>
         </CardContent>
       </Card>
 

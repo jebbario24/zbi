@@ -34,8 +34,9 @@ export function ObjectUploader({
       restrictions: {
         maxNumberOfFiles,
         maxFileSize,
+        allowedFileTypes: ['image/*'],
       },
-      autoProceed: false,
+      autoProceed: true,
     })
       .use(AwsS3, {
         shouldUseMultipart: false,
@@ -49,7 +50,11 @@ export function ObjectUploader({
 
   return (
     <div>
-      <Button onClick={() => setShowModal(true)} className={buttonClassName}>
+      <Button 
+        onClick={() => setShowModal(true)} 
+        className={buttonClassName}
+        data-testid="button-upload-file"
+      >
         {children}
       </Button>
 
@@ -58,6 +63,13 @@ export function ObjectUploader({
         open={showModal}
         onRequestClose={() => setShowModal(false)}
         proudlyDisplayPoweredByUppy={false}
+        note="Images only, max 5MB"
+        locale={{
+          strings: {
+            dropPasteFiles: 'Drop files here or %{browseFiles}',
+            browseFiles: 'browse files',
+          }
+        }}
       />
     </div>
   );

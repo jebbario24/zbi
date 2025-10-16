@@ -1070,6 +1070,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/restaurant/regional-settings", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const { currency, country } = req.body;
+
+    if (!currency || !country) {
+      return res.status(400).json({ error: "currency and country are required" });
+    }
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      await storage.updateRestaurant(restaurant.id, { currency, country });
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error updating regional settings:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.put("/api/menu-item/:id/image", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     const { id } = req.params;
