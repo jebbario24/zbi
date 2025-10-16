@@ -513,15 +513,19 @@ export default function Menu() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((item) => (
             <Card key={item.id} className="hover-elevate overflow-hidden" data-testid={`menu-item-${item.id}`}>
-              {item.imageUrl && (
-                <div className="aspect-video w-full overflow-hidden">
+              <div className="aspect-video w-full overflow-hidden">
+                {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
                     alt={item.name}
                     className="w-full h-full object-cover"
                   />
-                </div>
-              )}
+                ) : (
+                  <div className="w-full h-full bg-muted/30 flex items-center justify-center">
+                    <ImagePlus className="h-16 w-16 text-muted-foreground/30" />
+                  </div>
+                )}
+              </div>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-lg">{item.name}</CardTitle>
