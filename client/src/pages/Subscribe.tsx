@@ -67,7 +67,11 @@ export default function Subscribe() {
   const { toast } = useToast();
   const [clientSecret, setClientSecret] = useState("");
 
-  const { data: subscriptionStatus, isLoading: statusLoading } = useQuery({
+  const { data: subscriptionStatus, isLoading: statusLoading } = useQuery<{
+    isSubscriptionActive?: boolean;
+    isTrialActive?: boolean;
+    trialEndsAt?: string;
+  }>({
     queryKey: ['/api/subscription-status'],
   });
 
@@ -82,8 +86,8 @@ export default function Subscribe() {
     }
 
     // Create subscription regardless of trial status (allow early subscription)
-    apiRequest("POST", "/api/create-subscription", {})
-      .then((data) => {
+    apiRequest("/api/create-subscription", "POST", {})
+      .then((data: any) => {
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
         }
