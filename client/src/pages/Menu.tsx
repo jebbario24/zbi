@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit, TrendingUp, AlertTriangle, Users, Zap } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit, TrendingUp, AlertTriangle, Users, Zap, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -486,44 +486,74 @@ export default function Menu() {
                       name="imageUrl"
                       render={({ field }) => (
                         <FormItem>
-                          <div className="flex items-start gap-4">
+                          <div className="space-y-4">
                             {field.value ? (
-                              <div 
-                                className="relative group cursor-pointer"
-                                onClick={() => imageUploaderRef.current?.triggerUpload()}
-                              >
-                                <img
-                                  src={field.value}
-                                  alt="Menu item preview"
-                                  className="w-32 h-32 object-cover rounded-lg border-2 border-border"
-                                />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                                  <Upload className="h-6 w-6 text-white" />
+                              <div className="flex flex-col items-center gap-4">
+                                <div 
+                                  className="relative group cursor-pointer"
+                                  onClick={() => imageUploaderRef.current?.triggerUpload()}
+                                >
+                                  <img
+                                    src={field.value}
+                                    alt="Menu item preview"
+                                    className="w-full max-w-sm h-48 object-cover rounded-lg border-2 border-border"
+                                  />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex flex-col items-center justify-center gap-2">
+                                    <Upload className="h-8 w-8 text-white" />
+                                    <span className="text-white text-sm font-medium">Click to change photo</span>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 w-full max-w-sm">
+                                  <div className="flex-1">
+                                    <ObjectUploader
+                                      ref={imageUploaderRef}
+                                      maxNumberOfFiles={1}
+                                      maxFileSize={5242880}
+                                      onGetUploadParameters={handleGetUploadParameters}
+                                      onComplete={handleItemImageComplete}
+                                    >
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Change Photo
+                                    </ObjectUploader>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => field.onChange("")}
+                                    className="gap-2"
+                                    data-testid="button-remove-photo"
+                                  >
+                                    <X className="h-4 w-4" />
+                                    Remove
+                                  </Button>
                                 </div>
                               </div>
                             ) : (
-                              <div 
-                                className="w-32 h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/20 cursor-pointer hover-elevate active-elevate-2"
-                                onClick={() => imageUploaderRef.current?.triggerUpload()}
-                              >
-                                <ImagePlus className="h-12 w-12 text-muted-foreground/40" />
+                              <div className="flex flex-col items-center gap-4">
+                                <div 
+                                  className="w-full max-w-sm h-48 rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center gap-3 bg-muted/20 cursor-pointer hover-elevate active-elevate-2 transition-all"
+                                  onClick={() => imageUploaderRef.current?.triggerUpload()}
+                                >
+                                  <ImagePlus className="h-16 w-16 text-muted-foreground/40" />
+                                  <p className="text-sm text-muted-foreground">Click to upload photo</p>
+                                </div>
+                                <div className="w-full max-w-sm space-y-2">
+                                  <ObjectUploader
+                                    ref={imageUploaderRef}
+                                    maxNumberOfFiles={1}
+                                    maxFileSize={5242880}
+                                    onGetUploadParameters={handleGetUploadParameters}
+                                    onComplete={handleItemImageComplete}
+                                  >
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Upload Photo
+                                  </ObjectUploader>
+                                  <p className="text-xs text-muted-foreground text-center">
+                                    Add an appetizing photo of your dish (max 5MB, JPG or PNG)
+                                  </p>
+                                </div>
                               </div>
                             )}
-                            <div className="flex-1">
-                              <ObjectUploader
-                                ref={imageUploaderRef}
-                                maxNumberOfFiles={1}
-                                maxFileSize={5242880}
-                                onGetUploadParameters={handleGetUploadParameters}
-                                onComplete={handleItemImageComplete}
-                              >
-                                <Upload className="h-4 w-4 mr-2" />
-                                {field.value ? "Change Photo" : "Upload Photo"}
-                              </ObjectUploader>
-                              <p className="text-xs text-muted-foreground mt-2">
-                                Add an appetizing photo of your dish (max 5MB)
-                              </p>
-                            </div>
                           </div>
                           <FormMessage />
                         </FormItem>
