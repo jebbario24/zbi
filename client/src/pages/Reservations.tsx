@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Calendar, Edit, Trash2 } from "lucide-react";
+import { Plus, Calendar, Edit, Trash2, Users, Phone, Mail, Clock, MapPin } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -126,16 +127,23 @@ export default function Reservations() {
           description: "You are logged out. Logging in again...",
           variant: "destructive",
         });
-        setTimeout(() => window.location.href = "/api/login", 500);
-        return;
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+      } else {
+        toast({
+          title: "Failed to create reservation",
+          description: error.message,
+          variant: "destructive",
+        });
       }
-      toast({ title: "Failed to create reservation", variant: "destructive" });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof reservationSchema> }) => {
-      return await apiRequest("PUT", `/api/reservations/${id}`, {
+    mutationFn: async (data: z.infer<typeof reservationSchema>) => {
+      if (!editingReservation) return;
+      return await apiRequest("PUT", `/api/reservations/${editingReservation.id}`, {
         ...data,
         partySize: parseInt(data.partySize),
         tableId: data.tableId || null,
@@ -150,16 +158,11 @@ export default function Reservations() {
       form.reset();
     },
     onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => window.location.href = "/api/login", 500);
-        return;
-      }
-      toast({ title: "Failed to update reservation", variant: "destructive" });
+      toast({
+        title: "Failed to update reservation",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -172,69 +175,92 @@ export default function Reservations() {
       toast({ title: "Reservation deleted successfully" });
     },
     onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => window.location.href = "/api/login", 500);
-        return;
-      }
-      toast({ title: "Failed to delete reservation", variant: "destructive" });
+      toast({
+        title: "Failed to delete reservation",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
+  const handleSubmit = form.handleSubmit((data) => {
+    if (editingReservation) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  });
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setEditingReservation(null);
+      form.reset();
+    }
+  };
+
   if (authLoading || isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 p-8">
         <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-96" />
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   }
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'seated':
+        return 'default';
+      case 'completed':
+        return 'secondary';
+      case 'cancelled':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return {
+      date: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+      time: date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+    };
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-8 p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold">Reservations</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage table reservations
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">Reservations</h1>
+          <p className="text-muted-foreground mt-1">Manage your restaurant bookings and reservations</p>
         </div>
-        <Dialog 
-          open={dialogOpen} 
-          onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) {
-              setEditingReservation(null);
-              form.reset();
-            }
-          }}
-        >
+        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
-            <Button data-testid="button-new-reservation">
+            <Button size="default" data-testid="button-add-reservation">
               <Plus className="mr-2 h-4 w-4" />
               New Reservation
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{editingReservation ? "Edit Reservation" : "New Reservation"}</DialogTitle>
+              <DialogTitle className="text-2xl">
+                {editingReservation ? "Edit Reservation" : "Create New Reservation"}
+              </DialogTitle>
               <DialogDescription>
-                {editingReservation ? "Update reservation information" : "Create a new table reservation"}
+                {editingReservation 
+                  ? "Update the reservation details below" 
+                  : "Fill in the details to create a new reservation"}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => {
-                if (editingReservation) {
-                  updateMutation.mutate({ id: editingReservation.id, data });
-                } else {
-                  createMutation.mutate(data);
-                }
-              })} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
                     name="customerName"
@@ -242,7 +268,7 @@ export default function Reservations() {
                       <FormItem>
                         <FormLabel>Customer Name</FormLabel>
                         <FormControl>
-                          <Input {...field} data-testid="input-customer-name" />
+                          <Input placeholder="John Doe" {...field} data-testid="input-customer-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -255,13 +281,14 @@ export default function Reservations() {
                       <FormItem>
                         <FormLabel>Phone Number</FormLabel>
                         <FormControl>
-                          <Input {...field} data-testid="input-customer-phone" />
+                          <Input placeholder="+1 (555) 000-0000" {...field} data-testid="input-customer-phone" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+
                 <FormField
                   control={form.control}
                   name="customerEmail"
@@ -269,13 +296,14 @@ export default function Reservations() {
                     <FormItem>
                       <FormLabel>Email (Optional)</FormLabel>
                       <FormControl>
-                        <Input type="email" {...field} data-testid="input-customer-email" />
+                        <Input type="email" placeholder="john@example.com" {...field} data-testid="input-customer-email" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-4">
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <FormField
                     control={form.control}
                     name="partySize"
@@ -283,7 +311,7 @@ export default function Reservations() {
                       <FormItem>
                         <FormLabel>Party Size</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} data-testid="input-party-size" />
+                          <Input type="number" min="1" placeholder="4" {...field} data-testid="input-party-size" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -291,55 +319,65 @@ export default function Reservations() {
                   />
                   <FormField
                     control={form.control}
-                    name="tableId"
+                    name="reservationDate"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Table (Optional)</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-table">
-                              <SelectValue placeholder="Select table" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {tables?.map((table) => (
-                              <SelectItem key={table.id} value={table.id}>
-                                Table {table.tableNumber} (Capacity: {table.capacity})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Date & Time</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" {...field} data-testid="input-reservation-date" />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+
                 <FormField
                   control={form.control}
-                  name="reservationDate"
+                  name="tableId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Date & Time</FormLabel>
-                      <FormControl>
-                        <Input type="datetime-local" {...field} data-testid="input-reservation-date" />
-                      </FormControl>
+                      <FormLabel>Table (Optional)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-table">
+                            <SelectValue placeholder="Select a table" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">No specific table</SelectItem>
+                          {tables?.map((table) => (
+                            <SelectItem key={table.id} value={table.id}>
+                              Table {table.tableNumber} {table.category ? `(${table.category})` : ""} - {table.capacity} seats
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
                 <FormField
                   control={form.control}
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Notes (Optional)</FormLabel>
+                      <FormLabel>Special Requests (Optional)</FormLabel>
                       <FormControl>
-                        <Input {...field} data-testid="input-notes" />
+                        <Textarea
+                          placeholder="Any special requests or dietary requirements..."
+                          className="resize-none"
+                          rows={3}
+                          {...field}
+                          data-testid="input-notes"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
                 <DialogFooter>
                   <Button 
                     type="submit" 
@@ -358,69 +396,113 @@ export default function Reservations() {
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming Reservations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {reservations && reservations.length > 0 ? (
-            <div className="space-y-3">
-              {reservations.map((reservation) => (
-                <div
-                  key={reservation.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate group relative"
-                  data-testid={`reservation-${reservation.id}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <Calendar className="h-10 w-10 text-primary" />
-                    <div>
-                      <p className="font-semibold">{reservation.customerName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Party of {reservation.partySize} • {reservation.customerPhone}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(reservation.reservationDate).toLocaleString()}
-                      </p>
+      <div className="grid gap-4">
+        {reservations && reservations.length > 0 ? (
+          reservations.map((reservation) => {
+            const { date, time } = formatDateTime(reservation.reservationDate);
+            const table = tables?.find(t => t.id === reservation.tableId);
+            
+            return (
+              <Card key={reservation.id} className="group relative hover-elevate" data-testid={`reservation-${reservation.id}`}>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between gap-6">
+                    <div className="flex gap-6 flex-1">
+                      {/* Date/Time Column */}
+                      <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg p-4 min-w-[100px]">
+                        <Calendar className="h-6 w-6 text-primary mb-2" />
+                        <div className="text-center">
+                          <p className="font-semibold text-sm">{date}</p>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                            <Clock className="h-3 w-3" />
+                            {time}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Details Column */}
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-lg">{reservation.customerName}</h3>
+                          <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Users className="h-4 w-4" />
+                              Party of {reservation.partySize}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-4 w-4" />
+                              {reservation.customerPhone}
+                            </span>
+                            {reservation.customerEmail && (
+                              <span className="flex items-center gap-1">
+                                <Mail className="h-4 w-4" />
+                                {reservation.customerEmail}
+                              </span>
+                            )}
+                            {table && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-4 w-4" />
+                                Table {table.tableNumber}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {reservation.notes && (
+                          <div className="bg-muted/50 rounded-md p-3">
+                            <p className="text-sm text-muted-foreground italic">"{reservation.notes}"</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions Column */}
+                    <div className="flex items-center gap-3">
+                      <Badge variant={getStatusColor(reservation.status)} className="capitalize">
+                        {reservation.status}
+                      </Badge>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setEditingReservation(reservation)}
+                          data-testid={`button-edit-reservation-${reservation.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => deleteMutation.mutate(reservation.id)}
+                          disabled={deleteMutation.isPending}
+                          data-testid={`button-delete-reservation-${reservation.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={reservation.status === "confirmed" ? "default" : "secondary"}>
-                      {reservation.status}
-                    </Badge>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setEditingReservation(reservation)}
-                        data-testid={`button-edit-reservation-${reservation.id}`}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => deleteMutation.mutate(reservation.id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid={`button-delete-reservation-${reservation.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground mb-4">No reservations yet</p>
+                </CardContent>
+              </Card>
+            );
+          })
+        ) : (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="rounded-full bg-primary/10 p-6 mb-4">
+                <Calendar className="h-12 w-12 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">No reservations yet</h3>
+              <p className="text-muted-foreground text-center mb-6 max-w-md">
+                Start managing your restaurant bookings by creating your first reservation
+              </p>
               <Button onClick={() => setDialogOpen(true)} data-testid="button-create-first-reservation">
                 <Plus className="mr-2 h-4 w-4" />
                 Create First Reservation
               </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
