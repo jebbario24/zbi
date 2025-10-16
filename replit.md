@@ -150,3 +150,35 @@ Restaurant owners can now fully customize their online storefront through the On
 - Database: Added image_url to menu_items table
 - Storefront: Updated to display all branding elements dynamically
 - Navigation: Added "Online Store" link to admin sidebar
+
+### Payment Settings & Methods (Completed - October 2025)
+Restaurant owners can now configure their payment processing options:
+
+**Payment Credentials Management:**
+- Enter and save Stripe API keys (Public Key and Secret Key)
+- Enter and save PayPal credentials (Client ID and Client Secret)
+- Secure storage of payment credentials in restaurant table
+- Only accessible to authenticated restaurant owners
+
+**Payment Methods Control:**
+- Enable/disable Stripe payment processing
+- Enable/disable PayPal payment processing
+- Enable/disable Cash on Delivery option
+- Payment methods stored as JSON in paymentMethods field
+- Dynamic rendering of payment options on storefront based on enabled methods
+
+**Storefront Enhancements:**
+- Cart moved from floating bottom-right to sticky top navigation (top right)
+- Responsive cart button with item count badge
+- Dynamic payment options display (only shows enabled methods)
+- Cash on Delivery option with clear messaging
+- Improved checkout flow for all payment types
+- Mobile-optimized cart and checkout experience
+
+**Implementation Details:**
+- Backend routes: /api/restaurant/payment-settings (PUT), /api/restaurant/payment-methods (PUT)
+- Database: Added stripePublicKey, stripeSecretKey, paypalClientId, paypalClientSecret, paymentMethods (jsonb) to restaurants table
+- Order schema: Updated to accept 'cash', 'stripe', and 'paypal' payment methods
+- Checkout route: Handles cash orders without payment gateway processing
+- Frontend: Payment Settings section in OnlineStore.tsx
+- Storefront: Conditional rendering of payment options based on restaurant settings
