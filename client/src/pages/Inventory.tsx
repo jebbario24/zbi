@@ -53,7 +53,7 @@ export default function Inventory() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.href = "/login";
       }, 500);
     }
   }, [isAuthenticated, authLoading, toast]);
@@ -100,7 +100,7 @@ export default function Inventory() {
           description: "You are logged out. Logging in again...",
           variant: "destructive",
         });
-        setTimeout(() => window.location.href = "/api/login", 500);
+        setTimeout(() => window.location.href = "/login", 500);
         return;
       }
       toast({ title: "Failed to add inventory item", variant: "destructive" });
@@ -129,7 +129,7 @@ export default function Inventory() {
           description: "You are logged out. Logging in again...",
           variant: "destructive",
         });
-        setTimeout(() => window.location.href = "/api/login", 500);
+        setTimeout(() => window.location.href = "/login", 500);
         return;
       }
       toast({ title: "Failed to update inventory item", variant: "destructive" });
@@ -151,7 +151,7 @@ export default function Inventory() {
           description: "You are logged out. Logging in again...",
           variant: "destructive",
         });
-        setTimeout(() => window.location.href = "/api/login", 500);
+        setTimeout(() => window.location.href = "/login", 500);
         return;
       }
       toast({ title: "Failed to delete inventory item", variant: "destructive" });

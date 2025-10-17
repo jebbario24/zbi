@@ -157,7 +157,7 @@ export default function Subscribe() {
             <Button 
               size="lg" 
               className="w-full"
-              onClick={() => window.location.href = '/api/login'}
+              onClick={() => window.location.href = '/login'}
               data-testid="button-signin-to-subscribe"
             >
               <LogIn className="mr-2 h-5 w-5" />

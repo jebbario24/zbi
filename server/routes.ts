@@ -1,7 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { passport, hashPassword } from "./auth";
 import {
   insertRestaurantSchema,
   insertMenuCategorySchema,
@@ -102,16 +104,21 @@ const onlineOrderSchema = z.object({
   total: z.string(),
 });
 
+// Middleware to check if user is authenticated
+const isAuthenticated = (req: any, res: any, next: any) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+};
+
 // Middleware to check if user is admin
 const isAdmin = async (req: any, res: any, next: any) => {
   if (!req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
   
-  const userId = req.user.claims.sub;
-  const user = await storage.getUser(userId);
-  
-  if (!user || user.role !== 'admin') {
+  if (req.user.role !== 'admin') {
     return res.status(403).json({ message: "Forbidden: Admin access required" });
   }
   
@@ -124,12 +131,7 @@ const requireActiveSubscription = async (req: any, res: any, next: any) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
   
-  const userId = req.user.claims.sub;
-  const user = await storage.getUser(userId);
-  
-  if (!user) {
-    return res.status(401).json({ message: "User not found" });
-  }
+  const user = req.user;
   
   // Admins bypass subscription check
   if (user.role === 'admin') {
@@ -156,7 +158,34 @@ const requireActiveSubscription = async (req: any, res: any, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  await setupAuth(app);
+  // Trust proxy for secure cookies behind Replit proxy
+  app.set("trust proxy", 1);
+
+  // Session configuration
+  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 7 days
+  const pgStore = connectPg(session);
+  const sessionStore = new pgStore({
+    conString: process.env.DATABASE_URL,
+    createTableIfMissing: false,
+    ttl: sessionTtl,
+    tableName: "sessions",
+  });
+
+  app.use(session({
+    secret: process.env.SESSION_SECRET!,
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: sessionTtl,
+    },
+  }));
+
+  // Initialize Passport
+  app.use(passport.initialize());
+  app.use(passport.session());
 
   // Hostname-based storefront middleware - check for custom domain or subdomain
   app.use(async (req: any, res, next) => {
@@ -193,17 +222,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  
+  // Signup with email/password
+  app.post('/api/signup', async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      const { email, password, firstName, lastName } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email.toLowerCase());
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Hash password
+      const hashedPassword = await hashPassword(password);
+
+      // Calculate trial end date (7 days from now)
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+
+      // Create user
+      const user = await storage.createUser({
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        role: email.toLowerCase() === 'jebbario23@gmail.com' ? 'admin' : 'owner',
+        subscriptionStatus: 'trial',
+        trialEndsAt,
+      });
+
+      // Log the user in
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Login error after signup:", err);
+          return res.status(500).json({ message: "Failed to login after signup" });
+        }
+        res.json(user);
+      });
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      console.error("Signup error:", error);
+      res.status(500).json({ message: "Failed to create account" });
     }
   });
 
+  // Login with email/password
+  app.post('/api/login', (req, res, next) => {
+    passport.authenticate('local', (err: any, user: any, info: any) => {
+      if (err) {
+        console.error("Login error:", err);
+        return res.status(500).json({ message: "Login failed" });
+      }
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      }
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Session login error:", err);
+          return res.status(500).json({ message: "Failed to establish session" });
+        }
+        res.json(user);
+      });
+    })(req, res, next);
+  });
+
+  // Google OAuth routes
+  app.get('/api/auth/google',
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+  );
+
+  app.get('/api/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login' }),
+    (req, res) => {
+      // Successful authentication, redirect to dashboard
+      res.redirect('/dashboard');
+    }
+  );
+
+  // Get current user
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    const { password, ...userWithoutPassword } = req.user;
+    res.json(userWithoutPassword);
+  });
+
+  // Logout
   app.post('/api/logout', (req: any, res) => {
     req.logout((err: any) => {
       if (err) {
@@ -224,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Subscription routes
   app.post('/api/create-subscription', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -349,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/subscription-status', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -415,7 +521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/cancel-subscription', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.stripeSubscriptionId) {
@@ -534,7 +640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Restaurant routes
   app.get('/api/restaurants/me', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       res.json(restaurant || null);
     } catch (error) {
@@ -545,7 +651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/restaurants', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const data = insertRestaurantSchema.parse({ ...req.body, ownerId: userId });
       const restaurant = await storage.createRestaurant(data);
       res.json(restaurant);
@@ -557,7 +663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/restaurants/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       
       if (!restaurant || restaurant.id !== req.params.id) {
@@ -575,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/restaurants/:id/marketing', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       
       if (!restaurant || restaurant.id !== req.params.id) {
@@ -596,7 +702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Menu category routes
   app.get('/api/menu/categories', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json([]);
@@ -611,7 +717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/menu/categories', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -628,7 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Menu item routes
   app.get('/api/menu/items', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json([]);
@@ -643,7 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/menu/items', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -672,7 +778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/menu/items/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -701,7 +807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/menu/items/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -717,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Table routes
   app.get('/api/tables', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json([]);
@@ -732,7 +838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/tables', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -748,7 +854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/tables/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -765,7 +871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/tables/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -782,7 +888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reservation routes
   app.get('/api/reservations', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json([]);
@@ -797,7 +903,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/reservations', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -818,7 +924,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/reservations/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -837,7 +943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/reservations/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -854,7 +960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -878,7 +984,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Order routes
   app.get('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json([]);
@@ -893,7 +999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/orders/recent', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json([]);
@@ -908,7 +1014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -949,7 +1055,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/orders/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -976,7 +1082,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1003,7 +1109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Staff routes
   app.get('/api/staff', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json([]);
@@ -1018,7 +1124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/staff', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1034,7 +1140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/staff/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1050,7 +1156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/staff/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1066,7 +1172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Inventory routes
   app.get('/api/inventory', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json([]);
@@ -1081,7 +1187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/inventory', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1097,7 +1203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/inventory/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1113,7 +1219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/inventory/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1129,7 +1235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delivery zone routes
   app.get('/api/delivery-zones', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json([]);
@@ -1144,7 +1250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/delivery-zones', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1161,7 +1267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/delivery-zones/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1185,7 +1291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/delivery-zones/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -1209,7 +1315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analytics routes
   app.get('/api/analytics/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json({});
@@ -1244,7 +1350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/analytics/detailed', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
         return res.json({});
@@ -1537,7 +1643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/restaurant/logo", isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     if (!req.body.logoUrl) {
       return res.status(400).json({ error: "logoUrl is required" });
     }
@@ -1563,7 +1669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/restaurant/cover-image", isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     if (!req.body.coverImageUrl) {
       return res.status(400).json({ error: "coverImageUrl is required" });
     }
@@ -1589,7 +1695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/restaurant/opening-hours", isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     if (!req.body.openingHours) {
       return res.status(400).json({ error: "openingHours is required" });
     }
@@ -1609,7 +1715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/restaurant/payment-settings", isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     const { stripePublicKey, stripeSecretKey, paypalClientId, paypalClientSecret } = req.body;
 
     try {
@@ -1632,7 +1738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/restaurant/payment-methods", isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     if (!req.body.paymentMethods) {
       return res.status(400).json({ error: "paymentMethods is required" });
     }
@@ -1652,7 +1758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/restaurant/regional-settings", isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     const { currency, country } = req.body;
 
     if (!currency || !country) {
@@ -1674,7 +1780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/menu-item/:id/image", isAuthenticated, async (req: any, res) => {
-    const userId = req.user.claims.sub;
+    const userId = req.user.id;
     const { id } = req.params;
     if (!req.body.imageUrl) {
       return res.status(400).json({ error: "imageUrl is required" });
@@ -1703,7 +1809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stripe Connect OAuth routes
   app.get('/api/stripe-connect/oauth', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       
       if (!restaurant) {
@@ -1766,7 +1872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/stripe-connect/disconnect', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
 
       if (!restaurant) {
@@ -1852,7 +1958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PayPal OAuth routes
   app.get('/api/paypal-connect/oauth', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       
       if (!restaurant) {
@@ -1904,7 +2010,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/paypal-connect/disconnect', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
 
       if (!restaurant) {

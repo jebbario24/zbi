@@ -10,6 +10,8 @@ import { SubscriptionGuard } from "@/components/SubscriptionGuard";
 import { useAuth } from "@/hooks/useAuth";
 import { UserMenu } from "@/components/UserMenu";
 import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import Menu from "@/pages/Menu";
 import Orders from "@/pages/Orders";
@@ -53,6 +55,8 @@ function PublicRouter() {
   return (
     <Switch>
       <Route path="/">{isStorefrontDomain ? <Storefront /> : <Landing />}</Route>
+      <Route path="/login" component={Login} />
+      <Route path="/signup" component={Signup} />
       <Route path="/subscribe" component={Subscribe} />
       <Route path="/store/:slug" component={Storefront} />
       <Route component={NotFound} />
