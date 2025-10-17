@@ -364,6 +364,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stripe webhook endpoint for subscription events
+  app.post('/api/webhooks/stripe', async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!endpointSecret) {
+      console.error('Missing STRIPE_WEBHOOK_SECRET');
+      return res.status(500).send('Webhook secret not configured');
+    }
+
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      switch (event.type) {
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object as any;
+          const subscriptionId = invoice.subscription;
+          const customerId = invoice.customer;
+
+          // Find user by Stripe customer ID
+          const user = await storage.getUserByStripeCustomerId(customerId);
+          if (user) {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+
+            await storage.updateUserSubscription(user.id, {
+              subscriptionStatus: 'active',
+              subscriptionEndsAt: currentPeriodEnd,
+            });
+            console.log(`Subscription activated for user ${user.id}`);
+          }
+          break;
+        }
+
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as any;
+          const customerId = invoice.customer;
+
+          const user = await storage.getUserByStripeCustomerId(customerId);
+          if (user) {
+            await storage.updateUserSubscription(user.id, {
+              subscriptionStatus: 'past_due',
+            });
+            console.log(`Payment failed for user ${user.id}`);
+          }
+          break;
+        }
+
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as any;
+          const customerId = subscription.customer;
+
+          const user = await storage.getUserByStripeCustomerId(customerId);
+          if (user) {
+            await storage.updateUserSubscription(user.id, {
+              subscriptionStatus: 'canceled',
+            });
+            console.log(`Subscription canceled for user ${user.id}`);
+          }
+          break;
+        }
+
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object as any;
+          const customerId = subscription.customer;
+          
+          const user = await storage.getUserByStripeCustomerId(customerId);
+          if (user) {
+            const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+            
+            await storage.updateUserSubscription(user.id, {
+              subscriptionStatus: subscription.status,
+              subscriptionEndsAt: currentPeriodEnd,
+            });
+            console.log(`Subscription updated for user ${user.id}: ${subscription.status}`);
+          }
+          break;
+        }
+
+        default:
+          console.log(`Unhandled event type: ${event.type}`);
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+
   // Restaurant routes
   app.get('/api/restaurants/me', isAuthenticated, async (req: any, res) => {
     try {
