@@ -53,6 +53,7 @@ function PublicRouter() {
   return (
     <Switch>
       <Route path="/">{isStorefrontDomain ? <Storefront /> : <Landing />}</Route>
+      <Route path="/subscribe" component={Subscribe} />
       <Route path="/store/:slug" component={Storefront} />
       <Route component={NotFound} />
     </Switch>

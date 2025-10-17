@@ -4,10 +4,11 @@ import { loadStripe } from '@stripe/stripe-js';
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, CreditCard, Calendar } from "lucide-react";
+import { Check, CreditCard, Calendar, LogIn } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
@@ -65,6 +66,7 @@ const SubscribeForm = () => {
 
 export default function Subscribe() {
   const { toast } = useToast();
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [clientSecret, setClientSecret] = useState("");
 
   const { data: subscriptionStatus, isLoading: statusLoading } = useQuery<{
@@ -73,6 +75,7 @@ export default function Subscribe() {
     trialEndsAt?: string;
   }>({
     queryKey: ['/api/subscription-status'],
+    enabled: isAuthenticated, // Only fetch if authenticated
   });
 
   useEffect(() => {
@@ -100,6 +103,67 @@ export default function Subscribe() {
         });
       });
   }, [subscriptionStatus, clientSecret, toast]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto space-y-6">
+        <Skeleton className="h-12 w-64" />
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
+
+  // Show sign-in prompt for unauthenticated users
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-background flex items-center justify-center p-6">
+        <Card className="max-w-2xl w-full">
+          <CardHeader className="text-center space-y-4">
+            <CardTitle className="text-3xl font-display">Subscribe to EatOut</CardTitle>
+            <CardDescription className="text-lg">
+              Sign in to start your 7-day free trial and unlock all features
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="bg-primary/10 p-6 rounded-lg space-y-4">
+              <p className="text-2xl font-bold text-primary">$79/month</p>
+              <p className="text-sm text-muted-foreground">7-day free trial included</p>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                "Complete restaurant management platform",
+                "Online ordering with custom domain",
+                "Payment processing (Stripe, PayPal, Apple Pay, Google Pay)",
+                "Real-time analytics and reports",
+                "Menu, orders, tables, staff, and inventory management"
+              ].map((feature, index) => (
+                <div key={index} className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                  <p className="text-sm">{feature}</p>
+                </div>
+              ))}
+            </div>
+
+            <Button 
+              size="lg" 
+              className="w-full"
+              onClick={() => window.location.href = '/api/login'}
+              data-testid="button-signin-to-subscribe"
+            >
+              <LogIn className="mr-2 h-5 w-5" />
+              Sign In to Subscribe
+            </Button>
+
+            <p className="text-sm text-center text-muted-foreground">
+              New to EatOut? Signing in will create your account automatically.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (statusLoading) {
     return (
