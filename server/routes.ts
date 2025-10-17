@@ -653,6 +653,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const data = insertRestaurantSchema.parse({ ...req.body, ownerId: userId });
+      
+      // Convert empty strings to null for optional unique fields
+      if (data.customDomain === '') data.customDomain = null;
+      if (data.subdomain === '') data.subdomain = null;
+      
       const restaurant = await storage.createRestaurant(data);
       res.json(restaurant);
     } catch (error) {
@@ -671,6 +676,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const data = insertRestaurantSchema.partial().parse(req.body);
+      
+      // Convert empty strings to null for optional unique fields
+      if (data.customDomain === '') data.customDomain = null;
+      if (data.subdomain === '') data.subdomain = null;
+      
       const updated = await storage.updateRestaurant(req.params.id, data);
       res.json(updated);
     } catch (error) {
