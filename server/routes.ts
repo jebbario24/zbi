@@ -1083,7 +1083,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({});
       }
       
-      const orders = await storage.getOrders(restaurant.id);
+      // Get date filter from query params (default to 'year')
+      const dateFilter = req.query.dateFilter || 'year';
+      
+      // Calculate date range based on filter
+      const now = new Date();
+      let startDate = new Date();
+      let endDate: Date | null = null;
+      
+      switch (dateFilter) {
+        case 'last-7-days':
+          startDate.setDate(now.getDate() - 7);
+          startDate.setHours(0, 0, 0, 0); // Normalize to midnight
+          break;
+        case 'this-month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          startDate.setHours(0, 0, 0, 0); // Normalize to midnight
+          break;
+        case 'last-month':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          startDate.setHours(0, 0, 0, 0); // Normalize to midnight
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case 'year':
+        default:
+          startDate.setFullYear(now.getFullYear() - 1);
+          startDate.setHours(0, 0, 0, 0); // Normalize to midnight
+          break;
+      }
+      
+      const allOrders = await storage.getOrders(restaurant.id);
+      
+      // Filter orders by date range
+      const orders = allOrders.filter(order => {
+        if (!order.createdAt) return false;
+        const orderDate = new Date(order.createdAt);
+        
+        if (endDate) {
+          // For date ranges with both start and end (like last-month)
+          return orderDate >= startDate && orderDate <= endDate;
+        }
+        
+        // For date ranges with only start date (like year, this-month, last-7-days)
+        return orderDate >= startDate;
+      });
       
       // Calculate revenue metrics and breakdown in a single pass
       let totalRevenue = 0;
@@ -1119,7 +1163,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch all order items in one batched query
       const allOrderItems = await storage.getAllOrderItems(restaurant.id);
       
-      // Calculate popular menu items from batched order items
+      // Create a Set of filtered order IDs for efficient lookup
+      const filteredOrderIds = new Set(orders.map(order => order.id));
+      
+      // Filter order items to only include those from filtered orders
+      const filteredOrderItems = allOrderItems.filter(item => 
+        filteredOrderIds.has(item.orderId)
+      );
+      
+      // Calculate popular menu items from filtered order items
       const itemStats = new Map<string, { 
         menuItemId: string;
         name: string; 
@@ -1128,7 +1180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         revenue: number;
       }>();
       
-      for (const item of allOrderItems) {
+      for (const item of filteredOrderItems) {
         const key = item.menuItemId;
         const existing = itemStats.get(key);
         const itemRevenue = parseFloat(item.subtotal);

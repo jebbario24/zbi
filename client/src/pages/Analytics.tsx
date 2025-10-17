@@ -1,14 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, DollarSign, ShoppingCart, Star } from "lucide-react";
+import { TrendingUp, DollarSign, ShoppingCart, Star, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Analytics() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [dateFilter, setDateFilter] = useState<string>("year");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -34,7 +42,16 @@ export default function Analytics() {
     deliveryRevenue: string;
     onlineRevenue: string;
   }>({
-    queryKey: ["/api/analytics/detailed"],
+    queryKey: ["/api/analytics/detailed", dateFilter],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/detailed?dateFilter=${dateFilter}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${res.statusText}`);
+      }
+      return res.json();
+    },
   });
 
   if (authLoading || isLoading) {
@@ -83,11 +100,27 @@ export default function Analytics() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-display font-bold">Analytics</h1>
-        <p className="text-muted-foreground mt-1">
-          Track your restaurant's performance
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-display font-bold">Analytics</h1>
+          <p className="text-muted-foreground mt-1">
+            Track your restaurant's performance
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-[180px]" data-testid="select-date-filter">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="year" data-testid="filter-year">Year</SelectItem>
+              <SelectItem value="last-month" data-testid="filter-last-month">Last month</SelectItem>
+              <SelectItem value="this-month" data-testid="filter-this-month">This month</SelectItem>
+              <SelectItem value="last-7-days" data-testid="filter-last-7-days">Last 7 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
