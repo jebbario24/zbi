@@ -58,6 +58,7 @@ function AuthenticatedRouter() {
         <Route path="/" component={AdminDashboard} />
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/admin/restaurants" component={AdminRestaurants} />
+        <Route path="/settings" component={Settings} />
         <Route path="/store/:slug" component={Storefront} />
         <Route component={NotFound} />
       </Switch>
