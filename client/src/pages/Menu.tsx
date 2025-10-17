@@ -1022,12 +1022,20 @@ export default function Menu() {
                     src={item.imageUrl}
                     alt={item.name}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error(`Failed to load image for ${item.name}:`, item.imageUrl);
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
                   />
-                ) : (
-                  <div className="w-full h-full bg-muted/30 flex items-center justify-center">
-                    <ImagePlus className="h-16 w-16 text-muted-foreground/30" />
-                  </div>
-                )}
+                ) : null}
+                <div 
+                  className="w-full h-full bg-muted/30 flex items-center justify-center"
+                  style={{ display: item.imageUrl ? 'none' : 'flex' }}
+                >
+                  <ImagePlus className="h-16 w-16 text-muted-foreground/30" />
+                </div>
               </div>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">

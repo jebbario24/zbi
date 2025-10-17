@@ -1209,7 +1209,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Object Storage routes
-  app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
+  // Note: This route does NOT require authentication - public objects can be accessed by anyone
+  app.get("/objects/:objectPath(*)", async (req: any, res) => {
+    // Get userId if authenticated, undefined otherwise
     const userId = req.user?.claims?.sub;
     const objectStorageService = new ObjectStorageService();
     try {

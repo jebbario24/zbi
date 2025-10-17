@@ -37,5 +37,5 @@ Preferred communication style: Simple, everyday language.
 - **Development Tools:** Replit-specific plugins, runtime error overlay, source map support (@jridgewell/trace-mapping), and Hot Module Replacement (HMR).
 - **UI Components:** Radix UI primitives, Lucide React for icons, React Hook Form with Zod validation, CMDK for command palette, and Embla Carousel.
 - **Build & Deployment:** ESBuild for server, Vite for client-side bundling, platform-agnostic builds, and static asset serving.
-- **File Storage:** Replit Object Storage integration via @google-cloud/storage for restaurant assets (logos, cover photos, menu item images) using Uppy for file uploads.
+- **File Storage:** Replit Object Storage integration via @google-cloud/storage for restaurant assets (logos, cover photos, menu item images) using Uppy for file uploads. Images are automatically made public via ACL policies when uploaded. Image URLs are stored as `/objects/uploads/[uuid]` format in the database and served through the `/objects/*` route without authentication for public access.
 - **Planned Integrations:** "EatOut Delivery" app synchronization, mobile app marketplace integration, and potential drag-and-drop customization platform.
