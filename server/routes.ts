@@ -1533,6 +1533,174 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stripe Connect OAuth routes
+  app.get('/api/stripe-connect/oauth', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const stripeClientId = process.env.STRIPE_CLIENT_ID;
+      if (!stripeClientId) {
+        return res.status(500).json({ error: "Stripe Connect not configured" });
+      }
+
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/stripe-connect/callback`;
+      const state = Buffer.from(JSON.stringify({ restaurantId: restaurant.id, userId })).toString('base64');
+
+      const stripeAuthUrl = `https://connect.stripe.com/oauth/authorize?` +
+        `response_type=code&` +
+        `client_id=${stripeClientId}&` +
+        `scope=read_write&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `state=${state}`;
+
+      res.json({ url: stripeAuthUrl });
+    } catch (error) {
+      console.error("Error initiating Stripe Connect:", error);
+      res.status(500).json({ error: "Failed to initiate Stripe Connect" });
+    }
+  });
+
+  app.get('/api/stripe-connect/callback', async (req, res) => {
+    try {
+      const { code, state } = req.query;
+
+      if (!code || !state) {
+        return res.redirect('/settings?error=stripe_connect_failed');
+      }
+
+      const { restaurantId, userId } = JSON.parse(Buffer.from(state as string, 'base64').toString());
+      const stripePlatformKey = process.env.STRIPE_PLATFORM_SECRET_KEY;
+
+      if (!stripePlatformKey) {
+        return res.redirect('/settings?error=stripe_not_configured');
+      }
+
+      const platformStripe = new Stripe(stripePlatformKey, { apiVersion: "2025-09-30.clover" });
+      const response = await platformStripe.oauth.token({
+        grant_type: 'authorization_code',
+        code: code as string,
+      });
+
+      await storage.updateRestaurant(restaurantId, {
+        stripeAccountId: response.stripe_user_id,
+      });
+
+      res.redirect('/settings?success=stripe_connected');
+    } catch (error) {
+      console.error("Error completing Stripe Connect:", error);
+      res.redirect('/settings?error=stripe_connect_failed');
+    }
+  });
+
+  app.post('/api/stripe-connect/disconnect', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const stripePlatformKey = process.env.STRIPE_PLATFORM_SECRET_KEY;
+      if (!stripePlatformKey || !restaurant.stripeAccountId) {
+        return res.status(400).json({ error: "No connected account found" });
+      }
+
+      const platformStripe = new Stripe(stripePlatformKey, { apiVersion: "2025-09-30.clover" });
+      await platformStripe.oauth.deauthorize({
+        client_id: process.env.STRIPE_CLIENT_ID!,
+        stripe_user_id: restaurant.stripeAccountId,
+      });
+
+      await storage.updateRestaurant(restaurant.id, {
+        stripeAccountId: null,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error disconnecting Stripe:", error);
+      res.status(500).json({ error: "Failed to disconnect Stripe" });
+    }
+  });
+
+  // PayPal OAuth routes
+  app.get('/api/paypal-connect/oauth', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const paypalClientId = process.env.PAYPAL_PLATFORM_CLIENT_ID;
+      if (!paypalClientId) {
+        return res.status(500).json({ error: "PayPal Connect not configured" });
+      }
+
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/paypal-connect/callback`;
+      const state = Buffer.from(JSON.stringify({ restaurantId: restaurant.id, userId })).toString('base64');
+
+      const paypalAuthUrl = `https://www.sandbox.paypal.com/connect?` +
+        `flowEntry=static&` +
+        `client_id=${paypalClientId}&` +
+        `scope=openid email profile&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `state=${state}`;
+
+      res.json({ url: paypalAuthUrl });
+    } catch (error) {
+      console.error("Error initiating PayPal Connect:", error);
+      res.status(500).json({ error: "Failed to initiate PayPal Connect" });
+    }
+  });
+
+  app.get('/api/paypal-connect/callback', async (req, res) => {
+    try {
+      const { merchantId, state } = req.query;
+
+      if (!merchantId || !state) {
+        return res.redirect('/settings?error=paypal_connect_failed');
+      }
+
+      const { restaurantId } = JSON.parse(Buffer.from(state as string, 'base64').toString());
+
+      await storage.updateRestaurant(restaurantId, {
+        paypalMerchantId: merchantId as string,
+      });
+
+      res.redirect('/settings?success=paypal_connected');
+    } catch (error) {
+      console.error("Error completing PayPal Connect:", error);
+      res.redirect('/settings?error=paypal_connect_failed');
+    }
+  });
+
+  app.post('/api/paypal-connect/disconnect', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      await storage.updateRestaurant(restaurant.id, {
+        paypalMerchantId: null,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error disconnecting PayPal:", error);
+      res.status(500).json({ error: "Failed to disconnect PayPal" });
+    }
+  });
+
   // PayPal create order
   app.post('/api/paypal/create-order', async (req, res) => {
     try {
