@@ -109,7 +109,8 @@ export default function Subscribe() {
     // Only run once when subscriptionStatus is loaded and we don't have client secret or error
     if (!subscriptionStatus || clientSecret || initError) return;
     initializeSubscription();
-  }, [subscriptionStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscriptionStatus, clientSecret, initError]);
 
   // Show loading while checking authentication
   if (authLoading) {
