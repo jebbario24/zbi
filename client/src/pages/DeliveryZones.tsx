@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2, MapPin } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Check, ChevronsUpDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -36,12 +36,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { COUNTRIES } from "@/lib/countries-currencies";
+import { getCitiesByCountry, hasPreloadedCities } from "@/lib/cities-data";
 
 type ZoneFormData = {
   name: string;
-  centerLat: string;
-  centerLng: string;
-  radiusKm: string;
+  country: string;
+  city: string;
+  neighborhood: string;
   deliveryFee: string;
   minimumOrder: string;
 };
@@ -52,14 +68,21 @@ export default function DeliveryZones() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<DeliveryZone | null>(null);
   const [deleteZoneId, setDeleteZoneId] = useState<string | null>(null);
+  const [countryOpen, setCountryOpen] = useState(false);
+  const [cityOpen, setCityOpen] = useState(false);
   const [formData, setFormData] = useState<ZoneFormData>({
     name: "",
-    centerLat: "",
-    centerLng: "",
-    radiusKm: "",
+    country: "",
+    city: "",
+    neighborhood: "",
     deliveryFee: "",
     minimumOrder: "",
   });
+  
+  // Get selected country object
+  const selectedCountry = COUNTRIES.find(c => c.name === formData.country);
+  // Get cities for selected country
+  const availableCities = selectedCountry ? getCitiesByCountry(selectedCountry.code) : [];
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -82,9 +105,9 @@ export default function DeliveryZones() {
     mutationFn: async (data: ZoneFormData) => {
       return await apiRequest("/api/delivery-zones", "POST", {
         name: data.name,
-        centerLat: data.centerLat,
-        centerLng: data.centerLng,
-        radiusKm: data.radiusKm,
+        country: data.country,
+        city: data.city,
+        neighborhood: data.neighborhood || null,
         deliveryFee: data.deliveryFee,
         minimumOrder: data.minimumOrder || null,
       });
@@ -170,9 +193,9 @@ export default function DeliveryZones() {
   const resetForm = () => {
     setFormData({
       name: "",
-      centerLat: "",
-      centerLng: "",
-      radiusKm: "",
+      country: "",
+      city: "",
+      neighborhood: "",
       deliveryFee: "",
       minimumOrder: "",
     });
@@ -183,11 +206,11 @@ export default function DeliveryZones() {
       setEditingZone(zone);
       setFormData({
         name: zone.name,
-        centerLat: zone.centerLat,
-        centerLng: zone.centerLng,
-        radiusKm: zone.radiusKm,
-        deliveryFee: zone.deliveryFee,
-        minimumOrder: zone.minimumOrder || "",
+        country: zone.country || "",
+        city: zone.city || "",
+        neighborhood: zone.neighborhood || "",
+        deliveryFee: zone.deliveryFee.toString(),
+        minimumOrder: zone.minimumOrder?.toString() || "",
       });
     } else {
       setEditingZone(null);
@@ -240,8 +263,7 @@ export default function DeliveryZones() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Center</TableHead>
-                    <TableHead>Radius</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead>Delivery Fee</TableHead>
                     <TableHead>Min. Order</TableHead>
                     <TableHead>Status</TableHead>
@@ -252,10 +274,14 @@ export default function DeliveryZones() {
                   {zones.map((zone) => (
                     <TableRow key={zone.id} data-testid={`zone-row-${zone.id}`}>
                       <TableCell className="font-medium">{zone.name}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {parseFloat(zone.centerLat).toFixed(4)}, {parseFloat(zone.centerLng).toFixed(4)}
+                      <TableCell>
+                        <div className="flex flex-col text-sm">
+                          <span>{zone.city}, {zone.country}</span>
+                          {zone.neighborhood && (
+                            <span className="text-muted-foreground text-xs">{zone.neighborhood}</span>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell>{zone.radiusKm} km</TableCell>
                       <TableCell className="font-semibold">${zone.deliveryFee}</TableCell>
                       <TableCell>
                         {zone.minimumOrder ? `$${zone.minimumOrder}` : "-"}
@@ -319,7 +345,7 @@ export default function DeliveryZones() {
           <DialogHeader>
             <DialogTitle>{editingZone ? "Edit" : "Add"} Delivery Zone</DialogTitle>
             <DialogDescription>
-              Define delivery area with center point and radius
+              Define delivery area by country, city, and neighborhood
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -334,45 +360,135 @@ export default function DeliveryZones() {
                 data-testid="input-zone-name"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="centerLat">Center Latitude</Label>
-                <Input
-                  id="centerLat"
-                  type="number"
-                  step="0.000001"
-                  value={formData.centerLat}
-                  onChange={(e) => setFormData({ ...formData, centerLat: e.target.value })}
-                  placeholder="40.7128"
-                  required
-                  data-testid="input-center-lat"
-                />
-              </div>
-              <div>
-                <Label htmlFor="centerLng">Center Longitude</Label>
-                <Input
-                  id="centerLng"
-                  type="number"
-                  step="0.000001"
-                  value={formData.centerLng}
-                  onChange={(e) => setFormData({ ...formData, centerLng: e.target.value })}
-                  placeholder="-74.0060"
-                  required
-                  data-testid="input-center-lng"
-                />
-              </div>
-            </div>
+            {/* Country Selector */}
             <div>
-              <Label htmlFor="radiusKm">Radius (km)</Label>
+              <Label>Country</Label>
+              <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={countryOpen}
+                    className="w-full justify-between"
+                    data-testid="button-select-country"
+                  >
+                    {formData.country || "Select country..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Search country..." />
+                    <CommandList>
+                      <CommandEmpty>No country found.</CommandEmpty>
+                      <CommandGroup>
+                        {COUNTRIES.map((country) => (
+                          <CommandItem
+                            key={country.code}
+                            value={country.name}
+                            onSelect={(value) => {
+                              setFormData({ ...formData, country: value, city: "", neighborhood: "" });
+                              setCountryOpen(false);
+                            }}
+                            data-testid={`country-${country.code}`}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.country === country.name ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {country.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* City Selector/Input */}
+            <div>
+              <Label htmlFor="city">City</Label>
+              {availableCities.length > 0 ? (
+                <Popover open={cityOpen} onOpenChange={setCityOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={cityOpen}
+                      className="w-full justify-between"
+                      disabled={!formData.country}
+                      data-testid="button-select-city"
+                    >
+                      {formData.city || "Select city..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search city..." />
+                      <CommandList>
+                        <CommandEmpty>
+                          <p className="text-sm text-muted-foreground p-2">No city found.</p>
+                          <Button
+                            variant="ghost"
+                            className="w-full"
+                            onClick={() => {
+                              setCityOpen(false);
+                            }}
+                          >
+                            Enter custom city
+                          </Button>
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {availableCities.map((city) => (
+                            <CommandItem
+                              key={city}
+                              value={city}
+                              onSelect={(value) => {
+                                setFormData({ ...formData, city: value });
+                                setCityOpen(false);
+                              }}
+                              data-testid={`city-${city.replace(/\s/g, '-').toLowerCase()}`}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.city === city ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {city}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <Input
+                  id="city"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder="Enter city name"
+                  required
+                  disabled={!formData.country}
+                  data-testid="input-city-custom"
+                />
+              )}
+            </div>
+
+            {/* Neighborhood Input */}
+            <div>
+              <Label htmlFor="neighborhood">Neighborhood (Optional)</Label>
               <Input
-                id="radiusKm"
-                type="number"
-                step="0.1"
-                value={formData.radiusKm}
-                onChange={(e) => setFormData({ ...formData, radiusKm: e.target.value })}
-                placeholder="5"
-                required
-                data-testid="input-radius"
+                id="neighborhood"
+                value={formData.neighborhood}
+                onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                placeholder="e.g., Downtown, West Side"
+                data-testid="input-neighborhood"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
