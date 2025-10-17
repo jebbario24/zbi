@@ -421,6 +421,31 @@ export default function OnlineStore() {
     }
   }, [restaurant?.marketingSettings]);
 
+  // Handle OAuth redirect parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const error = params.get('error');
+
+    if (success === 'stripe_connected') {
+      toast({ title: "Stripe account connected successfully!" });
+      // Remove query params from URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (success === 'paypal_connected') {
+      toast({ title: "PayPal account connected successfully!" });
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (error === 'stripe_connect_failed') {
+      toast({ title: "Failed to connect Stripe account", variant: "destructive" });
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (error === 'paypal_connect_failed') {
+      toast({ title: "Failed to connect PayPal account", variant: "destructive" });
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (error === 'stripe_not_configured') {
+      toast({ title: "Stripe Connect is not configured", variant: "destructive" });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [toast]);
+
   if (isLoading) {
     return (
       <div className="p-8 space-y-6">

@@ -1628,6 +1628,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stripe checkout endpoint with 2% platform fee
+  app.post('/api/checkout/stripe', async (req, res) => {
+    try {
+      const { restaurantId, amount, currency, orderId } = req.body;
+
+      if (!restaurantId || !amount || !currency) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const restaurant = await storage.getRestaurant(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      if (!restaurant.stripeAccountId) {
+        return res.status(400).json({ error: "Restaurant has not connected Stripe account" });
+      }
+
+      const stripePlatformKey = process.env.STRIPE_PLATFORM_SECRET_KEY;
+      if (!stripePlatformKey) {
+        return res.status(500).json({ error: "Stripe not configured" });
+      }
+
+      const platformStripe = new Stripe(stripePlatformKey, { apiVersion: "2025-09-30.clover" });
+      
+      // Calculate 2% platform fee
+      const amountInCents = Math.round(parseFloat(amount) * 100);
+      const platformFeeInCents = Math.round(amountInCents * 0.02); // 2% fee
+
+      // Create payment intent from platform account on behalf of connected account with 2% platform fee
+      const paymentIntent = await platformStripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: currency.toLowerCase(),
+        application_fee_amount: platformFeeInCents,
+        on_behalf_of: restaurant.stripeAccountId,
+        transfer_data: {
+          destination: restaurant.stripeAccountId,
+        },
+        metadata: {
+          restaurantId,
+          orderId: orderId || '',
+        },
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      });
+    } catch (error) {
+      console.error("Error creating Stripe payment:", error);
+      res.status(500).json({ error: "Failed to create payment" });
+    }
+  });
+
   // PayPal OAuth routes
   app.get('/api/paypal-connect/oauth', isAuthenticated, async (req: any, res) => {
     try {
