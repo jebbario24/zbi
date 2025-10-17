@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SubscriptionGuard } from "@/components/SubscriptionGuard";
 import { useAuth } from "@/hooks/useAuth";
+import { UserMenu } from "@/components/UserMenu";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Menu from "@/pages/Menu";
@@ -115,7 +116,10 @@ function AppContent() {
           <div className="flex flex-col flex-1 overflow-hidden">
             <header className="flex items-center justify-between p-3 border-b">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <ThemeToggle />
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <UserMenu />
+              </div>
             </header>
             <main className="flex-1 overflow-auto">
               <AuthenticatedRouter />

@@ -204,6 +204,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/logout', (req: any, res) => {
+    req.logout((err: any) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ message: "Failed to logout" });
+      }
+      req.session.destroy((err: any) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+          return res.status(500).json({ message: "Failed to destroy session" });
+        }
+        res.clearCookie('connect.sid');
+        res.json({ message: "Logged out successfully" });
+      });
+    });
+  });
+
   // Subscription routes
   app.post('/api/create-subscription', isAuthenticated, async (req: any, res) => {
     try {
@@ -1979,6 +1996,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching all restaurants:", error);
       res.status(500).json({ message: "Failed to fetch restaurants" });
+    }
+  });
+
+  app.patch('/api/admin/restaurants/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { name, subdomain, isActive } = req.body;
+      
+      const updates: any = {};
+      if (name !== undefined) {
+        if (typeof name !== 'string' || name.trim().length === 0) {
+          return res.status(400).json({ message: "Name must be a non-empty string" });
+        }
+        updates.name = name.trim();
+      }
+      if (subdomain !== undefined) {
+        if (typeof subdomain !== 'string' || subdomain.trim().length === 0) {
+          return res.status(400).json({ message: "Subdomain must be a non-empty string" });
+        }
+        // Check subdomain uniqueness
+        const existing = await storage.getRestaurantBySubdomain(subdomain.trim());
+        if (existing && existing.id !== id) {
+          return res.status(400).json({ message: "Subdomain already in use" });
+        }
+        updates.subdomain = subdomain.trim();
+      }
+      if (isActive !== undefined) {
+        if (typeof isActive !== 'boolean') {
+          return res.status(400).json({ message: "isActive must be a boolean" });
+        }
+        updates.isActive = isActive;
+      }
+
+      const restaurant = await storage.updateRestaurant(id, updates);
+      res.json(restaurant);
+    } catch (error) {
+      console.error("Error updating restaurant:", error);
+      res.status(500).json({ message: "Failed to update restaurant" });
+    }
+  });
+
+  app.delete('/api/admin/restaurants/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteRestaurant(id);
+      res.json({ message: "Restaurant deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting restaurant:", error);
+      res.status(500).json({ message: "Failed to delete restaurant" });
     }
   });
 

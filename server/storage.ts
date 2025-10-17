@@ -56,6 +56,7 @@ export interface IStorage {
   getRestaurantByCustomDomain(customDomain: string): Promise<Restaurant | undefined>;
   createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant>;
   updateRestaurant(id: string, restaurant: Partial<InsertRestaurant>): Promise<Restaurant>;
+  deleteRestaurant(id: string): Promise<void>;
   
   // Menu operations
   getMenuCategories(restaurantId: string): Promise<MenuCategory[]>;
@@ -187,6 +188,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(restaurants.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteRestaurant(id: string): Promise<void> {
+    await db.delete(restaurants).where(eq(restaurants.id, id));
   }
 
   async getMenuCategories(restaurantId: string): Promise<MenuCategory[]> {

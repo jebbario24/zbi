@@ -1,8 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Edit, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useState } from "react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface Restaurant {
   id: string;
@@ -29,9 +37,72 @@ interface Restaurant {
 }
 
 export default function AdminRestaurants() {
+  const { toast } = useToast();
+  const [editingRestaurant, setEditingRestaurant] = useState<Restaurant | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    subdomain: "",
+    isActive: true,
+  });
+
   const { data: restaurants, isLoading } = useQuery<Restaurant[]>({
     queryKey: ['/api/admin/restaurants'],
   });
+
+  const editMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return await apiRequest(`/api/admin/restaurants/${id}`, 'PATCH', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/restaurants'] });
+      toast({
+        title: "Restaurant Updated",
+        description: "Restaurant has been updated successfully.",
+      });
+      setEditingRestaurant(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update restaurant.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/admin/restaurants/${id}`, 'DELETE');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/restaurants'] });
+      toast({
+        title: "Restaurant Deleted",
+        description: "Restaurant has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete restaurant.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditClick = (restaurant: Restaurant) => {
+    setEditingRestaurant(restaurant);
+    setEditForm({
+      name: restaurant.name,
+      subdomain: restaurant.subdomain,
+      isActive: restaurant.isActive,
+    });
+  };
+
+  const handleEditSubmit = () => {
+    if (!editingRestaurant) return;
+    editMutation.mutate({ id: editingRestaurant.id, data: editForm });
+  };
 
   if (isLoading) {
     return (
@@ -125,6 +196,114 @@ export default function AdminRestaurants() {
                     <p className="text-muted-foreground">Joined</p>
                     <p className="font-medium">{new Date(restaurant.createdAt).toLocaleDateString()}</p>
                   </div>
+                </div>
+                
+                <div className="flex gap-2 pt-3 border-t">
+                  <Dialog open={editingRestaurant?.id === restaurant.id} onOpenChange={(open) => !open && setEditingRestaurant(null)}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditClick(restaurant)}
+                        data-testid={`button-edit-${restaurant.id}`}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent data-testid="dialog-edit-restaurant">
+                      <DialogHeader>
+                        <DialogTitle>Edit Restaurant</DialogTitle>
+                        <DialogDescription>
+                          Update restaurant details and settings
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Restaurant Name</Label>
+                          <Input
+                            id="name"
+                            value={editForm.name}
+                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                            data-testid="input-edit-name"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subdomain">Subdomain</Label>
+                          <Input
+                            id="subdomain"
+                            value={editForm.subdomain}
+                            onChange={(e) => setEditForm({ ...editForm, subdomain: e.target.value })}
+                            data-testid="input-edit-subdomain"
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            {editForm.subdomain}.eatout.app
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="active">Active Status</Label>
+                            <p className="text-sm text-muted-foreground">
+                              {editForm.isActive ? "Restaurant is active" : "Restaurant is inactive"}
+                            </p>
+                          </div>
+                          <Switch
+                            id="active"
+                            checked={editForm.isActive}
+                            onCheckedChange={(checked) => setEditForm({ ...editForm, isActive: checked })}
+                            data-testid="switch-edit-active"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setEditingRestaurant(null)}
+                          data-testid="button-cancel-edit"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleEditSubmit}
+                          disabled={editMutation.isPending}
+                          data-testid="button-save-edit"
+                        >
+                          {editMutation.isPending ? "Saving..." : "Save Changes"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        data-testid={`button-delete-${restaurant.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent data-testid="dialog-delete-restaurant">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Restaurant?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete <strong>{restaurant.name}</strong> and all associated data including menu items, orders, reservations, and staff. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteMutation.mutate(restaurant.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          data-testid="button-confirm-delete"
+                        >
+                          {deleteMutation.isPending ? "Deleting..." : "Delete Restaurant"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </CardContent>
             </Card>
