@@ -81,7 +81,7 @@ export default function Staff() {
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof staffSchema>) => {
-      return await apiRequest("POST", "/api/staff", {
+      return await apiRequest("/api/staff", "POST", {
         ...data,
         email: data.email || null,
         phone: data.phone || null,
@@ -109,7 +109,7 @@ export default function Staff() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof staffSchema> }) => {
-      return await apiRequest("PUT", `/api/staff/${id}`, {
+      return await apiRequest(`/api/staff/${id}`, "PUT", {
         ...data,
         email: data.email || null,
         phone: data.phone || null,
@@ -138,7 +138,7 @@ export default function Staff() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/staff/${id}`);
+      return await apiRequest(`/api/staff/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
@@ -160,7 +160,7 @@ export default function Staff() {
 
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      return await apiRequest("PUT", `/api/staff/${id}`, { isActive });
+      return await apiRequest(`/api/staff/${id}`, "PUT", { isActive });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff"] });

@@ -169,7 +169,7 @@ export default function Menu() {
 
   const createCategoryMutation = useMutation({
     mutationFn: async (data: z.infer<typeof categorySchema>) => {
-      return await apiRequest("POST", "/api/menu/categories", data);
+      return await apiRequest("/api/menu/categories", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
@@ -193,7 +193,7 @@ export default function Menu() {
 
   const createItemMutation = useMutation({
     mutationFn: async (data: z.infer<typeof itemSchema>) => {
-      return await apiRequest("POST", "/api/menu/items", {
+      return await apiRequest("/api/menu/items", "POST", {
         ...data,
         preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
       });
@@ -220,7 +220,7 @@ export default function Menu() {
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof itemSchema> }) => {
-      return await apiRequest("PUT", `/api/menu/items/${id}`, {
+      return await apiRequest(`/api/menu/items/${id}`, "PUT", {
         ...data,
         preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
       });
@@ -248,7 +248,7 @@ export default function Menu() {
 
   const deleteItemMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/menu/items/${id}`);
+      return await apiRequest(`/api/menu/items/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });

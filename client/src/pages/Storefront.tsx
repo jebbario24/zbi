@@ -206,7 +206,7 @@ export default function Storefront() {
       createOrder: () => orderId,
       onApprove: async (data: any) => {
         try {
-          await apiRequest("POST", `/api/storefront/${slug}/paypal-capture`, { orderId: data.orderID });
+          await apiRequest(`/api/storefront/${slug}/paypal-capture`, "POST", { orderId: data.orderID });
           toast({ title: "Payment successful!" });
           setCart([]);
           setCustomerName("");

@@ -127,9 +127,9 @@ export default function Settings() {
   const updateMutation = useMutation({
     mutationFn: async (data: z.infer<typeof restaurantSchema>) => {
       if (restaurant) {
-        return await apiRequest("PUT", `/api/restaurants/${restaurant.id}`, data);
+        return await apiRequest(`/api/restaurants/${restaurant.id}`, "PUT", data);
       } else {
-        return await apiRequest("POST", "/api/restaurants", data);
+        return await apiRequest("/api/restaurants", "POST", data);
       }
     },
     onSuccess: () => {

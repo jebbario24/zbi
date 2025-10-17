@@ -80,7 +80,7 @@ export default function Tables() {
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof tableSchema>) => {
-      return await apiRequest("POST", "/api/tables", {
+      return await apiRequest("/api/tables", "POST", {
         ...data,
         capacity: parseInt(data.capacity),
       });
@@ -108,7 +108,7 @@ export default function Tables() {
   const updateMutation = useMutation({
     mutationFn: async (data: z.infer<typeof tableSchema>) => {
       if (!editingTable) throw new Error("No table selected");
-      return await apiRequest("PUT", `/api/tables/${editingTable.id}`, {
+      return await apiRequest(`/api/tables/${editingTable.id}`, "PUT", {
         ...data,
         capacity: parseInt(data.capacity),
       });
@@ -136,7 +136,7 @@ export default function Tables() {
 
   const deleteMutation = useMutation({
     mutationFn: async (tableId: string) => {
-      return await apiRequest("DELETE", `/api/tables/${tableId}`);
+      return await apiRequest(`/api/tables/${tableId}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tables"] });

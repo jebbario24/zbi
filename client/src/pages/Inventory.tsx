@@ -81,7 +81,7 @@ export default function Inventory() {
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof inventorySchema>) => {
-      return await apiRequest("POST", "/api/inventory", {
+      return await apiRequest("/api/inventory", "POST", {
         ...data,
         quantity: parseInt(data.quantity),
         lowStockThreshold: data.lowStockThreshold ? parseInt(data.lowStockThreshold) : 10,
@@ -109,7 +109,7 @@ export default function Inventory() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof inventorySchema> }) => {
-      return await apiRequest("PUT", `/api/inventory/${id}`, {
+      return await apiRequest(`/api/inventory/${id}`, "PUT", {
         ...data,
         quantity: parseInt(data.quantity),
         lowStockThreshold: data.lowStockThreshold ? parseInt(data.lowStockThreshold) : 10,
@@ -138,7 +138,7 @@ export default function Inventory() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/inventory/${id}`);
+      return await apiRequest(`/api/inventory/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });

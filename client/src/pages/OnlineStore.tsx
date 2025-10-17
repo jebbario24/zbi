@@ -136,7 +136,7 @@ export default function OnlineStore() {
 
   const logoMutation = useMutation({
     mutationFn: async (logoUrl: string) => {
-      return apiRequest("PUT", "/api/restaurant/logo", { logoUrl });
+      return apiRequest("/api/restaurant/logo", "PUT", { logoUrl });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
@@ -149,7 +149,7 @@ export default function OnlineStore() {
 
   const coverImageMutation = useMutation({
     mutationFn: async (coverImageUrl: string) => {
-      return apiRequest("PUT", "/api/restaurant/cover-image", { coverImageUrl });
+      return apiRequest("/api/restaurant/cover-image", "PUT", { coverImageUrl });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
@@ -162,7 +162,7 @@ export default function OnlineStore() {
 
   const openingHoursMutation = useMutation({
     mutationFn: async (hours: OpeningHours) => {
-      return apiRequest("PUT", "/api/restaurant/opening-hours", { openingHours: hours });
+      return apiRequest("/api/restaurant/opening-hours", "PUT", { openingHours: hours });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
@@ -175,7 +175,7 @@ export default function OnlineStore() {
 
   const paymentSettingsMutation = useMutation({
     mutationFn: async (settings: typeof paymentSettings) => {
-      return apiRequest("PUT", "/api/restaurant/payment-settings", settings);
+      return apiRequest("/api/restaurant/payment-settings", "PUT", settings);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
@@ -188,7 +188,7 @@ export default function OnlineStore() {
 
   const paymentMethodsMutation = useMutation({
     mutationFn: async (methods: PaymentMethods) => {
-      return apiRequest("PUT", "/api/restaurant/payment-methods", { paymentMethods: methods });
+      return apiRequest("/api/restaurant/payment-methods", "PUT", { paymentMethods: methods });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
@@ -201,7 +201,7 @@ export default function OnlineStore() {
 
   const regionalSettingsMutation = useMutation({
     mutationFn: async (settings: { currency: string; country: string }) => {
-      return apiRequest("PUT", "/api/restaurant/regional-settings", settings);
+      return apiRequest("/api/restaurant/regional-settings", "PUT", settings);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
@@ -214,7 +214,7 @@ export default function OnlineStore() {
 
   const stripeConnectMutation = useMutation({
     mutationFn: async () => {
-      const response: any = await apiRequest("GET", "/api/stripe-connect/oauth");
+      const response: any = await apiRequest("/api/stripe-connect/oauth", "GET");
       return response;
     },
     onSuccess: (data: any) => {
@@ -229,7 +229,7 @@ export default function OnlineStore() {
 
   const stripeDisconnectMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/stripe-connect/disconnect");
+      return apiRequest("/api/stripe-connect/disconnect", "POST");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
@@ -242,7 +242,7 @@ export default function OnlineStore() {
 
   const paypalConnectMutation = useMutation({
     mutationFn: async () => {
-      const response: any = await apiRequest("GET", "/api/paypal-connect/oauth");
+      const response: any = await apiRequest("/api/paypal-connect/oauth", "GET");
       return response;
     },
     onSuccess: (data: any) => {
@@ -257,7 +257,7 @@ export default function OnlineStore() {
 
   const paypalDisconnectMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/paypal-connect/disconnect");
+      return apiRequest("/api/paypal-connect/disconnect", "POST");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
@@ -327,7 +327,7 @@ export default function OnlineStore() {
   const updateMarketingMutation = useMutation({
     mutationFn: async (data: z.infer<typeof marketingSchema>) => {
       if (!restaurant?.id) throw new Error("Restaurant not found");
-      return apiRequest("PUT", `/api/restaurants/${restaurant.id}/marketing`, data);
+      return apiRequest(`/api/restaurants/${restaurant.id}/marketing`, "PUT", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });

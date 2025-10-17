@@ -106,7 +106,7 @@ export default function POS() {
 
   const createOrderMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/orders", {
+      return await apiRequest("/api/orders", "POST", {
         orderType,
         tableId: orderType === "dine-in" ? tableId : null,
         customerName: customerName || null,

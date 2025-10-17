@@ -109,7 +109,7 @@ export default function Reservations() {
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof reservationSchema>) => {
-      return await apiRequest("POST", "/api/reservations", {
+      return await apiRequest("/api/reservations", "POST", {
         ...data,
         partySize: parseInt(data.partySize),
         tableId: data.tableId || null,
@@ -145,7 +145,7 @@ export default function Reservations() {
   const updateMutation = useMutation({
     mutationFn: async (data: z.infer<typeof reservationSchema>) => {
       if (!editingReservation) return;
-      return await apiRequest("PUT", `/api/reservations/${editingReservation.id}`, {
+      return await apiRequest(`/api/reservations/${editingReservation.id}`, "PUT", {
         ...data,
         partySize: parseInt(data.partySize),
         tableId: data.tableId || null,
@@ -170,7 +170,7 @@ export default function Reservations() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/reservations/${id}`);
+      return await apiRequest(`/api/reservations/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reservations"] });
@@ -187,7 +187,7 @@ export default function Reservations() {
 
   const toggleStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return await apiRequest("PATCH", `/api/reservations/${id}/status`, { status });
+      return await apiRequest(`/api/reservations/${id}/status`, "PATCH", { status });
     },
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: ["/api/reservations"] });
