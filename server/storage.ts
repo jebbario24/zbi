@@ -102,6 +102,11 @@ export interface IStorage {
   createDeliveryZone(zone: InsertDeliveryZone): Promise<DeliveryZone>;
   updateDeliveryZone(id: string, zone: Partial<InsertDeliveryZone>): Promise<DeliveryZone>;
   deleteDeliveryZone(id: string): Promise<void>;
+  
+  // Admin operations
+  getAllRestaurants(): Promise<(Restaurant & { owner: User })[]>;
+  getAllUsers(): Promise<User[]>;
+  updateUserRole(userId: string, role: string): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -392,6 +397,31 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDeliveryZone(id: string): Promise<void> {
     await db.delete(deliveryZones).where(eq(deliveryZones.id, id));
+  }
+
+  async getAllRestaurants(): Promise<(Restaurant & { owner: User })[]> {
+    const result = await db
+      .select()
+      .from(restaurants)
+      .leftJoin(users, eq(restaurants.ownerId, users.id));
+    
+    return result.map(row => ({
+      ...row.restaurants,
+      owner: row.users!
+    }));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
   }
 }
 

@@ -102,6 +102,59 @@ const onlineOrderSchema = z.object({
   total: z.string(),
 });
 
+// Middleware to check if user is admin
+const isAdmin = async (req: any, res: any, next: any) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  const userId = req.user.claims.sub;
+  const user = await storage.getUser(userId);
+  
+  if (!user || user.role !== 'admin') {
+    return res.status(403).json({ message: "Forbidden: Admin access required" });
+  }
+  
+  next();
+};
+
+// Middleware to check subscription status (allows admins to bypass)
+const requireActiveSubscription = async (req: any, res: any, next: any) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  const userId = req.user.claims.sub;
+  const user = await storage.getUser(userId);
+  
+  if (!user) {
+    return res.status(401).json({ message: "User not found" });
+  }
+  
+  // Admins bypass subscription check
+  if (user.role === 'admin') {
+    return next();
+  }
+  
+  const now = new Date();
+  const hasActiveSubscription = user.subscriptionStatus === 'active' && 
+                                 user.subscriptionEndsAt && 
+                                 user.subscriptionEndsAt > now;
+  
+  const hasActiveTrial = user.subscriptionStatus === 'trial' && 
+                         user.trialEndsAt && 
+                         user.trialEndsAt > now;
+  
+  if (!hasActiveSubscription && !hasActiveTrial) {
+    return res.status(402).json({ 
+      message: "Subscription required",
+      subscriptionStatus: user.subscriptionStatus 
+    });
+  }
+  
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
