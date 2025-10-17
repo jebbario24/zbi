@@ -212,6 +212,78 @@ export default function OnlineStore() {
     },
   });
 
+  const stripeConnectMutation = useMutation({
+    mutationFn: async () => {
+      const response: any = await apiRequest("GET", "/api/stripe-connect/oauth");
+      return response;
+    },
+    onSuccess: (data: any) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: () => {
+      toast({ title: "Failed to initiate Stripe Connect", variant: "destructive" });
+    },
+  });
+
+  const stripeDisconnectMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/stripe-connect/disconnect");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
+      toast({ title: "Stripe account disconnected successfully!" });
+    },
+    onError: () => {
+      toast({ title: "Failed to disconnect Stripe account", variant: "destructive" });
+    },
+  });
+
+  const paypalConnectMutation = useMutation({
+    mutationFn: async () => {
+      const response: any = await apiRequest("GET", "/api/paypal-connect/oauth");
+      return response;
+    },
+    onSuccess: (data: any) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: () => {
+      toast({ title: "Failed to initiate PayPal Connect", variant: "destructive" });
+    },
+  });
+
+  const paypalDisconnectMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/paypal-connect/disconnect");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
+      toast({ title: "PayPal account disconnected successfully!" });
+    },
+    onError: () => {
+      toast({ title: "Failed to disconnect PayPal account", variant: "destructive" });
+    },
+  });
+
+  const handleStripeConnect = () => {
+    stripeConnectMutation.mutate();
+  };
+
+  const handleStripeDisconnect = () => {
+    stripeDisconnectMutation.mutate();
+  };
+
+  const handlePayPalConnect = () => {
+    paypalConnectMutation.mutate();
+  };
+
+  const handlePayPalDisconnect = () => {
+    paypalDisconnectMutation.mutate();
+  };
+
   const marketingForm = useForm<z.infer<typeof marketingSchema>>({
     resolver: zodResolver(marketingSchema),
     defaultValues: {
@@ -653,80 +725,102 @@ export default function OnlineStore() {
             <CreditCard className="h-5 w-5" />
             Payment Settings
           </CardTitle>
-          <CardDescription>Configure your payment credentials and methods</CardDescription>
+          <CardDescription>Connect your payment accounts to accept online payments with automatic 2% platform commission</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Stripe Settings */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4" />
-              <h3 className="font-semibold">Stripe</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="stripe-public-key">Public Key</Label>
-                <Input
-                  id="stripe-public-key"
-                  type="text"
-                  value={paymentSettings.stripePublicKey}
-                  onChange={(e) => setPaymentSettings(prev => ({ ...prev, stripePublicKey: e.target.value }))}
-                  placeholder="pk_live_..."
-                  data-testid="input-stripe-public-key"
-                />
+          {/* Stripe Connect */}
+          <div className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Stripe Connect</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Accept all payment methods: Cards, Apple Pay, Google Pay, and more
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="stripe-secret-key">Secret Key</Label>
-                <Input
-                  id="stripe-secret-key"
-                  type="password"
-                  value={paymentSettings.stripeSecretKey}
-                  onChange={(e) => setPaymentSettings(prev => ({ ...prev, stripeSecretKey: e.target.value }))}
-                  placeholder="sk_live_..."
-                  data-testid="input-stripe-secret-key"
-                />
-              </div>
+              {restaurant?.stripeAccountId ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleStripeDisconnect}
+                  disabled={stripeDisconnectMutation.isPending}
+                  data-testid="button-stripe-disconnect"
+                >
+                  Disconnect
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleStripeConnect}
+                  disabled={stripeConnectMutation.isPending}
+                  data-testid="button-stripe-connect"
+                >
+                  Connect Stripe
+                </Button>
+              )}
             </div>
+            {restaurant?.stripeAccountId && (
+              <div className="flex items-center gap-2 text-sm bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 p-3 rounded-md">
+                <Check className="h-4 w-4" />
+                <span>Connected • Account ID: {restaurant.stripeAccountId}</span>
+              </div>
+            )}
           </div>
 
-          {/* PayPal Settings */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4" />
-              <h3 className="font-semibold">PayPal</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="paypal-client-id">Client ID</Label>
-                <Input
-                  id="paypal-client-id"
-                  type="text"
-                  value={paymentSettings.paypalClientId}
-                  onChange={(e) => setPaymentSettings(prev => ({ ...prev, paypalClientId: e.target.value }))}
-                  placeholder="AYourPayPalClientId..."
-                  data-testid="input-paypal-client-id"
-                />
+          {/* PayPal Connect */}
+          <div className="space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-950/20 rounded-lg">
+                  <Wallet className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">PayPal Connect</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Accept PayPal payments from customers worldwide
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="paypal-client-secret">Client Secret</Label>
-                <Input
-                  id="paypal-client-secret"
-                  type="password"
-                  value={paymentSettings.paypalClientSecret}
-                  onChange={(e) => setPaymentSettings(prev => ({ ...prev, paypalClientSecret: e.target.value }))}
-                  placeholder="EYourPayPalSecret..."
-                  data-testid="input-paypal-client-secret"
-                />
-              </div>
+              {restaurant?.paypalMerchantId ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePayPalDisconnect}
+                  disabled={paypalDisconnectMutation.isPending}
+                  data-testid="button-paypal-disconnect"
+                >
+                  Disconnect
+                </Button>
+              ) : (
+                <Button
+                  onClick={handlePayPalConnect}
+                  disabled={paypalConnectMutation.isPending}
+                  data-testid="button-paypal-connect"
+                >
+                  Connect PayPal
+                </Button>
+              )}
             </div>
+            {restaurant?.paypalMerchantId && (
+              <div className="flex items-center gap-2 text-sm bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 p-3 rounded-md">
+                <Check className="h-4 w-4" />
+                <span>Connected • Merchant ID: {restaurant.paypalMerchantId}</span>
+              </div>
+            )}
           </div>
 
-          <Button 
-            onClick={() => paymentSettingsMutation.mutate(paymentSettings)}
-            disabled={paymentSettingsMutation.isPending}
-            data-testid="button-save-payment-settings"
-          >
-            Save Payment Settings
-          </Button>
+          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+            <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Platform Commission
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              A 2% platform fee is automatically deducted from each transaction. You receive 98% of each payment directly to your connected account.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
