@@ -25,7 +25,7 @@ Preferred communication style: Simple, everyday language.
 
 ### System Design Choices
 - **Online Store Customization:** Restaurant owners can customize branding (logo, cover photo), manage opening hours, and add images to menu items.
-- **Payment Settings & Methods:** Configuration of Stripe and PayPal credentials, with options to enable/disable various payment methods (Stripe, PayPal, Cash on Delivery).
+- **Payment Settings & Methods:** Stripe Connect and PayPal OAuth integration for secure multi-tenant payment processing. Each restaurant connects their own Stripe and PayPal accounts via OAuth flows. Platform automatically earns 2% commission per transaction using Stripe's `on_behalf_of` and `application_fee_amount` parameters. Restaurants can enable/disable payment methods (Stripe, PayPal, Cash on Delivery) individually.
 - **Multi-Currency & Regional Settings:** Comprehensive worldwide support with 170+ currencies (ISO-4217 aligned) and 195+ countries (all 193 UN members plus key territories like Palestine, Taiwan, Kosovo, Western Sahara). Features searchable Command/Popover selectors with real-time filtering for easy currency and country selection. Locale-aware price formatting using `Intl.NumberFormat`.
 - **Table Categories & Management:** Full CRUD for tables with optional categorization (e.g., Interior, Exterior) and capacity tracking.
 - **Staff Management:** Full CRUD for staff members with active/inactive status toggling and detailed information.
@@ -35,7 +35,7 @@ Preferred communication style: Simple, everyday language.
 
 ## External Dependencies
 
-- **Payment Processing:** Stripe (@stripe/stripe-js, @stripe/react-stripe-js) and PayPal server SDK (@paypal/paypal-server-sdk). Planned support for Google Pay and Apple Pay.
+- **Payment Processing:** Stripe Connect integration for multi-tenant payments with 2% platform commission. Each restaurant connects their own Stripe account via OAuth, and the platform processes payments `on_behalf_of` the connected account with automatic fee collection. PayPal OAuth integration for merchant account linking. Frontend uses @stripe/stripe-js and @stripe/react-stripe-js for Stripe Elements. Backend uses Stripe SDK and @paypal/paypal-server-sdk for payment processing. Supports Google Pay and Apple Pay through Stripe.
 - **Development Tools:** Replit-specific plugins, runtime error overlay, source map support (@jridgewell/trace-mapping), and Hot Module Replacement (HMR).
 - **UI Components:** Radix UI primitives, Lucide React for icons, React Hook Form with Zod validation, CMDK for command palette, and Embla Carousel.
 - **Build & Deployment:** ESBuild for server, Vite for client-side bundling, platform-agnostic builds, and static asset serving.
