@@ -34,10 +34,21 @@ function PublicRouter() {
   const hostname = window.location.hostname;
   const parts = hostname.split('.');
   
-  // Main app domains: xxx.replit.app or xxx.replit.dev (3 parts on replit)
-  // Storefront domains: subdomain.xxx.replit.app (4+ parts) or customdomain.com (non-replit)
+  // Main app domains: 
+  // - Production: xxx.replit.app (3 parts)
+  // - Development: xxx.cluster.replit.dev (4 parts)
+  // - Localhost: localhost (1 part)
+  // Storefront domains: subdomain.xxx.replit.app (4+ parts) or subdomain.xxx.cluster.replit.dev (5+ parts)
   const isReplitDomain = hostname.includes('replit.app') || hostname.includes('replit.dev');
-  const isStorefrontDomain = isReplitDomain ? parts.length > 3 : true;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  
+  // Storefront check: 
+  // - On replit.app: 4+ parts means subdomain (subdomain.xxx.replit.app)
+  // - On replit.dev: 5+ parts means subdomain (subdomain.xxx.cluster.replit.dev)
+  const isStorefrontDomain = isReplitDomain && (
+    (hostname.includes('replit.app') && parts.length > 3) ||
+    (hostname.includes('replit.dev') && parts.length > 4)
+  );
   
   return (
     <Switch>
