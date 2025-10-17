@@ -1092,6 +1092,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let endDate: Date | null = null;
       
       switch (dateFilter) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          startDate.setHours(0, 0, 0, 0); // Start of today
+          break;
+        case 'yesterday':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          startDate.setHours(0, 0, 0, 0); // Start of yesterday
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          endDate.setHours(23, 59, 59, 999); // End of yesterday
+          break;
         case 'last-7-days':
           startDate.setDate(now.getDate() - 7);
           startDate.setHours(0, 0, 0, 0); // Normalize to midnight

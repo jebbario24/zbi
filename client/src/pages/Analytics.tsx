@@ -114,10 +114,12 @@ export default function Analytics() {
               <SelectValue placeholder="Select period" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="year" data-testid="filter-year">Year</SelectItem>
-              <SelectItem value="last-month" data-testid="filter-last-month">Last month</SelectItem>
-              <SelectItem value="this-month" data-testid="filter-this-month">This month</SelectItem>
+              <SelectItem value="today" data-testid="filter-today">Today</SelectItem>
+              <SelectItem value="yesterday" data-testid="filter-yesterday">Yesterday</SelectItem>
               <SelectItem value="last-7-days" data-testid="filter-last-7-days">Last 7 days</SelectItem>
+              <SelectItem value="this-month" data-testid="filter-this-month">This month</SelectItem>
+              <SelectItem value="last-month" data-testid="filter-last-month">Last month</SelectItem>
+              <SelectItem value="year" data-testid="filter-year">Year</SelectItem>
             </SelectContent>
           </Select>
         </div>
