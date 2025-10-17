@@ -40,7 +40,7 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 className="text-lg h-12 px-8"
-                onClick={() => window.location.href = '/api/login'}
+                onClick={() => window.location.href = '/subscribe'}
                 data-testid="button-get-started"
               >
                 <ChefHat className="mr-2 h-5 w-5" />
@@ -51,9 +51,10 @@ export default function Landing() {
                 size="lg" 
                 variant="outline" 
                 className="text-lg h-12 px-8"
-                data-testid="button-learn-more"
+                onClick={() => window.location.href = '/api/login'}
+                data-testid="button-login"
               >
-                Learn More
+                Login
               </Button>
             </div>
           </div>
@@ -138,7 +139,7 @@ export default function Landing() {
           </p>
           <Button 
             size="lg"
-            onClick={() => window.location.href = '/api/login'}
+            onClick={() => window.location.href = '/subscribe'}
             data-testid="button-start-now"
           >
             Start Now - It's Free
