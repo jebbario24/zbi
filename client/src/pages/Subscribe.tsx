@@ -68,6 +68,7 @@ export default function Subscribe() {
   const { toast } = useToast();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [clientSecret, setClientSecret] = useState("");
+  const [initError, setInitError] = useState(false);
 
   const { data: subscriptionStatus, isLoading: statusLoading } = useQuery<{
     isSubscriptionActive?: boolean;
@@ -78,9 +79,8 @@ export default function Subscribe() {
     enabled: isAuthenticated, // Only fetch if authenticated
   });
 
-  useEffect(() => {
-    // Only run once when subscriptionStatus is loaded
-    if (!subscriptionStatus || clientSecret) return;
+  const initializeSubscription = async () => {
+    if (!subscriptionStatus) return;
 
     if (subscriptionStatus?.isSubscriptionActive) {
       // Already subscribed, redirect to dashboard
@@ -88,21 +88,28 @@ export default function Subscribe() {
       return;
     }
 
-    // Create subscription regardless of trial status (allow early subscription)
-    apiRequest("/api/create-subscription", "POST", {})
-      .then((data: any) => {
-        if (data.clientSecret) {
-          setClientSecret(data.clientSecret);
-        }
-      })
-      .catch((error) => {
-        toast({
-          title: "Error",
-          description: "Failed to initialize subscription",
-          variant: "destructive",
-        });
+    try {
+      setInitError(false);
+      const res = await apiRequest("/api/create-subscription", "POST", {});
+      const data = await res.json();
+      if (data.clientSecret) {
+        setClientSecret(data.clientSecret);
+      }
+    } catch (error) {
+      setInitError(true);
+      toast({
+        title: "Error",
+        description: "Failed to initialize subscription. Please try again.",
+        variant: "destructive",
       });
-  }, [subscriptionStatus, clientSecret, toast]);
+    }
+  };
+
+  useEffect(() => {
+    // Only run once when subscriptionStatus is loaded and we don't have client secret or error
+    if (!subscriptionStatus || clientSecret || initError) return;
+    initializeSubscription();
+  }, [subscriptionStatus]);
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -178,6 +185,31 @@ export default function Subscribe() {
   const trialDaysLeft = subscriptionStatus?.trialEndsAt 
     ? Math.ceil((new Date(subscriptionStatus.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : 0;
+
+  // Show error state with retry option
+  if (initError) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle>Subscription Initialization Failed</CardTitle>
+            <CardDescription>
+              We couldn't initialize your subscription. Please try again.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={initializeSubscription} 
+              className="w-full"
+              data-testid="button-retry-subscription"
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Show loading while fetching client secret
   if (!clientSecret) {
