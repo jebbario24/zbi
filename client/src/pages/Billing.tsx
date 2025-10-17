@@ -22,9 +22,13 @@ export default function Billing() {
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('/api/cancel-subscription', {
+      const response = await fetch('/api/cancel-subscription', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
       });
+      if (!response.ok) throw new Error('Failed to cancel subscription');
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/subscription-status'] });

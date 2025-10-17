@@ -447,7 +447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const user = await storage.getUserByStripeCustomerId(customerId);
           if (user) {
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-            const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+            const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
 
             await storage.updateUserSubscription(user.id, {
               subscriptionStatus: 'active',
@@ -492,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const user = await storage.getUserByStripeCustomerId(customerId);
           if (user) {
-            const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+            const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
             
             await storage.updateUserSubscription(user.id, {
               subscriptionStatus: subscription.status,

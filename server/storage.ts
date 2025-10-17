@@ -49,6 +49,7 @@ export interface IStorage {
   }): Promise<User>;
   
   // Restaurant operations
+  getRestaurant(id: string): Promise<Restaurant | undefined>;
   getRestaurantByOwnerId(ownerId: string): Promise<Restaurant | undefined>;
   getRestaurantBySlug(slug: string): Promise<Restaurant | undefined>;
   getRestaurantBySubdomain(subdomain: string): Promise<Restaurant | undefined>;
@@ -147,6 +148,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  async getRestaurant(id: string): Promise<Restaurant | undefined> {
+    const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.id, id));
+    return restaurant;
   }
 
   async getRestaurantByOwnerId(ownerId: string): Promise<Restaurant | undefined> {

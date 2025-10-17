@@ -11,12 +11,13 @@ Preferred communication style: Simple, everyday language.
 ### Frontend Architecture
 - **Technology Stack:** React with TypeScript, Vite, Wouter for routing, TanStack Query for server state, Shadcn/ui (Radix UI), Tailwind CSS.
 - **Design System:** Hybrid approach combining Material Design for the admin dashboard and reference-based design (klit.ma, Toast, Square) for the storefront. Features a custom color palette (brand orange), Inter/Outfit typography, dark mode for admin, and component library path aliases.
-- **Key UI Patterns:** Server-side rendering, authentication-guarded routes, responsive design (mobile-first), toast notifications, sidebar navigation, and sheet/drawer components for mobile.
+- **Key UI Patterns:** Server-side rendering, authentication-guarded routes, role-based routing (admin vs owner), responsive design (mobile-first), toast notifications, sidebar navigation, and sheet/drawer components for mobile.
 
 ### Backend Architecture
 - **Server Framework:** Express.js on Node.js with TypeScript.
-- **Authentication & Authorization:** Session-based authentication using Replit Auth (OpenID Connect/Passport strategy) with httpOnly cookies and a PostgreSQL session store. Protected API routes and automatic session refresh.
+- **Authentication & Authorization:** Session-based authentication using Replit Auth (OpenID Connect/Passport strategy) with httpOnly cookies and a PostgreSQL session store. Role-based access control (admin/owner) with middleware protection. Protected API routes and automatic session refresh.
 - **Multi-Tenant Architecture:** Single database with `restaurant_id` foreign key separation. Hostname-based routing (custom domains/subdomains) maps to specific restaurants, isolating all data by `restaurantId`.
+- **Admin Panel:** Platform admin role with dedicated dashboard showing MRR, active subscriptions, trial counts, and all restaurants management. Admins bypass subscription checks and have access to platform-wide analytics.
 
 ### Data Storage
 - **Database:** Neon Serverless PostgreSQL with Drizzle ORM for type-safe queries.
@@ -26,6 +27,7 @@ Preferred communication style: Simple, everyday language.
 ### System Design Choices
 - **Online Store Customization:** Restaurant owners can customize branding (logo, cover photo), manage opening hours, and add images to menu items.
 - **Payment Settings & Methods:** Stripe Connect and PayPal OAuth integration for secure multi-tenant payment processing. Each restaurant connects their own Stripe and PayPal accounts via OAuth flows. Platform automatically earns 2% commission per transaction using Stripe's `on_behalf_of` and `application_fee_amount` parameters. Restaurants can enable/disable payment methods (Stripe, PayPal, Cash on Delivery) individually.
+- **Subscription & Billing:** $79/month subscription with 7-day free trial. Stripe webhooks handle subscription lifecycle (payment_succeeded, payment_failed, subscription_deleted, subscription_updated). Billing page shows subscription status, next billing date, and cancellation option. Platform admin dashboard tracks MRR and subscription metrics.
 - **Multi-Currency & Regional Settings:** Comprehensive worldwide support with 170+ currencies (ISO-4217 aligned) and 195+ countries (all 193 UN members plus key territories like Palestine, Taiwan, Kosovo, Western Sahara). Features searchable Command/Popover selectors with real-time filtering for easy currency and country selection. Locale-aware price formatting using `Intl.NumberFormat`.
 - **Table Categories & Management:** Full CRUD for tables with optional categorization (e.g., Interior, Exterior) and capacity tracking.
 - **Staff Management:** Full CRUD for staff members with active/inactive status toggling and detailed information.
