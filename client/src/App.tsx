@@ -23,6 +23,9 @@ import Storefront from "@/pages/Storefront";
 import Subscribe from "@/pages/Subscribe";
 import DeliveryZones from "@/pages/DeliveryZones";
 import OnlineStore from "@/pages/OnlineStore";
+import Billing from "@/pages/Billing";
+import AdminDashboard from "@/pages/AdminDashboard";
+import AdminRestaurants from "@/pages/AdminRestaurants";
 import NotFound from "@/pages/not-found";
 
 function PublicRouter() {
@@ -45,11 +48,28 @@ function PublicRouter() {
 }
 
 function AuthenticatedRouter() {
+  const { user } = useAuth();
+  
+  // Admin routes
+  if (user?.role === 'admin') {
+    return (
+      <Switch>
+        <Route path="/" component={AdminDashboard} />
+        <Route path="/admin" component={AdminDashboard} />
+        <Route path="/admin/restaurants" component={AdminRestaurants} />
+        <Route path="/store/:slug" component={Storefront} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+  
+  // Restaurant owner routes
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/subscribe" component={Subscribe} />
+      <Route path="/billing" component={Billing} />
       <Route path="/menu" component={Menu} />
       <Route path="/orders" component={Orders} />
       <Route path="/reservations" component={Reservations} />

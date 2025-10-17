@@ -1971,6 +1971,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Routes - Platform Management
+  app.get('/api/admin/restaurants', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const restaurants = await storage.getAllRestaurants();
+      res.json(restaurants);
+    } catch (error) {
+      console.error("Error fetching all restaurants:", error);
+      res.status(500).json({ message: "Failed to fetch restaurants" });
+    }
+  });
+
+  app.get('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post('/api/admin/users/:userId/role', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body;
+
+      if (!role || !['owner', 'admin'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
+
+      const updated = await storage.updateUserRole(userId, role);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  app.get('/api/admin/analytics', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const restaurants = await storage.getAllRestaurants();
+      
+      // Calculate platform metrics
+      const totalRestaurants = restaurants.length;
+      const activeSubscriptions = users.filter(u => u.subscriptionStatus === 'active').length;
+      const activeTrials = users.filter(u => u.subscriptionStatus === 'trial').length;
+      const mrr = activeSubscriptions * 79; // $79/month per restaurant
+      
+      // Calculate commission revenue (this would need actual order data)
+      // For now, return 0 - will be calculated from actual transactions
+      const commissionRevenue = 0;
+      
+      res.json({
+        totalRestaurants,
+        activeSubscriptions,
+        activeTrials,
+        mrr,
+        commissionRevenue,
+        recentSignups: restaurants.slice(-10).reverse(), // Last 10 signups
+      });
+    } catch (error) {
+      console.error("Error fetching admin analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
