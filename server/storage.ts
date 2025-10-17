@@ -63,6 +63,8 @@ export interface IStorage {
   // Menu operations
   getMenuCategories(restaurantId: string): Promise<MenuCategory[]>;
   createMenuCategory(category: InsertMenuCategory): Promise<MenuCategory>;
+  updateMenuCategory(id: string, category: Partial<InsertMenuCategory>): Promise<MenuCategory>;
+  deleteMenuCategory(id: string): Promise<void>;
   getMenuItems(restaurantId: string): Promise<MenuItem[]>;
   createMenuItem(item: InsertMenuItem): Promise<MenuItem>;
   updateMenuItem(id: string, item: Partial<InsertMenuItem>): Promise<MenuItem>;
@@ -213,6 +215,15 @@ export class DatabaseStorage implements IStorage {
   async createMenuCategory(category: InsertMenuCategory): Promise<MenuCategory> {
     const [newCategory] = await db.insert(menuCategories).values(category).returning();
     return newCategory;
+  }
+
+  async updateMenuCategory(id: string, category: Partial<InsertMenuCategory>): Promise<MenuCategory> {
+    const [updated] = await db.update(menuCategories).set(category).where(eq(menuCategories.id, id)).returning();
+    return updated;
+  }
+
+  async deleteMenuCategory(id: string): Promise<void> {
+    await db.delete(menuCategories).where(eq(menuCategories.id, id));
   }
 
   async getMenuItems(restaurantId: string): Promise<MenuItem[]> {

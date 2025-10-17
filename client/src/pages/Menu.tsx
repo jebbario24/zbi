@@ -83,6 +83,7 @@ export default function Menu() {
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
+  const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
   const imageUploaderRef = useRef<ObjectUploaderRef>(null);
 
   useEffect(() => {
@@ -167,6 +168,16 @@ export default function Menu() {
     }
   }, [editingMenuItem, itemForm]);
 
+  useEffect(() => {
+    if (editingCategory) {
+      categoryForm.reset({
+        name: editingCategory.name,
+        description: editingCategory.description || "",
+      });
+      setCategoryDialogOpen(true);
+    }
+  }, [editingCategory, categoryForm]);
+
   const createCategoryMutation = useMutation({
     mutationFn: async (data: z.infer<typeof categorySchema>) => {
       return await apiRequest("/api/menu/categories", "POST", data);
@@ -188,6 +199,53 @@ export default function Menu() {
         return;
       }
       toast({ title: "Failed to create category", variant: "destructive" });
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof categorySchema> }) => {
+      return await apiRequest(`/api/menu/categories/${id}`, "PUT", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
+      toast({ title: "Category updated successfully" });
+      setCategoryDialogOpen(false);
+      setEditingCategory(null);
+      categoryForm.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/login", 500);
+        return;
+      }
+      toast({ title: "Failed to update category", variant: "destructive" });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/menu/categories/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
+      toast({ title: "Category deleted successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/login", 500);
+        return;
+      }
+      toast({ title: "Failed to delete category", variant: "destructive" });
     },
   });
 
@@ -317,7 +375,16 @@ export default function Menu() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+          <Dialog 
+            open={categoryDialogOpen} 
+            onOpenChange={(open) => {
+              setCategoryDialogOpen(open);
+              if (!open) {
+                setEditingCategory(null);
+                categoryForm.reset();
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button data-testid="button-add-category">
                 <Plus className="mr-2 h-4 w-4" />
@@ -326,11 +393,19 @@ export default function Menu() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>New Category</DialogTitle>
-                <DialogDescription>Create a new menu category</DialogDescription>
+                <DialogTitle>{editingCategory ? "Edit Category" : "New Category"}</DialogTitle>
+                <DialogDescription>
+                  {editingCategory ? "Update category information" : "Create a new menu category"}
+                </DialogDescription>
               </DialogHeader>
               <Form {...categoryForm}>
-                <form onSubmit={categoryForm.handleSubmit((data) => createCategoryMutation.mutate(data))} className="space-y-4">
+                <form onSubmit={categoryForm.handleSubmit((data) => {
+                  if (editingCategory) {
+                    updateCategoryMutation.mutate({ id: editingCategory.id, data });
+                  } else {
+                    createCategoryMutation.mutate(data);
+                  }
+                })} className="space-y-4">
                   <FormField
                     control={categoryForm.control}
                     name="name"
@@ -358,8 +433,15 @@ export default function Menu() {
                     )}
                   />
                   <DialogFooter>
-                    <Button type="submit" disabled={createCategoryMutation.isPending} data-testid="button-save-category">
-                      {createCategoryMutation.isPending ? "Creating..." : "Create Category"}
+                    <Button 
+                      type="submit" 
+                      disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending} 
+                      data-testid="button-save-category"
+                    >
+                      {editingCategory 
+                        ? (updateCategoryMutation.isPending ? "Updating..." : "Update Category")
+                        : (createCategoryMutation.isPending ? "Creating..." : "Create Category")
+                      }
                     </Button>
                   </DialogFooter>
                 </form>
@@ -995,14 +1077,43 @@ export default function Menu() {
           All Items
         </Button>
         {categories?.map((category) => (
-          <Button
-            key={category.id}
-            variant={selectedCategory === category.id ? "default" : "outline"}
-            onClick={() => setSelectedCategory(category.id)}
-            data-testid={`filter-${category.name.toLowerCase()}`}
-          >
-            {category.name}
-          </Button>
+          <div key={category.id} className="relative group">
+            <Button
+              variant={selectedCategory === category.id ? "default" : "outline"}
+              onClick={() => setSelectedCategory(category.id)}
+              data-testid={`filter-${category.name.toLowerCase()}`}
+              className="pr-20"
+            >
+              {category.name}
+            </Button>
+            <div className="absolute top-1/2 -translate-y-1/2 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingCategory(category);
+                }}
+                data-testid={`button-edit-category-${category.id}`}
+              >
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteCategoryMutation.mutate(category.id);
+                }}
+                disabled={deleteCategoryMutation.isPending}
+                data-testid={`button-delete-category-${category.id}`}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </Button>
+            </div>
+          </div>
         ))}
       </div>
 

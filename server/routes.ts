@@ -741,6 +741,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/menu/categories/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const data = insertMenuCategorySchema.partial().parse(req.body);
+      const updated = await storage.updateMenuCategory(req.params.id, data);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating category:", error);
+      res.status(400).json({ message: "Failed to update category" });
+    }
+  });
+
+  app.delete('/api/menu/categories/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      await storage.deleteMenuCategory(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      res.status(400).json({ message: "Failed to delete category" });
+    }
+  });
+
   // Menu item routes
   app.get('/api/menu/items', isAuthenticated, async (req: any, res) => {
     try {
