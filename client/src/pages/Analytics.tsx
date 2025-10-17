@@ -23,7 +23,17 @@ export default function Analytics() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<{
+    totalRevenue: string;
+    totalOrders: number;
+    averageOrder: string;
+    popularItemsCount: number;
+    popularItems: Array<{ name: string; orders: number; revenue: string }>;
+    dineInRevenue: string;
+    takeoutRevenue: string;
+    deliveryRevenue: string;
+    onlineRevenue: string;
+  }>({
     queryKey: ["/api/analytics/detailed"],
   });
 

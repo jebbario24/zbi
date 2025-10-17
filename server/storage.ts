@@ -79,6 +79,7 @@ export interface IStorage {
   getOrders(restaurantId: string): Promise<Order[]>;
   getRecentOrders(restaurantId: string, limit: number): Promise<Order[]>;
   getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem: MenuItem })[] } | undefined>;
+  getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem: MenuItem })[]>;
   createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order>;
   updateOrderStatus(orderId: string, status: string): Promise<Order>;
   getLastOrderByPrefix(restaurantId: string, prefix: string): Promise<Order | undefined>;
@@ -282,6 +283,20 @@ export class DatabaseStorage implements IStorage {
         menuItem: item.menu_items
       }))
     };
+  }
+
+  async getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem: MenuItem })[]> {
+    const items = await db
+      .select()
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .where(eq(orders.restaurantId, restaurantId));
+    
+    return items.map(item => ({
+      ...item.order_items,
+      menuItem: item.menu_items
+    }));
   }
 
   async updateOrderStatus(orderId: string, status: string): Promise<Order> {

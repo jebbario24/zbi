@@ -30,6 +30,7 @@ Preferred communication style: Simple, everyday language.
 - **Table Categories & Management:** Full CRUD for tables with optional categorization (e.g., Interior, Exterior) and capacity tracking.
 - **Staff Management:** Full CRUD for staff members with active/inactive status toggling and detailed information.
 - **Comprehensive CRUD Operations:** Complete create, read, update, and delete functionality for menu items, reservations, and inventory, ensuring consistent UI patterns and optimistic UI updates with React Query cache invalidation.
+- **Analytics Dashboard:** Real-time analytics with batched database queries for performance. Displays total revenue, order counts, average order value, popular menu items (aggregated by quantity sold), and revenue breakdown by order type (dine-in, takeout, delivery, online). Uses efficient single-query fetching of all order items to avoid N+1 query patterns.
 
 ## External Dependencies
 

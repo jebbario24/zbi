@@ -1084,21 +1084,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const orders = await storage.getOrders(restaurant.id);
-      const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.total), 0).toFixed(2);
+      
+      // Calculate revenue metrics and breakdown in a single pass
+      let totalRevenue = 0;
+      let dineInRevenue = 0;
+      let takeoutRevenue = 0;
+      let deliveryRevenue = 0;
+      let onlineRevenue = 0;
+      
+      for (const order of orders) {
+        const orderTotal = parseFloat(order.total);
+        totalRevenue += orderTotal;
+        
+        switch (order.orderType) {
+          case 'dine-in':
+            dineInRevenue += orderTotal;
+            break;
+          case 'takeout':
+            takeoutRevenue += orderTotal;
+            break;
+          case 'delivery':
+            deliveryRevenue += orderTotal;
+            break;
+          case 'online':
+            onlineRevenue += orderTotal;
+            break;
+        }
+      }
+      
       const averageOrder = orders.length > 0 
-        ? (orders.reduce((sum, o) => sum + parseFloat(o.total), 0) / orders.length).toFixed(2)
+        ? (totalRevenue / orders.length).toFixed(2)
         : "0";
       
+      // Fetch all order items in one batched query
+      const allOrderItems = await storage.getAllOrderItems(restaurant.id);
+      
+      // Calculate popular menu items from batched order items
+      const itemStats = new Map<string, { 
+        menuItemId: string;
+        name: string; 
+        orders: Set<string>;
+        quantity: number;
+        revenue: number;
+      }>();
+      
+      for (const item of allOrderItems) {
+        const key = item.menuItemId;
+        const existing = itemStats.get(key);
+        const itemRevenue = parseFloat(item.subtotal);
+        
+        if (existing) {
+          existing.orders.add(item.orderId);
+          existing.quantity += item.quantity;
+          existing.revenue += itemRevenue;
+        } else {
+          itemStats.set(key, {
+            menuItemId: key,
+            name: item.menuItem.name,
+            orders: new Set([item.orderId]),
+            quantity: item.quantity,
+            revenue: itemRevenue,
+          });
+        }
+      }
+      
+      // Convert to array and sort by quantity (most popular first)
+      const popularItems = Array.from(itemStats.values())
+        .sort((a, b) => b.quantity - a.quantity)
+        .map(item => ({
+          name: item.name,
+          orders: item.orders.size,
+          revenue: item.revenue.toFixed(2),
+        }));
+      
       res.json({
-        totalRevenue,
+        totalRevenue: totalRevenue.toFixed(2),
         totalOrders: orders.length,
         averageOrder,
-        popularItemsCount: 0,
-        popularItems: [],
-        dineInRevenue: "0",
-        takeoutRevenue: "0",
-        deliveryRevenue: "0",
-        onlineRevenue: "0",
+        popularItemsCount: popularItems.length,
+        popularItems,
+        dineInRevenue: dineInRevenue.toFixed(2),
+        takeoutRevenue: takeoutRevenue.toFixed(2),
+        deliveryRevenue: deliveryRevenue.toFixed(2),
+        onlineRevenue: onlineRevenue.toFixed(2),
       });
     } catch (error) {
       console.error("Error fetching detailed analytics:", error);
