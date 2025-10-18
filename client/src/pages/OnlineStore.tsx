@@ -41,6 +41,29 @@ import {
 import { cn } from "@/lib/utils";
 import { CURRENCIES, COUNTRIES } from "@/lib/countries-currencies";
 
+const LANGUAGES = [
+  { code: "en", name: "English" },
+  { code: "es", name: "Spanish (Español)" },
+  { code: "fr", name: "French (Français)" },
+  { code: "de", name: "German (Deutsch)" },
+  { code: "it", name: "Italian (Italiano)" },
+  { code: "pt", name: "Portuguese (Português)" },
+  { code: "nl", name: "Dutch (Nederlands)" },
+  { code: "ru", name: "Russian (Русский)" },
+  { code: "zh", name: "Chinese (中文)" },
+  { code: "ja", name: "Japanese (日本語)" },
+  { code: "ko", name: "Korean (한국어)" },
+  { code: "ar", name: "Arabic (العربية)" },
+  { code: "hi", name: "Hindi (हिन्दी)" },
+  { code: "pl", name: "Polish (Polski)" },
+  { code: "tr", name: "Turkish (Türkçe)" },
+  { code: "vi", name: "Vietnamese (Tiếng Việt)" },
+  { code: "th", name: "Thai (ไทย)" },
+  { code: "id", name: "Indonesian (Bahasa Indonesia)" },
+  { code: "ms", name: "Malay (Bahasa Melayu)" },
+  { code: "sv", name: "Swedish (Svenska)" },
+];
+
 interface OpeningHours {
   [key: string]: { open: string; close: string; closed: boolean };
 }
@@ -120,8 +143,12 @@ export default function OnlineStore() {
   const [openingHours, setOpeningHours] = useState<OpeningHours>(defaultOpeningHours);
   const [currency, setCurrency] = useState("USD");
   const [country, setCountry] = useState("United States");
+  const [platformLanguage, setPlatformLanguage] = useState("en");
+  const [storefrontLanguage, setStorefrontLanguage] = useState("en");
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
+  const [platformLanguageOpen, setPlatformLanguageOpen] = useState(false);
+  const [storefrontLanguageOpen, setStorefrontLanguageOpen] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState({
     stripePublicKey: "",
     stripeSecretKey: "",
@@ -200,7 +227,7 @@ export default function OnlineStore() {
   });
 
   const regionalSettingsMutation = useMutation({
-    mutationFn: async (settings: { currency: string; country: string }) => {
+    mutationFn: async (settings: { currency: string; country: string; platformLanguage: string; storefrontLanguage: string }) => {
       return apiRequest("/api/restaurant/regional-settings", "PUT", settings);
     },
     onSuccess: () => {
@@ -420,8 +447,10 @@ export default function OnlineStore() {
     if (restaurant) {
       setCurrency(restaurant.currency || "USD");
       setCountry(restaurant.country || "United States");
+      setPlatformLanguage(restaurant.platformLanguage || "en");
+      setStorefrontLanguage(restaurant.storefrontLanguage || "en");
     }
-  }, [restaurant?.currency, restaurant?.country]);
+  }, [restaurant?.currency, restaurant?.country, restaurant?.platformLanguage, restaurant?.storefrontLanguage]);
 
   // Load existing marketing settings
   useEffect(() => {
@@ -587,7 +616,7 @@ export default function OnlineStore() {
             <Globe className="h-5 w-5" />
             Regional Settings
           </CardTitle>
-          <CardDescription>Configure currency and location settings for your store</CardDescription>
+          <CardDescription>Configure currency, location, and language settings for your store</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -686,10 +715,106 @@ export default function OnlineStore() {
               </Popover>
               <p className="text-xs text-muted-foreground">Select your restaurant's location</p>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="platformLanguage">Platform Language</Label>
+              <Popover open={platformLanguageOpen} onOpenChange={setPlatformLanguageOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={platformLanguageOpen}
+                    className="w-full justify-between"
+                    data-testid="select-platform-language"
+                  >
+                    {platformLanguage ? LANGUAGES.find((l) => l.code === platformLanguage)?.name : "Select language"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search language..." />
+                    <CommandList>
+                      <CommandEmpty>No language found.</CommandEmpty>
+                      <CommandGroup>
+                        {LANGUAGES.map((lang) => (
+                          <CommandItem
+                            key={lang.code}
+                            value={lang.name}
+                            onSelect={() => {
+                              setPlatformLanguage(lang.code);
+                              setPlatformLanguageOpen(false);
+                            }}
+                            data-testid={`platform-language-option-${lang.code}`}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                platformLanguage === lang.code ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {lang.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">Language for admin dashboard</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="storefrontLanguage">Storefront Language</Label>
+              <Popover open={storefrontLanguageOpen} onOpenChange={setStorefrontLanguageOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={storefrontLanguageOpen}
+                    className="w-full justify-between"
+                    data-testid="select-storefront-language"
+                  >
+                    {storefrontLanguage ? LANGUAGES.find((l) => l.code === storefrontLanguage)?.name : "Select language"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search language..." />
+                    <CommandList>
+                      <CommandEmpty>No language found.</CommandEmpty>
+                      <CommandGroup>
+                        {LANGUAGES.map((lang) => (
+                          <CommandItem
+                            key={lang.code}
+                            value={lang.name}
+                            onSelect={() => {
+                              setStorefrontLanguage(lang.code);
+                              setStorefrontLanguageOpen(false);
+                            }}
+                            data-testid={`storefront-language-option-${lang.code}`}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                storefrontLanguage === lang.code ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {lang.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">Language for customer-facing menu</p>
+            </div>
           </div>
 
           <Button 
-            onClick={() => regionalSettingsMutation.mutate({ currency, country })}
+            onClick={() => regionalSettingsMutation.mutate({ currency, country, platformLanguage, storefrontLanguage })}
             disabled={regionalSettingsMutation.isPending}
             data-testid="button-save-regional-settings"
           >
