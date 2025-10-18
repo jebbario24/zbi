@@ -334,14 +334,17 @@ export default function Menu() {
     return {
       method: "PUT" as const,
       url: data.uploadURL,
+      objectPath: data.objectPath,
     };
   };
 
   const handleItemImageComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful[0]) {
-      const uploadURL = result.successful[0].uploadURL as string | undefined;
-      if (uploadURL) {
-        itemForm.setValue("imageUrl", uploadURL);
+      const file = result.successful[0];
+      // Get objectPath from file metadata
+      const objectPath = file.meta?.objectPath as string;
+      if (objectPath) {
+        itemForm.setValue("imageUrl", objectPath);
         toast({ title: "Image uploaded successfully" });
       }
     }

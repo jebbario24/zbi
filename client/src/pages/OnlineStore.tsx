@@ -347,18 +347,27 @@ export default function OnlineStore() {
     return {
       method: "PUT" as const,
       url: data.uploadURL,
+      objectPath: data.objectPath,
     };
   };
 
   const handleLogoComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful[0] && result.successful[0].uploadURL) {
-      logoMutation.mutate(result.successful[0].uploadURL);
+    if (result.successful && result.successful[0]) {
+      const file = result.successful[0];
+      const objectPath = file.meta?.objectPath as string;
+      if (objectPath) {
+        logoMutation.mutate(objectPath);
+      }
     }
   };
 
   const handleCoverComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful[0] && result.successful[0].uploadURL) {
-      coverImageMutation.mutate(result.successful[0].uploadURL);
+    if (result.successful && result.successful[0]) {
+      const file = result.successful[0];
+      const objectPath = file.meta?.objectPath as string;
+      if (objectPath) {
+        coverImageMutation.mutate(objectPath);
+      }
     }
   };
 

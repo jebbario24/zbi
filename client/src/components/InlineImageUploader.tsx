@@ -13,6 +13,7 @@ interface InlineImageUploaderProps {
   onGetUploadParameters: () => Promise<{
     method: "PUT";
     url: string;
+    objectPath?: string;
   }>;
   onComplete?: (
     result: UploadResult<Record<string, unknown>, Record<string, unknown>>
@@ -46,7 +47,17 @@ export function InlineImageUploader({
     })
       .use(AwsS3, {
         shouldUseMultipart: false,
-        getUploadParameters: onGetUploadParameters,
+        getUploadParameters: async (file) => {
+          const params = await onGetUploadParameters();
+          // Store objectPath in file metadata if provided
+          if (params.objectPath) {
+            uppy.setFileMeta(file.id, { objectPath: params.objectPath });
+          }
+          return {
+            method: params.method,
+            url: params.url,
+          };
+        },
       })
       .on("upload", () => {
         setIsUploading(true);
