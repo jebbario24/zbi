@@ -38,6 +38,8 @@ interface OpeningHours {
 }
 
 // Utility function to check if restaurant is currently open
+// Note: This assumes opening and closing times are within the same calendar day.
+// Overnight schedules (e.g., 10 PM to 2 AM) are not currently supported.
 function isRestaurantOpen(openingHours: OpeningHours | null | undefined): boolean {
   if (!openingHours) return false;
   
