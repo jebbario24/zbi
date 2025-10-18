@@ -27,7 +27,10 @@ export function LivePurchaseNotifications({ enabled, restaurantId }: LivePurchas
         const response = await fetch(`/api/storefront/recent-purchases/${restaurantId}`);
         if (response.ok) {
           const data = await response.json();
+          console.log('[LivePurchaseNotifications] Fetched notifications:', data);
           setNotifications(data);
+        } else {
+          console.log('[LivePurchaseNotifications] Response not OK:', response.status);
         }
       } catch (error) {
         console.error("Failed to fetch recent purchases:", error);
@@ -41,12 +44,16 @@ export function LivePurchaseNotifications({ enabled, restaurantId }: LivePurchas
   }, [enabled, restaurantId]);
 
   useEffect(() => {
-    if (notifications.length === 0 || !enabled) return;
+    if (notifications.length === 0 || !enabled) {
+      console.log('[LivePurchaseNotifications] Not showing - notifications:', notifications.length, 'enabled:', enabled);
+      return;
+    }
 
     let hideTimeout: NodeJS.Timeout | null = null;
 
     const showNotification = () => {
       const randomNotification = notifications[Math.floor(Math.random() * notifications.length)];
+      console.log('[LivePurchaseNotifications] Showing notification:', randomNotification);
       setCurrentNotification(randomNotification);
       setIsVisible(true);
 

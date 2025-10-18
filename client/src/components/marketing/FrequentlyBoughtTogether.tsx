@@ -28,6 +28,18 @@ export function FrequentlyBoughtTogether({
     }).format(parseFloat(price));
   };
 
+  const handleAddBundle = () => {
+    relatedItems.slice(0, 3).forEach(item => {
+      if (item.isAvailable) {
+        onAddToCart(item);
+      }
+    });
+  };
+
+  const totalPrice = relatedItems.slice(0, 3).reduce((sum, item) => 
+    sum + parseFloat(item.price), 0
+  );
+
   return (
     <Card className="border-primary/20" data-testid="frequently-bought-together">
       <CardHeader className="pb-3">
@@ -70,6 +82,21 @@ export function FrequentlyBoughtTogether({
               </Button>
             </div>
           ))}
+          
+          <div className="pt-3 border-t">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium">Bundle Total:</span>
+              <span className="text-lg font-bold text-primary">{formatPrice(totalPrice.toString())}</span>
+            </div>
+            <Button 
+              className="w-full"
+              onClick={handleAddBundle}
+              data-testid="button-add-bundle"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Bundle to Cart
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
