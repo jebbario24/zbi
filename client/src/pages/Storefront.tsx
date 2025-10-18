@@ -23,7 +23,6 @@ import {
 import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard } from "lucide-react";
 import { SiPaypal } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
-import { useStorefrontLanguage } from "@/hooks/useLanguage";
 import { useTranslation } from "react-i18next";
 import { FrequentlyBoughtTogether } from "@/components/marketing/FrequentlyBoughtTogether";
 import { CountdownTimer } from "@/components/marketing/CountdownTimer";
@@ -184,7 +183,7 @@ export default function Storefront() {
     },
     onSuccess: (data) => {
       if (data.paymentMethod === 'cash') {
-        toast({ title: "Order placed successfully! Pay cash on delivery." });
+        toast({ title: t('storefront.orderSuccess') });
         setCart([]);
         setCustomerName("");
         setCustomerPhone("");
@@ -196,7 +195,7 @@ export default function Storefront() {
       } else if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
-        toast({ title: "Order placed successfully!" });
+        toast({ title: t('storefront.orderConfirmed') });
         setCart([]);
         setCustomerName("");
         setCustomerPhone("");
@@ -205,7 +204,7 @@ export default function Storefront() {
       }
     },
     onError: () => {
-      toast({ title: "Failed to place order", variant: "destructive" });
+      toast({ title: t('storefront.orderError'), variant: "destructive" });
     },
   });
 
@@ -220,7 +219,7 @@ export default function Storefront() {
       onApprove: async (data: any) => {
         try {
           await apiRequest(`/api/storefront/${slug}/paypal-capture`, "POST", { orderId: data.orderID });
-          toast({ title: "Payment successful!" });
+          toast({ title: t('storefront.orderConfirmed') });
           setCart([]);
           setCustomerName("");
           setCustomerPhone("");
@@ -228,7 +227,7 @@ export default function Storefront() {
           setCurrentOrderId(null);
           paypalRendered.current = false;
         } catch (error) {
-          toast({ title: "Payment failed", variant: "destructive" });
+          toast({ title: t('storefront.orderError'), variant: "destructive" });
         }
       },
     }).render(paypalButtonsRef.current);
@@ -325,7 +324,7 @@ export default function Storefront() {
             <SheetTrigger asChild>
               <Button variant="default" className="relative" data-testid="button-cart">
                 <ShoppingCart className="h-5 w-5 mr-2" />
-                Cart
+                {t('storefront.cart')}
                 {cartItemCount > 0 && (
                   <Badge className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 rounded-full" data-testid="cart-count">
                     {cartItemCount}
@@ -335,13 +334,13 @@ export default function Storefront() {
             </SheetTrigger>
             <SheetContent className="w-full sm:max-w-lg">
               <SheetHeader>
-                <SheetTitle>Your Cart ({cartItemCount} items)</SheetTitle>
+                <SheetTitle>{t('storefront.cart')} ({cartItemCount} {t('storefront.items')})</SheetTitle>
               </SheetHeader>
 
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <ShoppingCart className="h-16 w-16 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Your cart is empty</p>
+                  <p className="text-muted-foreground">{t('storefront.emptyCart')}</p>
                 </div>
               ) : (
                 <>
@@ -399,26 +398,26 @@ export default function Storefront() {
 
                   <div className="space-y-3 border-t pt-4">
                     <Input
-                      placeholder="Your name *"
+                      placeholder={`${t('storefront.name')} *`}
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       data-testid="input-customer-name"
                     />
                     <Input
-                      placeholder="Phone number *"
+                      placeholder={`${t('storefront.phone')} *`}
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       data-testid="input-customer-phone"
                     />
                     <Input
                       type="email"
-                      placeholder="Email (optional)"
+                      placeholder={`${t('storefront.email')} (optional)`}
                       value={customerEmail}
                       onChange={(e) => setCustomerEmail(e.target.value)}
                       data-testid="input-customer-email"
                     />
                     <Input
-                      placeholder="Shipping address *"
+                      placeholder={`${t('storefront.address')} *`}
                       value={shippingAddress}
                       onChange={(e) => setShippingAddress(e.target.value)}
                       data-testid="input-shipping-address"
@@ -428,7 +427,7 @@ export default function Storefront() {
                   <SheetFooter className="flex-col gap-3 border-t pt-4">
                     <div className="space-y-2 w-full">
                       <div className="flex justify-between text-sm">
-                        <span>Subtotal</span>
+                        <span>{t('storefront.subtotal')}</span>
                         <span data-testid="subtotal">
                           {formatPrice(subtotal)}
                         </span>
@@ -441,7 +440,7 @@ export default function Storefront() {
                       </div>
                       <Separator />
                       <div className="flex justify-between text-lg font-bold">
-                        <span>Total</span>
+                        <span>{t('storefront.total')}</span>
                         <span data-testid="total">
                           {formatPrice(total)}
                         </span>
@@ -449,7 +448,7 @@ export default function Storefront() {
                     </div>
 
                     <div className="w-full space-y-3">
-                      <Label className="text-sm font-medium">Payment Method</Label>
+                      <Label className="text-sm font-medium">{t('storefront.paymentMethod')}</Label>
                       <RadioGroup 
                         value={paymentMethod} 
                         onValueChange={(value: 'stripe' | 'paypal' | 'cash') => {
@@ -466,7 +465,7 @@ export default function Storefront() {
                             <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer flex-1">
                               <CreditCard className="h-4 w-4" />
                               <div className="flex-1">
-                                <div className="font-medium">Cash on Delivery</div>
+                                <div className="font-medium">{t('storefront.cash')}</div>
                                 <div className="text-xs text-muted-foreground">Pay when you receive your order</div>
                               </div>
                             </Label>

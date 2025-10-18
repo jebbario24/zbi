@@ -23,7 +23,11 @@
     "deliveryZones": "Lieferzonen",
     "onlineStore": "Online-Shop",
     "billing": "Abrechnung",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "analytics": "Analytik",
+    "allRestaurants": "Alle Restaurants",
+    "restaurantManagement": "Restaurant-Verwaltung",
+    "platformManagement": "Plattform-Verwaltung"
   },
   "storefront": {
     "menu": "Speisekarte",
@@ -54,6 +58,13 @@
     "orderConfirmed": "Bestellung Bestätigt!",
     "thankYou": "Vielen Dank für Ihre Bestellung",
     "frequentlyBoughtTogether": "Oft Zusammen Gekauft",
-    "addBundleToCart": "Paket in den Warenkorb"
+    "addBundleToCart": "Paket in den Warenkorb",
+    "orderSuccess": "Bestellung erfolgreich aufgegeben! Barzahlung bei Lieferung.",
+    "orderError": "Bestellung fehlgeschlagen",
+    "categories": "Kategorien",
+    "allCategories": "Alle Kategorien",
+    "items": "Artikel",
+    "outOfStock": "Ausverkauft",
+    "available": "Verfügbar"
   }
 }

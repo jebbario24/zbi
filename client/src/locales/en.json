@@ -23,7 +23,11 @@
     "deliveryZones": "Delivery Zones",
     "onlineStore": "Online Store",
     "billing": "Billing",
-    "settings": "Settings"
+    "settings": "Settings",
+    "analytics": "Analytics",
+    "allRestaurants": "All Restaurants",
+    "restaurantManagement": "Restaurant Management",
+    "platformManagement": "Platform Management"
   },
   "storefront": {
     "menu": "Menu",
@@ -54,6 +58,13 @@
     "orderConfirmed": "Order Confirmed!",
     "thankYou": "Thank you for your order",
     "frequentlyBoughtTogether": "Frequently Bought Together",
-    "addBundleToCart": "Add Bundle to Cart"
+    "addBundleToCart": "Add Bundle to Cart",
+    "orderSuccess": "Order placed successfully! Pay cash on delivery.",
+    "orderError": "Failed to place order",
+    "categories": "Categories",
+    "allCategories": "All Categories",
+    "items": "items",
+    "outOfStock": "Out of Stock",
+    "available": "Available"
   }
 }

@@ -23,7 +23,11 @@
     "deliveryZones": "Zonas de Entrega",
     "onlineStore": "Tienda Online",
     "billing": "Facturación",
-    "settings": "Configuración"
+    "settings": "Configuración",
+    "analytics": "Análisis",
+    "allRestaurants": "Todos los Restaurantes",
+    "restaurantManagement": "Gestión de Restaurante",
+    "platformManagement": "Gestión de Plataforma"
   },
   "storefront": {
     "menu": "Menú",
@@ -54,6 +58,13 @@
     "orderConfirmed": "¡Pedido Confirmado!",
     "thankYou": "Gracias por tu pedido",
     "frequentlyBoughtTogether": "Frecuentemente Comprados Juntos",
-    "addBundleToCart": "Agregar Paquete al Carrito"
+    "addBundleToCart": "Agregar Paquete al Carrito",
+    "orderSuccess": "¡Pedido realizado con éxito! Pague en efectivo contra entrega.",
+    "orderError": "Error al realizar el pedido",
+    "categories": "Categorías",
+    "allCategories": "Todas las Categorías",
+    "items": "artículos",
+    "outOfStock": "Agotado",
+    "available": "Disponible"
   }
 }

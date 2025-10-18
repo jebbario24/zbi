@@ -73,7 +73,7 @@ const ownerMenuItems = [
     icon: MapPin,
   },
   {
-    titleKey: "Analytics",
+    titleKey: "navigation.analytics",
     url: "/analytics",
     icon: BarChart3,
   },
@@ -91,8 +91,7 @@ const adminMenuItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "All Restaurants",
-    titleKey: "All Restaurants",
+    titleKey: "navigation.allRestaurants",
     url: "/admin/restaurants",
     icon: Building2,
   },
@@ -123,7 +122,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>
-            {isAdmin ? "Platform Management" : "Restaurant Management"}
+            {isAdmin ? t('navigation.platformManagement') : t('navigation.restaurantManagement')}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

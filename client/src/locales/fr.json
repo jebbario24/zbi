@@ -23,7 +23,11 @@
     "deliveryZones": "Zones de Livraison",
     "onlineStore": "Boutique en Ligne",
     "billing": "Facturation",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "analytics": "Analytique",
+    "allRestaurants": "Tous les Restaurants",
+    "restaurantManagement": "Gestion du Restaurant",
+    "platformManagement": "Gestion de la Plateforme"
   },
   "storefront": {
     "menu": "Menu",
@@ -54,6 +58,13 @@
     "orderConfirmed": "Commande Confirmée!",
     "thankYou": "Merci pour votre commande",
     "frequentlyBoughtTogether": "Souvent Achetés Ensemble",
-    "addBundleToCart": "Ajouter le Lot au Panier"
+    "addBundleToCart": "Ajouter le Lot au Panier",
+    "orderSuccess": "Commande passée avec succès! Payez en espèces à la livraison.",
+    "orderError": "Échec de la commande",
+    "categories": "Catégories",
+    "allCategories": "Toutes les Catégories",
+    "items": "articles",
+    "outOfStock": "Rupture de Stock",
+    "available": "Disponible"
   }
 }
