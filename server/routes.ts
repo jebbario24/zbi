@@ -1698,6 +1698,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/storefront/recent-purchases/:restaurantId', async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      const orders = await storage.getOrders(restaurantId);
+      const recentOrders = orders
+        .filter(order => order.status === 'completed' || order.status === 'confirmed')
+        .sort((a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime())
+        .slice(0, 10);
+
+      const allOrderItems = await storage.getAllOrderItems(restaurantId);
+
+      const notifications = recentOrders.map((order) => {
+        const orderItems = allOrderItems.filter(item => item.orderId === order.id);
+        const firstItem = orderItems[0];
+        
+        const getTimeAgo = (date: Date) => {
+          const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+          if (seconds < 60) return 'just now';
+          const minutes = Math.floor(seconds / 60);
+          if (minutes < 60) return `${minutes}m ago`;
+          const hours = Math.floor(minutes / 60);
+          if (hours < 24) return `${hours}h ago`;
+          const days = Math.floor(hours / 24);
+          return `${days}d ago`;
+        };
+
+        const timeAgo = order.createdAt 
+          ? getTimeAgo(new Date(order.createdAt))
+          : 'recently';
+
+        return {
+          id: order.id,
+          customerName: order.customerName || 'Someone',
+          itemName: firstItem?.menuItem?.name || 'an item',
+          timeAgo,
+        };
+      });
+
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching recent purchases:", error);
+      res.status(500).json({ message: "Failed to fetch recent purchases" });
+    }
+  });
+
   app.post('/api/storefront/:slug/checkout', async (req, res) => {
     try {
       const restaurant = await storage.getRestaurantBySlug(req.params.slug);

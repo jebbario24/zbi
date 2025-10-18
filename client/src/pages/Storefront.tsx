@@ -23,6 +23,9 @@ import {
 import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard } from "lucide-react";
 import { SiPaypal } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
+import { FrequentlyBoughtTogether } from "@/components/marketing/FrequentlyBoughtTogether";
+import { CountdownTimer } from "@/components/marketing/CountdownTimer";
+import { LivePurchaseNotifications } from "@/components/marketing/LivePurchaseNotifications";
 
 interface CartItem {
   menuItem: MenuItem;
@@ -579,60 +582,81 @@ export default function Storefront() {
 
       {/* Menu Items Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Marketing: Countdown Timer */}
+        {(restaurant?.marketingSettings as any)?.enableCountdownTimer && (
+          <div className="mb-6 flex justify-center">
+            <CountdownTimer 
+              minutes={(restaurant.marketingSettings as any).countdownMinutes || 30}
+              message={(restaurant.marketingSettings as any).countdownMessage || "Offer expires in"}
+            />
+          </div>
+        )}
+
         {filteredItems && filteredItems.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredItems.map((item) => (
-              <Card 
-                key={item.id} 
-                className="overflow-hidden hover-elevate transition-all cursor-pointer group" 
-                onClick={() => item.isAvailable && addToCart(item)}
-                data-testid={`menu-item-${item.id}`}
-              >
-                <div className="relative aspect-square">
-                  {item.imageUrl ? (
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      <Store className="h-16 w-16 text-muted-foreground/50" />
-                    </div>
-                  )}
-                  
-                  {!item.isAvailable && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <Badge variant="destructive" className="text-sm">Out of Stock</Badge>
-                    </div>
-                  )}
-                </div>
-                
-                <CardContent className="p-4">
-                  <h3 className="font-bold text-lg mb-1 line-clamp-1">{item.name}</h3>
-                  {item.description && (
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-primary">
-                      {formatPrice(item.price)}
-                    </span>
-                    {item.isAvailable && (
-                      <Button 
-                        size="icon" 
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(item);
-                        }}
-                        data-testid={`button-add-${item.id}`}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
+              <div key={item.id} className="space-y-4">
+                <Card 
+                  className="overflow-hidden hover-elevate transition-all cursor-pointer group" 
+                  onClick={() => item.isAvailable && addToCart(item)}
+                  data-testid={`menu-item-${item.id}`}
+                >
+                  <div className="relative aspect-square">
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <Store className="h-16 w-16 text-muted-foreground/50" />
+                      </div>
+                    )}
+                    
+                    {!item.isAvailable && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <Badge variant="destructive" className="text-sm">Out of Stock</Badge>
+                      </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                  
+                  <CardContent className="p-4">
+                    <h3 className="font-bold text-lg mb-1 line-clamp-1">{item.name}</h3>
+                    {item.description && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-bold text-primary">
+                        {formatPrice(item.price)}
+                      </span>
+                      {item.isAvailable && (
+                        <Button 
+                          size="icon" 
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(item);
+                          }}
+                          data-testid={`button-add-${item.id}`}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Marketing: Frequently Bought Together */}
+                {(restaurant?.marketingSettings as any)?.enableUpsells && item.upsellItemIds && item.upsellItemIds.length > 0 && (
+                  <FrequentlyBoughtTogether
+                    currentItem={item}
+                    relatedItems={items?.filter(i => item.upsellItemIds?.includes(i.id) && i.isAvailable) || []}
+                    onAddToCart={addToCart}
+                    message={(restaurant.marketingSettings as any).upsellMessage}
+                  />
+                )}
+              </div>
             ))}
           </div>
         ) : (
@@ -642,6 +666,12 @@ export default function Storefront() {
           </div>
         )}
       </div>
+
+      {/* Marketing: Live Purchase Notifications */}
+      <LivePurchaseNotifications 
+        enabled={(restaurant?.marketingSettings as any)?.enableLiveNotifications || false}
+        restaurantId={restaurant?.id}
+      />
 
       {/* Opening Hours - Footer */}
       {openingHours && (
