@@ -6,6 +6,24 @@ EatOut is a comprehensive SaaS restaurant management platform for commission-fre
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (October 2025)
+
+### Cart Payment UI Redesign
+- **5 Payment Method Buttons**: Replaced radio button selection with distinct, branded buttons:
+  - Apple Pay (black, Stripe-powered)
+  - Google Pay (white/gray, Stripe-powered)
+  - Credit/Debit Card (black, Stripe)
+  - PayPal (PayPal blue, OAuth)
+  - Cash on Delivery (outline style)
+- **Smart Defaults**: All payment methods enabled by default if restaurant hasn't configured settings
+- **Mobile Responsive**: 2-column grid for Apple/Google Pay, full-width for others, proper touch targets (h-16)
+
+### Order Notification System
+- **Real-time Badge**: Red notification badge on Orders sidebar menu showing pending order count
+- **Audio Alerts**: Beep notification when new orders arrive (requires user interaction with page first due to browser autoplay policies)
+- **Smart Polling**: Checks for new orders every 10 seconds via `/api/orders/new-count` endpoint
+- **First Order Detection**: Properly detects transition from 0→1 pending orders
+
 ## System Architecture
 
 ### Frontend Architecture

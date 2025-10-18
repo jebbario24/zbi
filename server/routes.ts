@@ -93,7 +93,7 @@ const onlineOrderSchema = z.object({
   customerPhone: z.string().nullable().optional(),
   customerEmail: z.string().nullable().optional(),
   shippingAddress: z.string().nullable().optional(),
-  paymentMethod: z.enum(['stripe', 'paypal', 'cash']).optional().default('cash'),
+  paymentMethod: z.enum(['stripe', 'paypal', 'cash', 'apple', 'google']).optional().default('cash'),
   items: z.array(z.object({
     menuItemId: z.string(),
     quantity: z.number(),
@@ -1142,6 +1142,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching recent orders:", error);
       res.status(500).json({ message: "Failed to fetch recent orders" });
+    }
+  });
+
+  app.get('/api/orders/new-count', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.json({ count: 0 });
+      }
+      
+      // Get all pending orders for the restaurant
+      const orders = await storage.getOrders(restaurant.id);
+      const newOrders = orders.filter(order => order.status === 'pending');
+      
+      res.json({ count: newOrders.length });
+    } catch (error) {
+      console.error("Error fetching new orders count:", error);
+      res.status(500).json({ message: "Failed to fetch new orders count" });
     }
   });
 

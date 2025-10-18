@@ -28,8 +28,10 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
+import { useNewOrders } from "@/hooks/useNewOrders";
 
 const ownerMenuItems = [
   {
@@ -101,6 +103,7 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { newOrdersCount } = useNewOrders();
   
   const isAdmin = user?.role === 'admin';
   const menuItems = isAdmin ? adminMenuItems : ownerMenuItems;
@@ -136,6 +139,15 @@ export function AppSidebar() {
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.titleKey.includes('.') ? t(item.titleKey) : item.titleKey}</span>
+                      {item.url === '/orders' && newOrdersCount > 0 && (
+                        <Badge 
+                          variant="destructive" 
+                          className="ml-auto h-5 w-5 flex items-center justify-center p-0 rounded-full text-xs"
+                          data-testid="badge-new-orders"
+                        >
+                          {newOrdersCount}
+                        </Badge>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
