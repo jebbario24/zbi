@@ -1938,7 +1938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/restaurant/regional-settings", isAuthenticated, async (req: any, res) => {
     const userId = req.user.id;
-    const { currency, country } = req.body;
+    const { currency, country, platformLanguage, storefrontLanguage } = req.body;
 
     if (!currency || !country) {
       return res.status(400).json({ error: "currency and country are required" });
@@ -1950,7 +1950,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Restaurant not found" });
       }
 
-      await storage.updateRestaurant(restaurant.id, { currency, country });
+      await storage.updateRestaurant(restaurant.id, { 
+        currency, 
+        country,
+        ...(platformLanguage && { platformLanguage }),
+        ...(storefrontLanguage && { storefrontLanguage })
+      });
       res.status(200).json({ success: true });
     } catch (error) {
       console.error("Error updating regional settings:", error);
