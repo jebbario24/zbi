@@ -264,7 +264,7 @@ export default function Storefront() {
   }, [currentOrderId, paypalReady, paymentMethod]);
 
   const openingHours = restaurant?.openingHours as any;
-  const enabledPaymentMethods = restaurant?.paymentMethods as { stripe?: boolean; paypal?: boolean; cash?: boolean } || { stripe: true, paypal: true, cash: true };
+  const enabledPaymentMethods = restaurant?.paymentMethods as { stripe?: boolean; paypal?: boolean; cash?: boolean } || {};
 
   if (restaurantLoading) {
     return (

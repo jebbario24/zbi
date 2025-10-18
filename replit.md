@@ -10,12 +10,12 @@ Preferred communication style: Simple, everyday language.
 
 ### Cart Payment UI Redesign
 - **5 Payment Method Buttons**: Replaced radio button selection with distinct, branded buttons:
-  - Apple Pay (black, Stripe-powered)
-  - Google Pay (white/gray, Stripe-powered)
-  - Credit/Debit Card (black, Stripe)
-  - PayPal (PayPal blue, OAuth)
-  - Cash on Delivery (outline style)
-- **Smart Defaults**: All payment methods enabled by default if restaurant hasn't configured settings
+  - Apple Pay (black, Stripe-powered) - Shows only when Stripe is enabled in settings
+  - Google Pay (white/gray, Stripe-powered) - Shows only when Stripe is enabled in settings
+  - Credit/Debit Card (black, Stripe) - Shows only when Stripe is enabled in settings
+  - PayPal (PayPal blue, OAuth) - Shows only when PayPal is enabled in settings
+  - Cash on Delivery (outline style) - Shows only when Cash is enabled in settings
+- **Explicit Configuration Required**: Payment buttons only display when explicitly enabled in Online Store → Payment Methods settings
 - **Mobile Responsive**: 2-column grid for Apple/Google Pay, full-width for others, proper touch targets (h-16)
 
 ### Order Notification System
