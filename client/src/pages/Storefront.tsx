@@ -143,6 +143,14 @@ export default function Storefront() {
     ? items?.filter((item) => item.categoryId === selectedCategory)
     : items;
 
+  // Group items by category when showing all
+  const itemsByCategory = selectedCategory === null && items && categories
+    ? categories.map(category => ({
+        category,
+        items: items.filter(item => item.categoryId === category.id)
+      })).filter(group => group.items.length > 0)
+    : null;
+
   const addToCart = (item: MenuItem) => {
     const existingItem = cart.find((ci) => ci.menuItem.id === item.id);
     if (existingItem) {
@@ -668,7 +676,91 @@ export default function Storefront() {
           </div>
         )}
 
-        {filteredItems && filteredItems.length > 0 ? (
+        {itemsByCategory ? (
+          // Showing all items grouped by category
+          <div className="space-y-12">
+            {itemsByCategory.map((group) => (
+              <div key={group.category.id} className="space-y-6">
+                <div className="border-b pb-2">
+                  <h2 className="text-2xl font-bold" data-testid={`category-section-${group.category.name.toLowerCase()}`}>
+                    {group.category.name}
+                  </h2>
+                  {group.category.description && (
+                    <p className="text-sm text-muted-foreground mt-1">{group.category.description}</p>
+                  )}
+                </div>
+                
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {group.items.map((item) => (
+                    <div key={item.id} className="space-y-4">
+                      <Card 
+                        className="overflow-hidden hover-elevate transition-all cursor-pointer group" 
+                        onClick={() => item.isAvailable && addToCart(item)}
+                        data-testid={`menu-item-${item.id}`}
+                      >
+                        <div className="relative aspect-square">
+                          {item.imageUrl ? (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-muted flex items-center justify-center">
+                              <Store className="h-16 w-16 text-muted-foreground/50" />
+                            </div>
+                          )}
+                          
+                          {!item.isAvailable && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                              <Badge variant="destructive" className="text-sm">Out of Stock</Badge>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <CardContent className="p-4">
+                          <h3 className="font-bold text-lg mb-1 line-clamp-1">{item.name}</h3>
+                          {item.description && (
+                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-lg font-bold text-primary">
+                              {formatPrice(item.price)}
+                            </span>
+                            {item.isAvailable && (
+                              <Button 
+                                size="icon" 
+                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addToCart(item);
+                                }}
+                                data-testid={`button-add-${item.id}`}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Marketing: Frequently Bought Together */}
+                      {(restaurant?.marketingSettings as any)?.enableUpsells && item.upsellItemIds && item.upsellItemIds.length > 0 && (
+                        <FrequentlyBoughtTogether
+                          currentItem={item}
+                          relatedItems={items?.filter(i => item.upsellItemIds?.includes(i.id) && i.isAvailable) || []}
+                          onAddToCart={addToCart}
+                          message={(restaurant.marketingSettings as any).upsellMessage}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredItems && filteredItems.length > 0 ? (
+          // Showing single category
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredItems.map((item) => (
               <div key={item.id} className="space-y-4">
