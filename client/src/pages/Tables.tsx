@@ -24,7 +24,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Plus, Users, Edit, Trash2 } from "lucide-react";
+import { Plus, Users, Edit, Trash2, Copy } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -153,6 +153,28 @@ export default function Tables() {
         return;
       }
       toast({ title: "Failed to delete table", variant: "destructive" });
+    },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (tableId: string) => {
+      return await apiRequest(`/api/tables/${tableId}/duplicate`, "POST");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      toast({ title: "Table duplicated successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/login", 500);
+        return;
+      }
+      toast({ title: "Failed to duplicate table", variant: "destructive" });
     },
   });
 
@@ -290,6 +312,15 @@ export default function Tables() {
                             data-testid={`button-edit-table-${table.id}`}
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => duplicateMutation.mutate(table.id)}
+                            disabled={duplicateMutation.isPending}
+                            data-testid={`button-duplicate-table-${table.id}`}
+                          >
+                            <Copy className="h-4 w-4" />
                           </Button>
                           <Button
                             size="icon"
