@@ -357,13 +357,4 @@
   }
 }
 
-/* Prevent double scrollbar - only main should scroll */
-body {
-  overflow: hidden;
-  height: 100vh;
-}
-
-html {
-  overflow: hidden;
-  height: 100%;
-}
+/* No global overflow restriction - let each layout handle its own scrolling */
