@@ -29,55 +29,56 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
 
 const ownerMenuItems = [
   {
-    title: "Dashboard",
+    titleKey: "navigation.dashboard",
     url: "/dashboard",
     icon: LayoutDashboard,
   },
   {
-    title: "Orders",
+    titleKey: "navigation.orders",
     url: "/orders",
     icon: ShoppingCart,
   },
   {
-    title: "Menu",
+    titleKey: "navigation.menu",
     url: "/menu",
     icon: UtensilsCrossed,
   },
   {
-    title: "Reservations",
+    titleKey: "navigation.reservations",
     url: "/reservations",
     icon: CalendarCheck,
   },
   {
-    title: "Tables",
+    titleKey: "navigation.tables",
     url: "/tables",
     icon: ChefHat,
   },
   {
-    title: "Staff",
+    titleKey: "navigation.staff",
     url: "/staff",
     icon: Users,
   },
   {
-    title: "Inventory",
+    titleKey: "navigation.inventory",
     url: "/inventory",
     icon: Package,
   },
   {
-    title: "Delivery Zones",
+    titleKey: "navigation.deliveryZones",
     url: "/delivery-zones",
     icon: MapPin,
   },
   {
-    title: "Analytics",
+    titleKey: "navigation.dashboard",
     url: "/analytics",
     icon: BarChart3,
   },
   {
-    title: "Online Store",
+    titleKey: "navigation.onlineStore",
     url: "/online-store",
     icon: Palette,
   },
@@ -85,12 +86,12 @@ const ownerMenuItems = [
 
 const adminMenuItems = [
   {
-    title: "Dashboard",
+    titleKey: "navigation.dashboard",
     url: "/admin",
     icon: LayoutDashboard,
   },
   {
-    title: "All Restaurants",
+    titleKey: "All Restaurants",
     url: "/admin/restaurants",
     icon: Building2,
   },
@@ -99,6 +100,7 @@ const adminMenuItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const { t } = useTranslation();
   
   const isAdmin = user?.role === 'admin';
   const menuItems = isAdmin ? adminMenuItems : ownerMenuItems;
@@ -125,15 +127,15 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.titleKey}>
                   <SidebarMenuButton 
                     asChild
                     isActive={location === item.url}
-                    data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                    data-testid={`link-${item.titleKey.split('.').pop()}`}
                   >
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                      <span>{t(item.titleKey)}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -155,7 +157,7 @@ export function AppSidebar() {
                   >
                     <Link href="/billing">
                       <CreditCard className="h-4 w-4" />
-                      <span>Billing</span>
+                      <span>{t('navigation.billing')}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -167,7 +169,7 @@ export function AppSidebar() {
                   >
                     <Link href="/settings">
                       <Settings className="h-4 w-4" />
-                      <span>Settings</span>
+                      <span>{t('navigation.settings')}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

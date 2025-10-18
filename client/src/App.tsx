@@ -9,6 +9,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { SubscriptionGuard } from "@/components/SubscriptionGuard";
 import { useAuth } from "@/hooks/useAuth";
 import { UserMenu } from "@/components/UserMenu";
+import { usePlatformLanguage } from "@/hooks/useLanguage";
+import "./i18n";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
@@ -107,6 +109,7 @@ function AuthenticatedRouter() {
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
+  usePlatformLanguage();
   
   const style = {
     "--sidebar-width": "16rem",
