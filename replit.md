@@ -24,6 +24,13 @@ Preferred communication style: Simple, everyday language.
 - **Smart Polling**: Checks for new orders every 10 seconds via `/api/orders/new-count` endpoint
 - **First Order Detection**: Properly detects transition from 0→1 pending orders
 
+### Opening Hours Synchronization
+- **Real-time Status Badge**: Storefront displays green "Open" or red "Closed" badge that automatically syncs with configured opening hours
+- **Smart Time Detection**: Compares current day/time against restaurant's opening hours to determine open/closed status
+- **Customer-Friendly Hours Display**: Shows today's hours in 12-hour format (e.g., "9:00 AM - 10:00 PM") below restaurant name with clock icon
+- **Closed Day Handling**: Displays "Closed today" when restaurant is marked as closed for the current day
+- **Automatic Updates**: Status and hours sync instantly when owner changes opening hours in Online Store settings
+
 ## System Architecture
 
 ### Frontend Architecture

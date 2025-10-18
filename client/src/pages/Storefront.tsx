@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -55,6 +55,30 @@ function isRestaurantOpen(openingHours: OpeningHours | null | undefined): boolea
   
   // Compare times as strings (HH:MM format)
   return currentTime >= todayHours.open && currentTime <= todayHours.close;
+}
+
+// Get today's hours display text
+function getTodayHoursText(openingHours: OpeningHours | null | undefined): string {
+  if (!openingHours) return '';
+  
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const currentDay = dayNames[new Date().getDay()];
+  const todayHours = openingHours[currentDay];
+  
+  if (!todayHours || todayHours.closed) {
+    return 'Closed today';
+  }
+  
+  // Format time from 24h to 12h
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+  
+  return `${formatTime(todayHours.open)} - ${formatTime(todayHours.close)}`;
 }
 
 declare global {
@@ -150,6 +174,12 @@ export default function Storefront() {
         items: items.filter(item => item.categoryId === category.id)
       })).filter(group => group.items.length > 0)
     : null;
+
+  // Compute today's hours text
+  const todayHoursText = useMemo(() => {
+    if (!restaurant?.openingHours) return '';
+    return getTodayHoursText(restaurant.openingHours as OpeningHours);
+  }, [restaurant?.openingHours]);
 
   const addToCart = (item: MenuItem) => {
     const existingItem = cart.find((ci) => ci.menuItem.id === item.id);
@@ -626,6 +656,12 @@ export default function Storefront() {
                 </div>
                 {restaurant.description && (
                   <p className="text-muted-foreground mt-1 hidden sm:block">{restaurant.description}</p>
+                )}
+                {todayHoursText && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                    <Clock className="h-4 w-4" />
+                    <span data-testid="text-today-hours">{todayHoursText}</span>
+                  </div>
                 )}
               </div>
             </div>
