@@ -394,7 +394,7 @@ export default function Storefront() {
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-lg flex flex-col overflow-hidden">
+            <SheetContent className="w-full sm:max-w-lg flex flex-col">
               <SheetHeader>
                 <SheetTitle>{t('storefront.cart')} ({cartItemCount} {t('storefront.items')})</SheetTitle>
               </SheetHeader>
@@ -405,8 +405,8 @@ export default function Storefront() {
                   <p className="text-muted-foreground">{t('storefront.emptyCart')}</p>
                 </div>
               ) : (
-                <div className="flex-1 overflow-auto my-4">
-                  <div className="space-y-4 px-1 pb-4">
+                <ScrollArea className="flex-1 my-4">
+                  <div className="space-y-4 px-1">
                       {cart.map((item) => (
                         <div key={item.menuItem.id} className="flex gap-4 p-3 rounded-lg border">
                           {item.menuItem.imageUrl && (
