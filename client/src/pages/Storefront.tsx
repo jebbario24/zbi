@@ -20,8 +20,8 @@ import {
   SheetTrigger,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard } from "lucide-react";
-import { SiPaypal } from "react-icons/si";
+import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard, Banknote } from "lucide-react";
+import { SiPaypal, SiApple, SiGoogle } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { FrequentlyBoughtTogether } from "@/components/marketing/FrequentlyBoughtTogether";
@@ -73,7 +73,7 @@ export default function Storefront() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'cash'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'cash' | 'apple' | 'google'>('cash');
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [paypalReady, setPaypalReady] = useState(false);
   const paypalButtonsRef = useRef<HTMLDivElement>(null);
@@ -473,71 +473,105 @@ export default function Storefront() {
 
                     <div className="w-full space-y-3">
                       <Label className="text-sm font-medium">{t('storefront.paymentMethod')}</Label>
-                      <RadioGroup 
-                        value={paymentMethod} 
-                        onValueChange={(value: 'stripe' | 'paypal' | 'cash') => {
-                          setPaymentMethod(value);
-                          setCurrentOrderId(null);
-                          paypalRendered.current = false;
-                        }}
-                        className="flex flex-col gap-3"
-                        data-testid="radio-payment-method"
-                      >
-                        {enabledPaymentMethods?.cash && (
-                          <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                            <RadioGroupItem value="cash" id="cash" data-testid="radio-cash" />
-                            <Label htmlFor="cash" className="flex items-center gap-2 cursor-pointer flex-1">
-                              <CreditCard className="h-4 w-4" />
-                              <div className="flex-1">
-                                <div className="font-medium">{t('storefront.cash')}</div>
-                                <div className="text-xs text-muted-foreground">Pay when you receive your order</div>
-                              </div>
-                            </Label>
-                          </div>
-                        )}
-                        
-                        {enabledPaymentMethods?.paypal && (
-                          <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                            <RadioGroupItem value="paypal" id="paypal" data-testid="radio-paypal" />
-                            <Label htmlFor="paypal" className="flex items-center gap-2 cursor-pointer flex-1">
-                              <SiPaypal className="h-4 w-4" />
-                              <div className="flex-1">
-                                <div className="font-medium">PayPal</div>
-                                <div className="text-xs text-muted-foreground">Pay securely with PayPal</div>
-                              </div>
-                            </Label>
-                          </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        {enabledPaymentMethods?.stripe && (
+                          <Button
+                            variant="outline"
+                            className="h-16 bg-black hover:bg-black/90 text-white border-black flex flex-col items-center justify-center gap-1"
+                            disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                            onClick={() => {
+                              setPaymentMethod('apple');
+                              setCurrentOrderId(null);
+                              paypalRendered.current = false;
+                              checkoutMutation.mutate();
+                            }}
+                            data-testid="button-apple-pay"
+                          >
+                            <SiApple className="h-6 w-6" />
+                            <span className="text-xs font-medium">{t('storefront.applePay')}</span>
+                          </Button>
                         )}
                         
                         {enabledPaymentMethods?.stripe && (
-                          <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                            <RadioGroupItem value="stripe" id="stripe" data-testid="radio-stripe" />
-                            <Label htmlFor="stripe" className="flex items-center gap-2 cursor-pointer flex-1">
-                              <CreditCard className="h-4 w-4" />
-                              <div className="flex-1">
-                                <div className="font-medium">Credit / Debit Card</div>
-                                <div className="text-xs text-muted-foreground">Pay securely with Stripe</div>
-                              </div>
-                            </Label>
-                          </div>
+                          <Button
+                            variant="outline"
+                            className="h-16 bg-white hover:bg-gray-50 text-gray-800 border-gray-300 flex flex-col items-center justify-center gap-1"
+                            disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                            onClick={() => {
+                              setPaymentMethod('google');
+                              setCurrentOrderId(null);
+                              paypalRendered.current = false;
+                              checkoutMutation.mutate();
+                            }}
+                            data-testid="button-google-pay"
+                          >
+                            <SiGoogle className="h-5 w-5" />
+                            <span className="text-xs font-medium">{t('storefront.googlePay')}</span>
+                          </Button>
                         )}
-                      </RadioGroup>
-                    </div>
-
-                    {!currentOrderId || paymentMethod === 'cash' ? (
-                      <Button
-                        className="w-full h-12"
-                        disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
-                        onClick={() => checkoutMutation.mutate()}
-                        data-testid="button-checkout"
-                      >
-                        {checkoutMutation.isPending ? "Processing..." : paymentMethod === 'cash' ? "Place Order" : "Continue to Payment"}
-                      </Button>
-                    ) : (
-                      <div className="w-full">
-                        <div ref={paypalButtonsRef} data-testid="paypal-buttons" />
                       </div>
-                    )}
+                      
+                      {enabledPaymentMethods?.stripe && (
+                        <Button
+                          variant="outline"
+                          className="w-full h-16 bg-black hover:bg-black/90 text-white border-black flex items-center justify-center gap-2"
+                          disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                          onClick={() => {
+                            setPaymentMethod('stripe');
+                            setCurrentOrderId(null);
+                            paypalRendered.current = false;
+                            checkoutMutation.mutate();
+                          }}
+                          data-testid="button-credit-card"
+                        >
+                          <CreditCard className="h-5 w-5" />
+                          <span className="font-medium">{t('storefront.creditDebitCard')}</span>
+                        </Button>
+                      )}
+                      
+                      {enabledPaymentMethods?.paypal && (
+                        <Button
+                          variant="outline"
+                          className="w-full h-16 bg-[#0070BA] hover:bg-[#005EA6] text-white border-[#0070BA] flex items-center justify-center gap-2"
+                          disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                          onClick={() => {
+                            setPaymentMethod('paypal');
+                            setCurrentOrderId(null);
+                            paypalRendered.current = false;
+                            checkoutMutation.mutate();
+                          }}
+                          data-testid="button-paypal"
+                        >
+                          <SiPaypal className="h-5 w-5" />
+                          <span className="font-medium">PayPal</span>
+                        </Button>
+                      )}
+                      
+                      {currentOrderId && paymentMethod === 'paypal' && (
+                        <div className="w-full">
+                          <div ref={paypalButtonsRef} data-testid="paypal-buttons" />
+                        </div>
+                      )}
+                      
+                      {enabledPaymentMethods?.cash && (
+                        <Button
+                          variant="outline"
+                          className="w-full h-16 flex items-center justify-center gap-2"
+                          disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                          onClick={() => {
+                            setPaymentMethod('cash');
+                            setCurrentOrderId(null);
+                            paypalRendered.current = false;
+                            checkoutMutation.mutate();
+                          }}
+                          data-testid="button-cash-on-delivery"
+                        >
+                          <Banknote className="h-5 w-5" />
+                          <span className="font-medium">{t('storefront.cash')}</span>
+                        </Button>
+                      )}
+                    </div>
                   </SheetFooter>
                 </>
               )}

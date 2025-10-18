@@ -1780,8 +1780,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ orderId: order.id, paymentMethod: 'cash', success: true });
       } else if (data.paymentMethod === 'paypal') {
         res.json({ orderId: order.id, paymentMethod: 'paypal' });
+      } else if (data.paymentMethod === 'apple' || data.paymentMethod === 'google' || data.paymentMethod === 'stripe') {
+        // Apple Pay, Google Pay, or Stripe payment - all use Stripe
+        // TODO: Create Stripe checkout session
+        res.json({ orderId: order.id, checkoutUrl: null });
       } else {
-        // Stripe payment
+        // Default to stripe for unknown payment methods
         res.json({ orderId: order.id, checkoutUrl: null });
       }
     } catch (error) {
