@@ -33,6 +33,28 @@ interface CartItem {
   quantity: number;
 }
 
+interface OpeningHours {
+  [key: string]: { open: string; close: string; closed: boolean };
+}
+
+// Utility function to check if restaurant is currently open
+function isRestaurantOpen(openingHours: OpeningHours | null | undefined): boolean {
+  if (!openingHours) return false;
+  
+  const now = new Date();
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const currentDay = dayNames[now.getDay()];
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  
+  const todayHours = openingHours[currentDay];
+  if (!todayHours || todayHours.closed) {
+    return false;
+  }
+  
+  // Compare times as strings (HH:MM format)
+  return currentTime >= todayHours.open && currentTime <= todayHours.close;
+}
+
 declare global {
   interface Window {
     paypal?: any;
@@ -549,8 +571,17 @@ export default function Storefront() {
                 </div>
               )}
               
-              <div className="pb-2">
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold">{restaurant.name}</h1>
+              <div className="pb-2 flex-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold">{restaurant.name}</h1>
+                  <Badge 
+                    variant={isRestaurantOpen(restaurant.openingHours as OpeningHours) ? "default" : "secondary"}
+                    className={`text-sm px-3 py-1 ${isRestaurantOpen(restaurant.openingHours as OpeningHours) ? 'bg-green-600 dark:bg-green-600 hover:bg-green-700 dark:hover:bg-green-700' : 'bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-700'} text-white`}
+                    data-testid="badge-open-status"
+                  >
+                    {isRestaurantOpen(restaurant.openingHours as OpeningHours) ? t('storefront.open') : t('storefront.closed')}
+                  </Badge>
+                </div>
                 {restaurant.description && (
                   <p className="text-muted-foreground mt-1 hidden sm:block">{restaurant.description}</p>
                 )}
