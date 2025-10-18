@@ -65,6 +65,8 @@
     "allCategories": "すべてのカテゴリー",
     "items": "アイテム",
     "outOfStock": "在庫切れ",
-    "available": "在庫あり"
+    "available": "在庫あり",
+    "open": "営業中",
+    "closed": "閉店"
   }
 }

@@ -65,6 +65,8 @@
     "allCategories": "所有类别",
     "items": "项",
     "outOfStock": "缺货",
-    "available": "有货"
+    "available": "有货",
+    "open": "营业中",
+    "closed": "休息中"
   }
 }

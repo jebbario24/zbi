@@ -65,6 +65,8 @@
     "allCategories": "جميع الفئات",
     "items": "عناصر",
     "outOfStock": "نفذت الكمية",
-    "available": "متوفر"
+    "available": "متوفر",
+    "open": "مفتوح",
+    "closed": "مغلق"
   }
 }

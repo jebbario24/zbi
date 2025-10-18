@@ -65,6 +65,8 @@
     "allCategories": "All Categories",
     "items": "items",
     "outOfStock": "Out of Stock",
-    "available": "Available"
+    "available": "Available",
+    "open": "Open",
+    "closed": "Closed"
   }
 }

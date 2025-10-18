@@ -65,6 +65,8 @@
     "allCategories": "Todas as Categorias",
     "items": "itens",
     "outOfStock": "Fora de Estoque",
-    "available": "Disponível"
+    "available": "Disponível",
+    "open": "Aberto",
+    "closed": "Fechado"
   }
 }

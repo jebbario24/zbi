@@ -65,6 +65,8 @@
     "allCategories": "Tutte le Categorie",
     "items": "articoli",
     "outOfStock": "Esaurito",
-    "available": "Disponibile"
+    "available": "Disponibile",
+    "open": "Aperto",
+    "closed": "Chiuso"
   }
 }
