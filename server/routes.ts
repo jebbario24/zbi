@@ -861,6 +861,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/menu/items/:id/duplicate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Get the original item
+      const originalItem = await storage.getMenuItem(req.params.id);
+      if (!originalItem) {
+        return res.status(404).json({ message: "Menu item not found" });
+      }
+      
+      // Verify the item belongs to the user's restaurant
+      if (originalItem.restaurantId !== restaurant.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      // Create duplicate with " (Copy)" appended to name
+      const duplicateData = {
+        name: `${originalItem.name} (Copy)`,
+        description: originalItem.description,
+        price: originalItem.price,
+        categoryId: originalItem.categoryId,
+        imageUrl: originalItem.imageUrl,
+        isAvailable: originalItem.isAvailable,
+        restaurantId: restaurant.id,
+      };
+      
+      const newItem = await storage.createMenuItem(duplicateData);
+      res.json(newItem);
+    } catch (error) {
+      console.error("Error duplicating menu item:", error);
+      res.status(400).json({ message: "Failed to duplicate menu item" });
+    }
+  });
+
   // Table routes
   app.get('/api/tables', isAuthenticated, async (req: any, res) => {
     try {
