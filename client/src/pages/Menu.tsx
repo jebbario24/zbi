@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit, TrendingUp, AlertTriangle, Users, Zap, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit, TrendingUp, AlertTriangle, Users, Zap, X, Copy } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -322,6 +322,28 @@ export default function Menu() {
         return;
       }
       toast({ title: "Failed to delete menu item", variant: "destructive" });
+    },
+  });
+
+  const duplicateItemMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/menu/items/${id}/duplicate`, "POST");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
+      toast({ title: "Menu item duplicated successfully" });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/login", 500);
+        return;
+      }
+      toast({ title: "Failed to duplicate menu item", variant: "destructive" });
     },
   });
 
@@ -1122,6 +1144,15 @@ export default function Menu() {
                   data-testid={`button-edit-menuitem-${item.id}`}
                 >
                   <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => duplicateItemMutation.mutate(item.id)}
+                  disabled={duplicateItemMutation.isPending}
+                  data-testid={`button-duplicate-menuitem-${item.id}`}
+                >
+                  <Copy className="h-4 w-4" />
                 </Button>
                 <Button
                   size="icon"
