@@ -364,7 +364,7 @@ export default function Storefront() {
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-lg">
+            <SheetContent className="w-full sm:max-w-lg flex flex-col">
               <SheetHeader>
                 <SheetTitle>{t('storefront.cart')} ({cartItemCount} {t('storefront.items')})</SheetTitle>
               </SheetHeader>
@@ -375,9 +375,8 @@ export default function Storefront() {
                   <p className="text-muted-foreground">{t('storefront.emptyCart')}</p>
                 </div>
               ) : (
-                <>
-                  <ScrollArea className="flex-1 -mx-6 px-6 my-4">
-                    <div className="space-y-4">
+                <ScrollArea className="flex-1 my-4">
+                  <div className="space-y-4 px-1">
                       {cart.map((item) => (
                         <div key={item.menuItem.id} className="flex gap-4 p-3 rounded-lg border">
                           {item.menuItem.imageUrl && (
@@ -426,10 +425,9 @@ export default function Storefront() {
                         </div>
                       ))}
                     </div>
-                  </ScrollArea>
 
-                  <div className="space-y-3 border-t pt-4">
-                    <Input
+                    <div className="space-y-3 border-t pt-4">
+                      <Input
                       placeholder={`${t('storefront.name')} *`}
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
@@ -456,7 +454,29 @@ export default function Storefront() {
                     />
                   </div>
 
-                  <SheetFooter className="flex-col gap-3 border-t pt-4">
+                  <div className="space-y-3 border-t pt-4">
+                    <div className="space-y-2 w-full">
+                      <div className="flex justify-between text-sm">
+                        <span>{t('storefront.subtotal')}</span>
+                        <span data-testid="subtotal">
+                          {formatPrice(subtotal)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Tax (10%)</span>
+                        <span data-testid="tax">
+                          {formatPrice(tax)}
+                        </span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>{t('storefront.total')}</span>
+                        <span data-testid="total">
+                          {formatPrice(total)}
+                        </span>
+                      </div>
+                    </div>
+
                     <div className="w-full space-y-3">
                       <Label className="text-sm font-medium">{t('storefront.paymentMethod')}</Label>
                       
@@ -558,32 +578,8 @@ export default function Storefront() {
                         </Button>
                       )}
                     </div>
-
-                    <Separator />
-
-                    <div className="space-y-2 w-full">
-                      <div className="flex justify-between text-sm">
-                        <span>{t('storefront.subtotal')}</span>
-                        <span data-testid="subtotal">
-                          {formatPrice(subtotal)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Tax (10%)</span>
-                        <span data-testid="tax">
-                          {formatPrice(tax)}
-                        </span>
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between text-lg font-bold">
-                        <span>{t('storefront.total')}</span>
-                        <span data-testid="total">
-                          {formatPrice(total)}
-                        </span>
-                      </div>
-                    </div>
-                  </SheetFooter>
-                </>
+                  </div>
+                </ScrollArea>
               )}
             </SheetContent>
           </Sheet>
