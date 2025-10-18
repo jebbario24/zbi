@@ -73,7 +73,7 @@ const ownerMenuItems = [
     icon: MapPin,
   },
   {
-    titleKey: "navigation.dashboard",
+    titleKey: "Analytics",
     url: "/analytics",
     icon: BarChart3,
   },
@@ -91,6 +91,7 @@ const adminMenuItems = [
     icon: LayoutDashboard,
   },
   {
+    title: "All Restaurants",
     titleKey: "All Restaurants",
     url: "/admin/restaurants",
     icon: Building2,
@@ -127,15 +128,15 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
-                <SidebarMenuItem key={item.titleKey}>
+                <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton 
                     asChild
                     isActive={location === item.url}
-                    data-testid={`link-${item.titleKey.split('.').pop()}`}
+                    data-testid={`link-${item.titleKey.includes('.') ? item.titleKey.split('.').pop() : item.titleKey.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" />
-                      <span>{t(item.titleKey)}</span>
+                      <span>{item.titleKey.includes('.') ? t(item.titleKey) : item.titleKey}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -23,6 +23,8 @@ import {
 import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard } from "lucide-react";
 import { SiPaypal } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
+import { useStorefrontLanguage } from "@/hooks/useLanguage";
+import { useTranslation } from "react-i18next";
 import { FrequentlyBoughtTogether } from "@/components/marketing/FrequentlyBoughtTogether";
 import { CountdownTimer } from "@/components/marketing/CountdownTimer";
 import { LivePurchaseNotifications } from "@/components/marketing/LivePurchaseNotifications";
@@ -41,6 +43,7 @@ declare global {
 export default function Storefront() {
   const { slug } = useParams();
   const { toast } = useToast();
+  const { t, i18n } = useTranslation();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
@@ -67,6 +70,13 @@ export default function Storefront() {
       return response.json();
     },
   });
+
+  // Set storefront language based on restaurant settings
+  useEffect(() => {
+    if (restaurant?.storefrontLanguage && restaurant.storefrontLanguage !== i18n.language) {
+      i18n.changeLanguage(restaurant.storefrontLanguage);
+    }
+  }, [restaurant?.storefrontLanguage, i18n]);
 
   const { data: categories } = useQuery<MenuCategory[]>({
     queryKey: ["/api/storefront/categories", restaurant?.id],
