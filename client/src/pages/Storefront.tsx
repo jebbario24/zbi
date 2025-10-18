@@ -457,28 +457,6 @@ export default function Storefront() {
                   </div>
 
                   <SheetFooter className="flex-col gap-3 border-t pt-4">
-                    <div className="space-y-2 w-full">
-                      <div className="flex justify-between text-sm">
-                        <span>{t('storefront.subtotal')}</span>
-                        <span data-testid="subtotal">
-                          {formatPrice(subtotal)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Tax (10%)</span>
-                        <span data-testid="tax">
-                          {formatPrice(tax)}
-                        </span>
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between text-lg font-bold">
-                        <span>{t('storefront.total')}</span>
-                        <span data-testid="total">
-                          {formatPrice(total)}
-                        </span>
-                      </div>
-                    </div>
-
                     <div className="w-full space-y-3">
                       <Label className="text-sm font-medium">{t('storefront.paymentMethod')}</Label>
                       
@@ -579,6 +557,30 @@ export default function Storefront() {
                           <span className="font-medium">{t('storefront.cash')}</span>
                         </Button>
                       )}
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2 w-full">
+                      <div className="flex justify-between text-sm">
+                        <span>{t('storefront.subtotal')}</span>
+                        <span data-testid="subtotal">
+                          {formatPrice(subtotal)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Tax (10%)</span>
+                        <span data-testid="tax">
+                          {formatPrice(tax)}
+                        </span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>{t('storefront.total')}</span>
+                        <span data-testid="total">
+                          {formatPrice(total)}
+                        </span>
+                      </div>
                     </div>
                   </SheetFooter>
                 </>
