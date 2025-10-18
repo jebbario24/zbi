@@ -73,6 +73,7 @@ export interface IStorage {
   
   // Table operations
   getTables(restaurantId: string): Promise<Table[]>;
+  getTable(id: string): Promise<Table | undefined>;
   createTable(table: InsertTable): Promise<Table>;
   updateTable(id: string, table: Partial<InsertTable>): Promise<Table>;
   deleteTable(id: string): Promise<void>;
@@ -256,6 +257,11 @@ export class DatabaseStorage implements IStorage {
 
   async getTables(restaurantId: string): Promise<Table[]> {
     return await db.select().from(tables).where(eq(tables.restaurantId, restaurantId));
+  }
+
+  async getTable(id: string): Promise<Table | undefined> {
+    const [table] = await db.select().from(tables).where(eq(tables.id, id));
+    return table;
   }
 
   async createTable(table: InsertTable): Promise<Table> {

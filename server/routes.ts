@@ -965,12 +965,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
       }
-      const { id } = req.params;
-      await storage.deleteTable(id);
+      
+      // Verify the table belongs to the user's restaurant
+      const table = await storage.getTable(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Table not found" });
+      }
+      if (table.restaurantId !== restaurant.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      await storage.deleteTable(req.params.id);
       res.json({ message: "Table deleted successfully" });
     } catch (error) {
       console.error("Error deleting table:", error);
       res.status(400).json({ message: "Failed to delete table" });
+    }
+  });
+
+  app.post('/api/tables/:id/duplicate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Get the original table
+      const originalTable = await storage.getTable(req.params.id);
+      if (!originalTable) {
+        return res.status(404).json({ message: "Table not found" });
+      }
+      
+      // Verify the table belongs to the user's restaurant
+      if (originalTable.restaurantId !== restaurant.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      // Create duplicate with " (Copy)" appended to table number
+      const duplicateData = {
+        tableNumber: `${originalTable.tableNumber} (Copy)`,
+        capacity: originalTable.capacity,
+        category: originalTable.category,
+        restaurantId: restaurant.id,
+      };
+      
+      const newTable = await storage.createTable(duplicateData);
+      res.json(newTable);
+    } catch (error) {
+      console.error("Error duplicating table:", error);
+      res.status(400).json({ message: "Failed to duplicate table" });
     }
   });
 
