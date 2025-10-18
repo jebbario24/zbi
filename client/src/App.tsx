@@ -34,33 +34,12 @@ import AdminRestaurants from "@/pages/AdminRestaurants";
 import NotFound from "@/pages/not-found";
 
 function PublicRouter() {
-  // Check if we're on a subdomain or custom domain (not the main app domain)
-  const hostname = window.location.hostname;
-  const parts = hostname.split('.');
-  
-  // Main app domains: 
-  // - Production: xxx.replit.app (3 parts)
-  // - Development: xxx.cluster.replit.dev (4 parts)
-  // - Localhost: localhost (1 part)
-  // Storefront domains: subdomain.xxx.replit.app (4+ parts) or subdomain.xxx.cluster.replit.dev (5+ parts)
-  const isReplitDomain = hostname.includes('replit.app') || hostname.includes('replit.dev');
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-  
-  // Storefront check: 
-  // - On replit.app: 4+ parts means subdomain (subdomain.xxx.replit.app)
-  // - On replit.dev: 5+ parts means subdomain (subdomain.xxx.cluster.replit.dev)
-  const isStorefrontDomain = isReplitDomain && (
-    (hostname.includes('replit.app') && parts.length > 3) ||
-    (hostname.includes('replit.dev') && parts.length > 4)
-  );
-  
   return (
     <Switch>
-      <Route path="/">{isStorefrontDomain ? <Storefront /> : <Landing />}</Route>
+      <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/subscribe" component={Subscribe} />
-      <Route path="/store/:slug" component={Storefront} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -77,7 +56,6 @@ function AuthenticatedRouter() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/admin/restaurants" component={AdminRestaurants} />
         <Route path="/settings" component={Settings} />
-        <Route path="/store/:slug" component={Storefront} />
         <Route component={NotFound} />
       </Switch>
     );
@@ -101,7 +79,6 @@ function AuthenticatedRouter() {
       <Route path="/online-store" component={OnlineStore} />
       <Route path="/settings" component={Settings} />
       <Route path="/pos" component={POS} />
-      <Route path="/store/:slug" component={Storefront} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -151,7 +128,39 @@ function AppContent() {
   );
 }
 
+function StorefrontRouter() {
+  return (
+    <Switch>
+      <Route path="/" component={Storefront} />
+      <Route path="/store/:slug" component={Storefront} />
+      <Route component={Storefront} />
+    </Switch>
+  );
+}
+
 function App() {
+  const currentPath = window.location.pathname;
+  const isStorefrontPath = currentPath.startsWith('/store/');
+  
+  const hostname = window.location.hostname;
+  const parts = hostname.split('.');
+  const isReplitDomain = hostname.includes('replit.app') || hostname.includes('replit.dev');
+  const isStorefrontDomain = isReplitDomain && (
+    (hostname.includes('replit.app') && parts.length > 3) ||
+    (hostname.includes('replit.dev') && parts.length > 4)
+  );
+  
+  if (isStorefrontPath || isStorefrontDomain) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <StorefrontRouter />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
