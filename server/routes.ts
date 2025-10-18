@@ -853,6 +853,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
       }
+      
+      // Verify the item belongs to the user's restaurant
+      const item = await storage.getMenuItem(req.params.id);
+      if (!item) {
+        return res.status(404).json({ message: "Menu item not found" });
+      }
+      if (item.restaurantId !== restaurant.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
       await storage.deleteMenuItem(req.params.id);
       res.json({ success: true });
     } catch (error) {
