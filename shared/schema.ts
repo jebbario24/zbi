@@ -71,6 +71,8 @@ export const restaurants = pgTable("restaurants", {
   currency: varchar("currency", { length: 10 }).notNull().default('USD'),
   country: varchar("country", { length: 100 }).default('United States'),
   timezone: varchar("timezone", { length: 100 }).default('UTC'),
+  platformLanguage: varchar("platform_language", { length: 10 }).default('en'),
+  storefrontLanguage: varchar("storefront_language", { length: 10 }).default('en'),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
