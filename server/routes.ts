@@ -1377,6 +1377,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bundle routes
+  app.get('/api/bundles', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.json([]);
+      }
+      const bundles = await storage.getBundles(restaurant.id);
+      res.json(bundles);
+    } catch (error) {
+      console.error("Error fetching bundles:", error);
+      res.status(500).json({ message: "Failed to fetch bundles" });
+    }
+  });
+
+  app.post('/api/bundles', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const bundle = await storage.createBundle({
+        ...req.body,
+        restaurantId: restaurant.id,
+        sales: req.body.sales || 0,
+      });
+      res.json(bundle);
+    } catch (error) {
+      console.error("Error creating bundle:", error);
+      res.status(400).json({ message: "Failed to create bundle" });
+    }
+  });
+
+  app.put('/api/bundles/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const { id } = req.params;
+      const bundle = await storage.updateBundle(id, req.body);
+      res.json(bundle);
+    } catch (error) {
+      console.error("Error updating bundle:", error);
+      res.status(400).json({ message: "Failed to update bundle" });
+    }
+  });
+
+  app.delete('/api/bundles/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const { id } = req.params;
+      await storage.deleteBundle(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting bundle:", error);
+      res.status(400).json({ message: "Failed to delete bundle" });
+    }
+  });
+
   // Staff routes
   app.get('/api/staff', isAuthenticated, async (req: any, res) => {
     try {
@@ -2182,6 +2249,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error validating promo:", error);
       res.status(500).json({ message: "Failed to validate promo code" });
+    }
+  });
+
+  // Get active bundles for storefront
+  app.get('/api/storefront/:slug/bundles', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const bundles = await storage.getActiveBundles(restaurant.id);
+      res.json(bundles);
+    } catch (error) {
+      console.error("Error fetching bundles:", error);
+      res.status(500).json({ message: "Failed to fetch bundles" });
     }
   });
 
