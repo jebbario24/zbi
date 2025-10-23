@@ -156,6 +156,10 @@ export default function OnlineStore() {
     paypalClientSecret: "",
   });
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethods>(defaultPaymentMethods);
+  const [orderTypes, setOrderTypes] = useState({
+    pickup: true,
+    delivery: true,
+  });
   const [taxSettings, setTaxSettings] = useState({
     taxRate: "0.00",
     taxIncludedInPrice: false,
@@ -238,6 +242,19 @@ export default function OnlineStore() {
     },
     onError: () => {
       toast({ title: "Failed to update payment methods", variant: "destructive" });
+    },
+  });
+
+  const orderTypesMutation = useMutation({
+    mutationFn: async (types: { pickup: boolean; delivery: boolean }) => {
+      return apiRequest("/api/restaurant/order-types", "PUT", { orderTypes: types });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
+      toast({ title: "Order types updated successfully!" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update order types", variant: "destructive" });
     },
   });
 
@@ -409,6 +426,13 @@ export default function OnlineStore() {
       setPaymentMethods(restaurant.paymentMethods as PaymentMethods);
     }
   }, [restaurant?.paymentMethods]);
+
+  // Load existing order types
+  useEffect(() => {
+    if (restaurant?.orderTypes) {
+      setOrderTypes(restaurant.orderTypes as { pickup: boolean; delivery: boolean });
+    }
+  }, [restaurant?.orderTypes]);
 
   // Load existing regional settings
   useEffect(() => {
@@ -845,6 +869,52 @@ export default function OnlineStore() {
           >
             Save Opening Hours
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Order Types Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Order Types</CardTitle>
+          <CardDescription>Choose which order types your restaurant accepts</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between" data-testid="order-type-pickup">
+            <div className="space-y-0.5">
+              <Label htmlFor="enable-pickup">Pickup</Label>
+              <p className="text-sm text-muted-foreground">Allow customers to pick up orders</p>
+            </div>
+            <Switch
+              id="enable-pickup"
+              checked={orderTypes.pickup}
+              onCheckedChange={(checked) => setOrderTypes(prev => ({ ...prev, pickup: checked }))}
+              data-testid="switch-pickup"
+            />
+          </div>
+
+          <div className="flex items-center justify-between" data-testid="order-type-delivery">
+            <div className="space-y-0.5">
+              <Label htmlFor="enable-delivery">Delivery</Label>
+              <p className="text-sm text-muted-foreground">Allow customers to order delivery</p>
+            </div>
+            <Switch
+              id="enable-delivery"
+              checked={orderTypes.delivery}
+              onCheckedChange={(checked) => setOrderTypes(prev => ({ ...prev, delivery: checked }))}
+              data-testid="switch-delivery"
+            />
+          </div>
+
+          <Button 
+            onClick={() => orderTypesMutation.mutate(orderTypes)}
+            disabled={orderTypesMutation.isPending || (!orderTypes.pickup && !orderTypes.delivery)}
+            data-testid="button-save-order-types"
+          >
+            Save Order Types
+          </Button>
+          {!orderTypes.pickup && !orderTypes.delivery && (
+            <p className="text-sm text-destructive">At least one order type must be enabled</p>
+          )}
         </CardContent>
       </Card>
 
