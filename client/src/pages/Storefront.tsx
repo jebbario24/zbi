@@ -548,11 +548,11 @@ export default function Storefront() {
       {/* Pixel Tracking Scripts */}
       {restaurant && (
         <PixelScripts
-          metaPixelId={restaurant.metaPixelId}
-          tiktokPixelId={restaurant.tiktokPixelId}
-          googleAnalyticsId={restaurant.googleAnalyticsId}
-          googleAdsId={restaurant.googleAdsId}
-          metaVerificationCode={restaurant.metaVerificationCode}
+          metaPixelId={restaurant.metaPixelId ?? undefined}
+          tiktokPixelId={restaurant.tiktokPixelId ?? undefined}
+          googleAnalyticsId={restaurant.googleAnalyticsId ?? undefined}
+          googleAdsId={restaurant.googleAdsId ?? undefined}
+          metaVerificationCode={restaurant.metaVerificationCode ?? undefined}
         />
       )}
       
