@@ -2055,6 +2055,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/restaurant/order-types", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+    if (!req.body.orderTypes) {
+      return res.status(400).json({ error: "orderTypes is required" });
+    }
+
+    const { pickup, delivery } = req.body.orderTypes;
+
+    // Validate that at least one order type is enabled
+    if (!pickup && !delivery) {
+      return res.status(400).json({ error: "At least one order type must be enabled" });
+    }
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      await storage.updateRestaurant(restaurant.id, { orderTypes: req.body.orderTypes });
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error updating order types:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.put("/api/restaurant/regional-settings", isAuthenticated, async (req: any, res) => {
     const userId = req.user.id;
     const { currency, country, platformLanguage, storefrontLanguage } = req.body;
