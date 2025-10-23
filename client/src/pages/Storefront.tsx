@@ -44,7 +44,14 @@ import { ReferralCTA } from "@/components/marketing/storefront/ReferralCTA";
 import { BoostedItemsBadge } from "@/components/marketing/storefront/BoostedItemsBadge";
 
 interface CartItem {
-  menuItem: MenuItem;
+  menuItem?: MenuItem;
+  bundle?: {
+    id: string;
+    name: string;
+    items: string[];
+    regularPrice: number;
+    bundlePrice: number;
+  };
   quantity: number;
   selectedOptions?: Array<{
     optionGroupLabel: string;
@@ -319,11 +326,11 @@ export default function Storefront() {
     }
     
     // No options - add directly to cart
-    const existingItem = cart.find((ci) => ci.menuItem.id === item.id && !ci.selectedOptions);
+    const existingItem = cart.find((ci) => ci.menuItem?.id === item.id && !ci.selectedOptions);
     if (existingItem) {
       setCart(
         cart.map((ci) =>
-          ci.menuItem.id === item.id && !ci.selectedOptions
+          ci.menuItem?.id === item.id && !ci.selectedOptions
             ? { ...ci, quantity: ci.quantity + 1 }
             : ci
         )
@@ -368,12 +375,19 @@ export default function Storefront() {
 
   const subtotal = cart.reduce(
     (sum, item) => {
-      const optionsTotal = (item.selectedOptions || []).reduce(
-        (opSum, group) => opSum + group.choices.reduce((s, c) => s + c.priceCents, 0),
-        0
-      ) / 100;
-      const itemTotal = parseFloat(item.menuItem.price) + optionsTotal;
-      return sum + itemTotal * item.quantity;
+      if (item.bundle) {
+        // Bundle item
+        return sum + item.bundle.bundlePrice * item.quantity;
+      } else if (item.menuItem) {
+        // Regular menu item
+        const optionsTotal = (item.selectedOptions || []).reduce(
+          (opSum, group) => opSum + group.choices.reduce((s, c) => s + c.priceCents, 0),
+          0
+        ) / 100;
+        const itemTotal = parseFloat(item.menuItem.price) + optionsTotal;
+        return sum + itemTotal * item.quantity;
+      }
+      return sum;
     },
     0
   );
@@ -787,74 +801,132 @@ export default function Storefront() {
                 <ScrollArea className="flex-1 my-4">
                   <div className="space-y-4 px-1">
                       {cart.map((item, index) => {
-                        const optionsTotal = (item.selectedOptions || []).reduce(
-                          (sum, group) => sum + group.choices.reduce((s, c) => s + c.priceCents, 0),
-                          0
-                        ) / 100;
-                        const itemTotal = parseFloat(item.menuItem.price) + optionsTotal;
-                        
-                        return (
-                        <div key={`${item.menuItem.id}-${index}`} className="flex gap-4 p-3 rounded-lg border">
-                          {item.menuItem.imageUrl && (
-                            <img
-                              src={item.menuItem.imageUrl}
-                              alt={item.menuItem.name}
-                              className="h-20 w-20 object-cover rounded-md"
-                            />
-                          )}
-                          <div className="flex-1">
-                            <h4 className="font-medium mb-1">{item.menuItem.name}</h4>
-                            {item.selectedOptions && item.selectedOptions.length > 0 && (
-                              <div className="text-xs text-muted-foreground mb-1 space-y-1">
-                                {item.selectedOptions.map((optionGroup, idx) => (
-                                  <div key={idx}>
-                                    <span className="font-medium">{optionGroup.optionGroupLabel}:</span>{' '}
-                                    {optionGroup.choices.map(c => c.label).join(', ')}
-                                  </div>
-                                ))}
+                        if (item.bundle) {
+                          // Render bundle item
+                          const bundle = item.bundle;
+                          return (
+                            <div key={`bundle-${bundle.id}-${index}`} className="flex gap-4 p-3 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10">
+                              <div className="flex-1">
+                                <div className="flex items-start justify-between mb-1">
+                                  <h4 className="font-medium">{bundle.name}</h4>
+                                  <Badge variant="default" className="ml-2">Bundle</Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground mb-2">
+                                  {bundle.items.map((bundleItem, idx) => (
+                                    <div key={idx}>• {bundleItem}</div>
+                                  ))}
+                                </div>
+                                <p className="text-sm text-primary font-medium">
+                                  {formatPrice(bundle.bundlePrice.toFixed(2))}
+                                  <span className="text-xs text-muted-foreground ml-1 line-through">
+                                    {formatPrice(bundle.regularPrice.toFixed(2))}
+                                  </span>
+                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => updateQuantity(index, -1)}
+                                    data-testid={`button-decrease-bundle-${bundle.id}-${index}`}
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <span className="w-8 text-center" data-testid={`quantity-bundle-${bundle.id}-${index}`}>{item.quantity}</span>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => updateQuantity(index, 1)}
+                                    data-testid={`button-increase-bundle-${bundle.id}-${index}`}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 ml-auto"
+                                    onClick={() => removeFromCart(index)}
+                                    data-testid={`button-remove-bundle-${bundle.id}-${index}`}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </div>
+                            </div>
+                          );
+                        } else if (item.menuItem) {
+                          // Render regular menu item
+                          const optionsTotal = (item.selectedOptions || []).reduce(
+                            (sum, group) => sum + group.choices.reduce((s, c) => s + c.priceCents, 0),
+                            0
+                          ) / 100;
+                          const itemTotal = parseFloat(item.menuItem.price) + optionsTotal;
+                          
+                          return (
+                          <div key={`${item.menuItem.id}-${index}`} className="flex gap-4 p-3 rounded-lg border">
+                            {item.menuItem.imageUrl && (
+                              <img
+                                src={item.menuItem.imageUrl}
+                                alt={item.menuItem.name}
+                                className="h-20 w-20 object-cover rounded-md"
+                              />
                             )}
-                            <p className="text-sm text-primary font-medium">
-                              {formatPrice(itemTotal.toFixed(2))}
-                              {optionsTotal > 0 && (
-                                <span className="text-xs text-muted-foreground ml-1">
-                                  (base: {formatPrice(item.menuItem.price)} + {formatPrice(optionsTotal.toFixed(2))})
-                                </span>
+                            <div className="flex-1">
+                              <h4 className="font-medium mb-1">{item.menuItem.name}</h4>
+                              {item.selectedOptions && item.selectedOptions.length > 0 && (
+                                <div className="text-xs text-muted-foreground mb-1 space-y-1">
+                                  {item.selectedOptions.map((optionGroup, idx) => (
+                                    <div key={idx}>
+                                      <span className="font-medium">{optionGroup.optionGroupLabel}:</span>{' '}
+                                      {optionGroup.choices.map(c => c.label).join(', ')}
+                                    </div>
+                                  ))}
+                                </div>
                               )}
-                            </p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => updateQuantity(index, -1)}
-                                data-testid={`button-decrease-${item.menuItem.id}-${index}`}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <span className="w-8 text-center" data-testid={`quantity-${item.menuItem.id}-${index}`}>{item.quantity}</span>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => updateQuantity(index, 1)}
-                                data-testid={`button-increase-${item.menuItem.id}-${index}`}
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 ml-auto"
-                                onClick={() => removeFromCart(index)}
-                                data-testid={`button-remove-${item.menuItem.id}-${index}`}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                              <p className="text-sm text-primary font-medium">
+                                {formatPrice(itemTotal.toFixed(2))}
+                                {optionsTotal > 0 && (
+                                  <span className="text-xs text-muted-foreground ml-1">
+                                    (base: {formatPrice(item.menuItem.price)} + {formatPrice(optionsTotal.toFixed(2))})
+                                  </span>
+                                )}
+                              </p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateQuantity(index, -1)}
+                                  data-testid={`button-decrease-${item.menuItem.id}-${index}`}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <span className="w-8 text-center" data-testid={`quantity-${item.menuItem.id}-${index}`}>{item.quantity}</span>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateQuantity(index, 1)}
+                                  data-testid={`button-increase-${item.menuItem.id}-${index}`}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 ml-auto"
+                                  onClick={() => removeFromCart(index)}
+                                  data-testid={`button-remove-${item.menuItem.id}-${index}`}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        );
+                          );
+                        }
+                        return null;
                       })}
                     </div>
 
@@ -1270,7 +1342,37 @@ export default function Storefront() {
 
         {/* Marketing: Bundles & Combos Section */}
         <BundlesSection bundles={bundles} onAddToCart={(bundle) => {
+          const existingBundle = cart.find(item => item.bundle?.id === bundle.id);
+          if (existingBundle) {
+            setCart(cart.map(item =>
+              item.bundle?.id === bundle.id
+                ? { ...item, quantity: item.quantity + 1 }
+                : item
+            ));
+          } else {
+            setCart([...cart, {
+              bundle: {
+                id: bundle.id,
+                name: bundle.name,
+                items: bundle.items,
+                regularPrice: bundle.regularPrice,
+                bundlePrice: bundle.bundlePrice,
+              },
+              quantity: 1,
+            }]);
+          }
           toast({ title: "Added to cart", description: `${bundle.name} bundle added!` });
+          
+          // Track add to cart event for pixels
+          if (restaurant) {
+            trackAddToCart({
+              id: bundle.id,
+              name: bundle.name,
+              price: bundle.bundlePrice,
+              currency: restaurant.currency || 'USD',
+              quantity: 1,
+            }, pixelConfig);
+          }
         }} />
 
         {itemsByCategory ? (
