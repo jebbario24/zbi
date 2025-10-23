@@ -78,9 +78,11 @@ const orderSchema = z.object({
   customerEmail: z.string().nullable().optional(),
   paymentMethod: z.enum(['stripe', 'paypal', 'cash']).optional().default('cash'),
   items: z.array(z.object({
-    menuItemId: z.string(),
+    menuItemId: z.string().optional(),
+    bundleId: z.string().optional(),
     quantity: z.number(),
     unitPrice: z.string(),
+    selectedOptions: z.any().nullable().optional(),
     notes: z.string().optional(),
   })),
   subtotal: z.string(),
@@ -100,9 +102,11 @@ const onlineOrderSchema = z.object({
   deliveryFee: z.string().nullable().optional(),
   paymentMethod: z.enum(['stripe', 'paypal', 'cash', 'apple', 'google']).optional().default('cash'),
   items: z.array(z.object({
-    menuItemId: z.string(),
+    menuItemId: z.string().optional(),
+    bundleId: z.string().optional(),
     quantity: z.number(),
     unitPrice: z.string(),
+    selectedOptions: z.any().nullable().optional(),
   })),
   subtotal: z.string(),
   promoCode: z.string().nullable().optional(),
@@ -2298,11 +2302,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending',
         paymentStatus: 'pending',
       }, data.items.map(item => ({
-        menuItemId: item.menuItemId,
+        menuItemId: item.menuItemId || null,
+        bundleId: item.bundleId || null,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: (parseFloat(item.unitPrice) * item.quantity).toFixed(2),
+        selectedOptions: item.selectedOptions || null,
       })));
+      
+      // Increment bundle sales count for any bundles in the order
+      for (const item of data.items) {
+        if (item.bundleId) {
+          await storage.incrementBundleSales(item.bundleId, item.quantity);
+        }
+      }
       
       if (data.paymentMethod === 'cash') {
         // Cash on delivery - mark order as confirmed, payment will be collected on delivery

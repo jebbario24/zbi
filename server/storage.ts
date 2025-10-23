@@ -102,8 +102,8 @@ export interface IStorage {
   // Order operations
   getOrders(restaurantId: string): Promise<Order[]>;
   getRecentOrders(restaurantId: string, limit: number): Promise<Order[]>;
-  getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem: MenuItem })[] } | undefined>;
-  getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem: MenuItem })[]>;
+  getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem?: MenuItem; bundle?: any })[] } | undefined>;
+  getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem?: MenuItem; bundle?: any })[]>;
   createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order>;
   updateOrderStatus(orderId: string, status: string): Promise<Order>;
   confirmOrderWithPayment(orderId: string, paymentProvider: string, paymentIntentId: string, totalAmount: number, deliveryFee?: number): Promise<Order>;
@@ -355,36 +355,40 @@ export class DatabaseStorage implements IStorage {
     return newOrder;
   }
 
-  async getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem: MenuItem })[] } | undefined> {
+  async getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem?: MenuItem; bundle?: any })[] } | undefined> {
     const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
     if (!order) return undefined;
     
     const items = await db
       .select()
       .from(orderItems)
-      .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .leftJoin(bundlesTable, eq(orderItems.bundleId, bundlesTable.id))
       .where(eq(orderItems.orderId, orderId));
     
     return {
       order,
       items: items.map(item => ({
         ...item.order_items,
-        menuItem: item.menu_items
+        menuItem: item.menu_items || undefined,
+        bundle: item.bundles || undefined,
       }))
     };
   }
 
-  async getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem: MenuItem })[]> {
+  async getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem?: MenuItem; bundle?: any })[]> {
     const items = await db
       .select()
       .from(orderItems)
       .innerJoin(orders, eq(orderItems.orderId, orders.id))
-      .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .leftJoin(bundlesTable, eq(orderItems.bundleId, bundlesTable.id))
       .where(eq(orders.restaurantId, restaurantId));
     
     return items.map(item => ({
       ...item.order_items,
-      menuItem: item.menu_items
+      menuItem: item.menu_items || undefined,
+      bundle: item.bundles || undefined,
     }));
   }
 
@@ -834,10 +838,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bundlesTable.id, id));
   }
 
-  async incrementBundleSales(id: string): Promise<void> {
+  async incrementBundleSales(id: string, quantity: number = 1): Promise<void> {
     await db
       .update(bundlesTable)
-      .set({ sales: sql`${bundlesTable.sales} + 1` })
+      .set({ sales: sql`${bundlesTable.sales} + ${quantity}` })
       .where(eq(bundlesTable.id, id));
   }
 }

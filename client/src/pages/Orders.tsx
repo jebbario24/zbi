@@ -53,7 +53,7 @@ const statusLabels: Record<string, string> = {
 
 type OrderWithItems = {
   order: Order;
-  items: (OrderItem & { menuItem: MenuItem })[];
+  items: (OrderItem & { menuItem?: MenuItem; bundle?: any })[];
 };
 
 export default function Orders() {
@@ -356,8 +356,33 @@ export default function Orders() {
                       data-testid={`order-item-${item.id}`}
                     >
                       <div className="flex-1">
-                        <p className="font-medium">{item.menuItem.name}</p>
-                        <p className="text-sm text-muted-foreground">
+                        {item.menuItem ? (
+                          <>
+                            <p className="font-medium">{item.menuItem.name}</p>
+                            {item.selectedOptions && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {(item.selectedOptions as any[]).map((group: any, idx: number) => (
+                                  <div key={idx}>
+                                    {group.optionGroupLabel}: {group.choices.map((c: any) => c.label).join(', ')}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : item.bundle ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{item.bundle.name}</p>
+                              <Badge variant="default" className="text-xs">Bundle</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {item.bundle.items.join(' • ')}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="font-medium text-muted-foreground">Unknown item</p>
+                        )}
+                        <p className="text-sm text-muted-foreground mt-1">
                           ${item.unitPrice} × {item.quantity}
                         </p>
                         {item.notes && (

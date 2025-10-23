@@ -3,6 +3,7 @@ import { relations } from 'drizzle-orm';
 import {
   index,
   unique,
+  json,
   jsonb,
   pgTable,
   timestamp,
@@ -255,14 +256,16 @@ export const orders = pgTable("orders", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Order Items
+// Order Items (supports both menu items and bundles)
 export const orderItems = pgTable("order_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
-  menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id),
+  menuItemId: varchar("menu_item_id").references(() => menuItems.id),
+  bundleId: varchar("bundle_id").references(() => bundles.id),
   quantity: integer("quantity").notNull(),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  selectedOptions: json("selected_options"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });

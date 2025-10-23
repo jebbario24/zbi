@@ -493,11 +493,30 @@ export default function Storefront() {
           deliveryAddress: orderType === 'delivery' ? fullAddress : null,
           deliveryFee: orderType === 'delivery' ? deliveryFee.toFixed(2) : '0.00',
           paymentMethod,
-          items: cart.map((ci) => ({
-            menuItemId: ci.menuItem.id,
-            quantity: ci.quantity,
-            unitPrice: ci.menuItem.price,
-          })),
+          items: cart.map((ci) => {
+            if (ci.bundle) {
+              // Bundle item
+              return {
+                bundleId: ci.bundle.id,
+                quantity: ci.quantity,
+                unitPrice: ci.bundle.bundlePrice.toString(),
+                selectedOptions: null,
+              };
+            } else if (ci.menuItem) {
+              // Regular menu item
+              const optionsTotal = (ci.selectedOptions || []).reduce(
+                (sum, group) => sum + group.choices.reduce((s, c) => s + c.priceCents, 0),
+                0
+              ) / 100;
+              return {
+                menuItemId: ci.menuItem.id,
+                quantity: ci.quantity,
+                unitPrice: (parseFloat(ci.menuItem.price) + optionsTotal).toString(),
+                selectedOptions: ci.selectedOptions || null,
+              };
+            }
+            return null;
+          }).filter(Boolean),
           subtotal: subtotal.toFixed(2),
           promoCode: appliedPromo?.promoCode || null,
           promoDiscount: promoDiscount > 0 ? promoDiscount.toFixed(2) : null,
