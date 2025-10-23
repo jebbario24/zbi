@@ -12,6 +12,7 @@ Preferred communication style: Simple, everyday language.
 - **Technology Stack:** React with TypeScript, Vite, Wouter for routing, TanStack Query for server state, Shadcn/ui (Radix UI), Tailwind CSS.
 - **Design System:** Hybrid approach with Material Design for the admin dashboard and a custom, standalone storefront design. Features a custom color palette (brand orange), Inter/Outfit typography, dark mode for admin, and component library path aliases. Storefronts are independent, full-width, and brand-agnostic.
 - **Key UI Patterns:** Server-side rendering, authentication-guarded routes, role-based routing (admin vs owner), responsive design (mobile-first), toast notifications, sidebar navigation, and sheet/drawer components.
+- **Navigation Structure:** Comprehensive UberEats-style restaurant manager with organized sidebar sections: Core (Dashboard, Orders), Menu & Catalog (Menu, Inventory), Marketing (8 sub-features), Operations (Reservations, Tables, Staff, Drivers, Delivery Zones), Reports & Finance (Analytics, Reports, Payouts), Customer (Inbox), Online Store, and Account settings.
 
 ### Backend Architecture
 - **Server Framework:** Express.js on Node.js with TypeScript.
