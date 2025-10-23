@@ -1,0 +1,344 @@
+Nice — thanks for the playlist. Quick note up front: I tried to fetch the YouTube pages but the web fetch failed on my side, so I couldn’t automatically extract exact timestamps or on-screen payloads from those videos. I’ll still give you a **complete, ready-to-hand upgrade** based on a careful reverse-engineering of a typical UberEats Restaurant Manager plus the marketing features you told me you give **for free**.
+
+Below is a concrete **store map** (site map + UI sections), **menu schema** (fields & structure for each menu section/item), the **marketing & growth layer** (how to make paid Uber tactics free and automatic inside your SaaS), API contracts, DB additions, realtime events, and a prioritized implementation plan you can hand to Replit engineers.
+
+# 1) High-level store map (Admin / Restaurant Manager nav)
+
+This is the exact left-sidebar / top nav I recommend. Each item expands into the subpages listed.
+
+* Dashboard
+
+  * Live Orders (streaming list + order card)
+  * KPIs (sales today, avg ticket, orders/hour, conversion)
+  * Alerts (printer offline, payout failed)
+
+* Orders
+
+  * Incoming / New
+  * Preparing
+  * Ready for pickup / delivery
+  * Completed
+  * Cancelled / Refunds
+  * Order details (full order timeline, items, receipts, driver)
+
+* Menu & Catalog
+
+  * Menus (menu groups / menus per day)
+  * Items (CRUD for item)
+  * Options & Modifiers (extras, sizes)
+  * Bundles / Combos
+  * Availability / Hours / Out-of-stock
+
+* Marketing (your free suite) ← major enhancement
+
+  * Campaigns (auto / manual)
+  * Smart Promos (auto-discount rules)
+  * Loyalty (points, tiers)
+  * Boosts (featured placement in app — FREE credits & rotation)
+  * Upsell / Cross-sell rules (add to cart suggestions)
+  * Automated Messages (push, SMS, email templates)
+  * Social Share (prebuilt posts, QR generation, referral codes)
+
+* Drivers / Delivery
+
+  * Active drivers (live map)
+  * Assignments / Manual dispatch
+  * Delivery zones & ETAs
+  * Performance (avg pickup time, completion)
+
+* Payments & Payouts
+
+  * Transactions (stripe ids, status)
+  * Commissions / fees (if any)
+  * Payout schedule & accounting exports
+
+* Reports & Analytics
+
+  * Sales by item / period
+  * Promo performance (redemptions, lift)
+  * Loyalty reports (repeat rate)
+  * DR / churn metrics
+
+* Settings
+
+  * Profile & Business hours
+  * Printers & POS integrations (webhook + local agent)
+  * Notifications (SMS provider, email sender)
+  * Users & Roles (owner/manager/staff/kitchen)
+  * Integrations (Google Business, Facebook Page)
+
+* Inbox / Reviews
+
+  * Customer messages
+  * Reviews & responses
+  * Resolution log
+
+# 2) Exact menu & item data model (fields you must capture)
+
+Make the menu editor capable of everything Uber shows — here’s the item structure and UI fields.
+
+Menu (menus table)
+
+* id, restaurant_id, name, slug, active, order_index, visibility (public/internal), display_period (start/end timestamps)
+
+MenuItem (menu_items table)
+
+* id, menu_id, sku, name, description, short_description, price_cents, compare_at_price_cents (optional), currency, cost_cents (optional), image_url, prep_time_minutes, available (boolean), visibility (online/phone/in-store), category_id, tax_class, calories (optional), allergens_json, tags (array), order_index, external_id
+
+Modifiers / Options (item_options table)
+
+* id, item_id, label, type (single/multi/boolean/quantity), required (bool), min/max, choices_json [{id,label,price_cents,sku,available}]
+
+Bundle (bundles table)
+
+* id, name, items_json, bundle_price_cents, limit_per_order, available_days, display_priority
+
+Availability rules
+
+* per item: stock_count (optional), out_of_stock_action (hide/disable/notify)
+* per menu: days_of_week, hours (start, end), timezone
+
+Promotions & Price Rules (promos table)
+
+* id, restaurant_id, promo_code (nullable), promo_type (percentage, fixed_amount, buy_x_get_y, bundle_discount, free_delivery), scope (item/menu/order), rules_json (conditions), starts_at, ends_at, active, redemption_limit, per_customer_limit, auto_apply (bool)
+
+Upsell Rules (upsells table)
+
+* trigger (item_id / cart_total / customer_segment), suggestion_item_ids, suggestion_text, priority, ui_position
+
+# 3) Marketing & Growth layer (how to make Uber paid tactics free inside your product)
+
+You want to give restaurants free marketing tools Uber charges for — implement them as built-in features that consume platform “credits” or are unlimited (your choice). Below are recommended free features and how they function.
+
+A. Free Boosts (Featured Placement)
+
+* Each restaurant gets a small daily boost credit (e.g., 1 free boost/day). Boost rotates restaurants into a "Featured" slot in the consumer app for X minutes.
+* Implementation: a scheduler rotates restaurants with active boosts; boosts are controlled in Marketing → Boosts.
+* Data: boost_credits table (tenant_id, credits_balance, last_reset_date)
+
+B. Automated Smart Promos (auto discounts)
+
+* Admin can enable “Auto-offers” with rules (off-peak discount, slow day discount, high-cart discount).
+* System can auto-apply if order meets criteria; restaurants can opt out of auto application.
+* Track lift with PromoPerformance events.
+
+C. Loyalty & Tiers (free)
+
+* Points per currency spent; redeemable as fixed value or % off.
+* Tiers (Bronze/Silver/Gold) provide automatic micro-boosts and featured rotation.
+* Data: loyalty_accounts, loyalty_points_transactions, loyalty_tiers.
+
+D. Free Listing Analytics
+
+* Built in at no extra cost; show items with highest margin, conversion funnel, and promo ROI.
+
+E. Automated Campaigns (prebuilt templates)
+
+* Templates: Welcome discount, Reactivation (30 days inactive), Birthday coupon, Abandoned cart push, Post-order cross-sell.
+* Restaurants can enable templates and customize texts and discounts.
+* Campaign engine uses customer segmentation (order history) and a scheduler.
+
+F. Referral & Social Share
+
+* Quick QR/post templates for Instagram, Tiktok with UGC prompts. Offer automatic first-order referral credits.
+
+G. Smart Recommendations / Upsells
+
+* When building an item, allow admin to add “Smart Pairing” rules. On cart, show one-line suggestion + single-tap add.
+
+H. A/B Promo Testing Dashboard
+
+* Give restaurants the ability to create two promo variants, run for a window, and view which converts better.
+
+# 4) Data model additions for marketing & tracking
+
+Add these tables/columns:
+
+* customers (id, phone, email, name, signup_source, first_order_at, last_order_at, orders_count, lifetime_value_cents, tags_json)
+* promo_performance (promo_id, impressions, redemptions, uplift_orders, uplift_revenue_cents)
+* loyalty_accounts (customer_id, points_balance, tier)
+* referral_codes (code, owner_customer_id, reward_type, reward_value)
+* boost_logs (restaurant_id, started_at, ended_at, boost_type, slot, impressions)
+* campaign_runs (campaign_id, start, end, recipients_count, sent_count, delivered_count, ctr, redemptions)
+
+# 5) Realtime events & socket design (example)
+
+Your realtime flows must integrate marketing triggers, order events, and driver updates.
+
+Socket events:
+
+* `order.created` { order_id, restaurant_id, status, total_cents, items:[...], created_at }
+* `order.updated` { order_id, status, changed_by, timestamp }
+* `order.promoted` { order_id, promo_id, applied_amount_cents }
+* `promo.impression` {promo_id, restaurant_id, viewer_id, ts}
+* `driver.assigned` {order_id, driver_id, eta_minutes}
+* `boost.started` {restaurant_id, boost_id, slot, started_at, ends_at}
+* `campaign.sent` {campaign_run_id, recipients_count}
+
+Auth: JWT on socket connect, authenticate user role, scope sockets by restaurant_id channel (rooms).
+
+# 6) Representative API endpoints (OpenAPI style snippets)
+
+Create/promote these endpoints for Replit hand-off:
+
+Menus
+
+* `GET /restaurants/{id}/menus`
+* `POST /restaurants/{id}/menus`
+* `POST /menus/{menu_id}/items`
+* `PATCH /menu_items/{id}`
+
+Orders
+
+* `POST /orders` (marketplace → include idempotency-key header)
+* `GET /restaurants/{id}/orders?status=created`
+* `PATCH /orders/{id}` { status: 'accepted'|'preparing'|'ready'|'completed'|'cancelled' }
+
+Promos
+
+* `POST /restaurants/{id}/promos` (body: promo_type, rules_json, starts_at, ends_at, auto_apply)
+* `POST /promos/{id}/apply` (order_id) → returns applied_amount_cents, reason
+
+Campaigns
+
+* `POST /restaurants/{id}/campaigns` (template_id, schedule, customization)
+* `POST /campaigns/{id}/run`
+
+Boosts
+
+* `POST /restaurants/{id}/boosts` (start_at, duration_minutes, slot_preference)
+* `GET /boosts/{restaurant_id}/status`
+
+Analytics
+
+* `GET /restaurants/{id}/reports/promo-performance?from=&to=`
+
+# 7) Example promo payloads (JSON) — copy to Replit OpenAPI
+
+Auto promo (buy 1 get 1 — simplified)
+
+```json
+{
+  "restaurant_id": "rest_123",
+  "promo_type": "buy_x_get_y",
+  "rules": {
+    "buy_item_id": "item_456",
+    "buy_qty": 1,
+    "get_item_id": "item_456",
+    "get_qty": 1,
+    "max_redemptions_per_customer": 1
+  },
+  "auto_apply": true,
+  "starts_at": "2025-10-01T00:00:00Z",
+  "ends_at": "2025-10-31T23:59:59Z"
+}
+```
+
+Auto boost start webhook (internal)
+
+```json
+{
+  "event": "boost.start",
+  "restaurant_id": "rest_123",
+  "boost_id": "boost_001",
+  "slot": "home_featured",
+  "starts_at": "2025-10-22T10:00:00Z",
+  "ends_at": "2025-10-22T10:15:00Z"
+}
+```
+
+# 8) UX recommendations to show “free” value (so restaurants see benefit)
+
+* Marketing tab shows “Your Free Credits” with daily/weekly quota + one-click enable toggles for auto campaigns.
+* Show estimated impact before enabling a promotion: “Estimate: +8–12% orders during boost.” (compute from baseline)
+* Prebuilt templates with 1-click enable (Welcome, Reactivation, Birthday) — prefills discount, duration.
+* Show A/B test results and quick reapply button.
+* When boost runs, show live impressions and orders attributed inside Dashboard.
+
+# 9) Prioritized implementation plan (sprint style)
+
+MVP enhancements (2–4 weeks)
+
+1. Add basic Marketing tab and DB tables (promos, campaigns, boost_logs).
+2. Implement “Auto Promos” engine with rule parser + promo apply endpoint.
+3. Add one template (Welcome coupon) + campaign run scheduler.
+4. Display promo redemptions and simple ROI card in Dashboard.
+
+Phase 2 (4–8 weeks)
+
+1. Loyalty system and referral codes.
+2. Boost rotation scheduler + featured slot API + front-end integration (consumer app must support featured slot).
+3. Prebuilt social share / QR generator.
+4. Campaign A/B testing UI + results.
+
+Phase 3 (8–12 weeks)
+
+1. Full analytics & attribution pipeline (event stream → aggregator → dashboard).
+2. Fraud controls, promo abuse prevention, per-customer limits.
+3. Advanced recommendations / ML models for upsell (optional).
+
+10# ) Anti-abuse & cost controls (free)
+
+* Per-restaurant daily boost caps (e.g., free 1–3 boosts/day).
+* Auto-apply ceilings: max discount absolutes and % caps to avoid negative margins.
+* Redemption limits per customer + per promo.
+* Flag suspicious behavior: rapid promo create/delete, huge discounts, repeated redemptions.
+
+# 11) Acceptance criteria & tests (what to hand to QA)
+
+* Create promo + auto-apply to order → order total reflects discount.
+* Campaign template send → correct customers receive coupon and backend logs a campaign_run.
+* Boost rotation places restaurant in featured slot and logs impressions and resulting order attribution.
+* Loyalty points accrue and redeem; tier transitions happen.
+* Promo abuse test: redemption stops when per_customer_limit reached.
+
+12. Pixel & Meta Tag Integration Module
+
+Goal: Let each restaurant connect their TikTok, Meta (Facebook/Instagram), and Google Ads accounts to automatically track and optimize their campaigns.
+
+✅ Core Features
+Feature	Description
+Pixel Manager Dashboard	Each restaurant can paste their Pixel IDs (TikTok Pixel, Meta Pixel, Google Ads Tag).
+Auto Pixel Injection	Your system automatically injects the right pixel/tag scripts into the restaurant’s storefront pages and checkout funnel.
+Domain Verification (Meta)	Provide automatic DNS TXT record creation or meta-tag insertion for Meta’s domain verification.
+Event Tracking	Built-in events: ViewContent, AddToCart, InitiateCheckout, Purchase, OrderCompleted, MenuView, CategoryView.
+Consent Management	Toggle for GDPR/cookie consent (important for EU expansion).
+Future-Ready Additions	Add Snap Pixel, Twitter (X) Ads, Pinterest Tag later.
+🧠 Architecture Layer
+Frontend: Pixel Integration Settings Page
+  - Input fields for TikTok Pixel, Meta Pixel, Google Tag ID
+  - Toggle to enable/disable tracking per channel
+
+Backend:
+  - Table: marketing_pixels
+    - restaurant_id
+    - platform (meta/tiktok/google)
+    - pixel_id
+    - domain_verified (bool)
+  - API endpoints:
+    - POST /api/marketing/pixels → add/update pixels
+    - GET /api/marketing/pixels → fetch active pixels
+    - POST /api/marketing/meta-domain → trigger meta tag injection
+
+Rendering Engine:
+  - Middleware injects correct script tags dynamically per restaurant storefront
+
+2. Free Marketing Tools Layer
+
+You’re offering what UberEats charges for — here’s how to make it native:
+
+Tool	Description	Key Tables
+Promo Builder	Restaurants create coupons, discounts, and referral codes	promotions, promotion_usage
+Loyalty System	Earn points for each order, redeem for free meals	loyalty_points, redemptions
+Campaigns (Broadcasts)	Push notifications / emails to customers (offers, new items)	marketing_campaigns
+Auto-Ad Generator	Restaurant can create ad creatives using templates (AI optional)	ad_templates, generated_ads
+Analytics Dashboard	Shows ROI from promos + pixel data	marketing_analytics
+3. Data Flow Overview
+Customer visits Restaurant Storefront → 
+  Pixel scripts fire (Meta/TikTok/Google)
+  ↓
+Customer orders → triggers "Purchase" & "OrderCompleted"
+  ↓
+Data logged in marketing_analytics
+  ↓
+Admin Dashboard aggregates all restaurant pixel data + promo performance
