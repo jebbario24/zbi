@@ -2394,6 +2394,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update restaurant pixels
+  app.patch('/api/restaurants/:id/pixels', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const restaurant = await storage.getRestaurantById(id);
+      
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Verify ownership (unless admin)
+      if (req.user.role !== 'admin' && restaurant.ownerId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { metaPixelId, tiktokPixelId, googleAnalyticsId, googleAdsId } = req.body;
+      
+      const updates: any = {};
+      if (metaPixelId !== undefined) updates.metaPixelId = metaPixelId || null;
+      if (tiktokPixelId !== undefined) updates.tiktokPixelId = tiktokPixelId || null;
+      if (googleAnalyticsId !== undefined) updates.googleAnalyticsId = googleAnalyticsId || null;
+      if (googleAdsId !== undefined) updates.googleAdsId = googleAdsId || null;
+      
+      const updated = await storage.updateRestaurant(id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating pixels:", error);
+      res.status(500).json({ message: "Failed to update pixels" });
+    }
+  });
+
+  // Update restaurant domain verification
+  app.patch('/api/restaurants/:id/domain-verification', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const restaurant = await storage.getRestaurantById(id);
+      
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Verify ownership (unless admin)
+      if (req.user.role !== 'admin' && restaurant.ownerId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { metaVerificationCode } = req.body;
+      
+      const updates: any = {};
+      if (metaVerificationCode !== undefined) {
+        updates.metaVerificationCode = metaVerificationCode || null;
+      }
+      
+      const updated = await storage.updateRestaurant(id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating domain verification:", error);
+      res.status(500).json({ message: "Failed to update domain verification" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
