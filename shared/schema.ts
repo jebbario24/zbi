@@ -77,6 +77,13 @@ export const restaurants = pgTable("restaurants", {
   taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default('0.00'),
   taxIncludedInPrice: boolean("tax_included_in_price").default(false),
   taxLabel: varchar("tax_label", { length: 50 }).default('Tax'),
+  // Marketing Pixels & Tracking
+  metaPixelId: varchar("meta_pixel_id", { length: 100 }),
+  tiktokPixelId: varchar("tiktok_pixel_id", { length: 100 }),
+  googleAnalyticsId: varchar("google_analytics_id", { length: 100 }),
+  googleAdsId: varchar("google_ads_id", { length: 100 }),
+  // Domain Verification
+  metaVerificationCode: text("meta_verification_code"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
