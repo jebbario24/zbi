@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { MenuItem } from "@shared/schema";
 
 interface Bundle {
@@ -58,44 +59,73 @@ export default function Bundles() {
   // Filter only available menu items
   const availableMenuItems = menuItems.filter(item => item.isAvailable);
 
-  const [bundles, setBundles] = useState<Bundle[]>([
-    {
-      id: '1',
-      name: 'Family Meal Deal',
-      items: ['Large Pizza', 'Garlic Bread', '2L Soda'],
-      regularPrice: 45.00,
-      bundlePrice: 35.99,
-      sales: 124,
-      isActive: true,
+  // Fetch bundles from database
+  const { data: bundles = [], isLoading: bundlesLoading } = useQuery<Bundle[]>({
+    queryKey: ["/api/bundles"],
+  });
+
+  // Create bundle mutation
+  const createBundleMutation = useMutation({
+    mutationFn: async (bundle: any) => {
+      return await apiRequest("/api/bundles", "POST", bundle);
     },
-    {
-      id: '2',
-      name: 'Lunch Combo',
-      items: ['Burger', 'Fries', 'Drink'],
-      regularPrice: 18.50,
-      bundlePrice: 14.99,
-      sales: 287,
-      isActive: true,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bundles"] });
+      toast({
+        title: "Success",
+        description: "Bundle created successfully",
+      });
     },
-    {
-      id: '3',
-      name: 'Breakfast Special',
-      items: ['Pancakes', 'Coffee', 'Orange Juice'],
-      regularPrice: 22.00,
-      bundlePrice: 17.99,
-      sales: 156,
-      isActive: true,
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create bundle",
+        variant: "destructive",
+      });
     },
-    {
-      id: '4',
-      name: 'Date Night Package',
-      items: ['2 Steaks', 'Wine', 'Dessert'],
-      regularPrice: 85.00,
-      bundlePrice: 69.99,
-      sales: 43,
-      isActive: false,
+  });
+
+  // Update bundle mutation
+  const updateBundleMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return await apiRequest(`/api/bundles/${id}`, "PUT", data);
     },
-  ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bundles"] });
+      toast({
+        title: "Success",
+        description: "Bundle updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update bundle",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete bundle mutation
+  const deleteBundleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/bundles/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bundles"] });
+      toast({
+        title: "Success",
+        description: "Bundle deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete bundle",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Dialog states
   const [editBundleDialogOpen, setEditBundleDialogOpen] = useState(false);
@@ -191,14 +221,19 @@ export default function Bundles() {
       return;
     }
 
-    setBundles(prev => prev.map(b =>
-      b.id === editingBundle.id
-        ? { ...editingBundle, items: validItems, regularPrice, bundlePrice, sales }
-        : b
-    ));
+    updateBundleMutation.mutate({
+      id: editingBundle.id,
+      data: {
+        name: editingBundle.name,
+        items: validItems,
+        regularPrice,
+        bundlePrice,
+        sales,
+        isActive: editingBundle.isActive,
+      },
+    });
 
     setEditBundleDialogOpen(false);
-    toast({ title: "Success", description: "Bundle updated successfully" });
   };
 
   const handleCancelBundleEdit = () => {
@@ -270,19 +305,16 @@ export default function Bundles() {
       return;
     }
 
-    const createdBundle: Bundle = {
-      id: Date.now().toString(),
+    createBundleMutation.mutate({
       name: newBundle.name,
       items: validItems,
       regularPrice,
       bundlePrice,
       sales,
       isActive: newBundle.isActive,
-    };
+    });
 
-    setBundles([...bundles, createdBundle]);
     setCreateBundleDialogOpen(false);
-    toast({ title: "Success", description: "Bundle created successfully" });
   };
 
   const handleCancelNewBundle = () => {
@@ -299,10 +331,9 @@ export default function Bundles() {
   const handleConfirmDelete = () => {
     if (!bundleToDelete) return;
 
-    setBundles(prev => prev.filter(b => b.id !== bundleToDelete.id));
+    deleteBundleMutation.mutate(bundleToDelete.id);
     setDeleteConfirmOpen(false);
     setBundleToDelete(null);
-    toast({ title: "Success", description: "Bundle deleted successfully" });
   };
 
   const handleCancelDelete = () => {
