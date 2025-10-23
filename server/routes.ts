@@ -1480,6 +1480,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Driver routes
+  app.get('/api/drivers', isAuthenticated, async (req: any, res) => {
+    try {
+      const drivers = await storage.getAllDrivers();
+      res.json(drivers);
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+      res.status(500).json({ message: "Failed to fetch drivers" });
+    }
+  });
+
+  app.get('/api/drivers/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const driver = await storage.getDriver(req.params.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver not found" });
+      }
+      res.json(driver);
+    } catch (error) {
+      console.error("Error fetching driver:", error);
+      res.status(500).json({ message: "Failed to fetch driver" });
+    }
+  });
+
+  app.put('/api/drivers/:id/availability', isAuthenticated, async (req: any, res) => {
+    try {
+      const { isAvailable } = req.body;
+      const updatedDriver = await storage.updateDriverAvailability(req.params.id, isAvailable);
+      res.json(updatedDriver);
+    } catch (error) {
+      console.error("Error updating driver availability:", error);
+      res.status(400).json({ message: "Failed to update driver availability" });
+    }
+  });
+
+  app.get('/api/driver-assignments', isAuthenticated, async (req: any, res) => {
+    try {
+      const assignments = await storage.getDriverAssignments();
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching driver assignments:", error);
+      res.status(500).json({ message: "Failed to fetch driver assignments" });
+    }
+  });
+
+  app.get('/api/driver-performance', isAuthenticated, async (req: any, res) => {
+    try {
+      const performance = await storage.getDriverPerformance();
+      res.json(performance);
+    } catch (error) {
+      console.error("Error fetching driver performance:", error);
+      res.status(500).json({ message: "Failed to fetch driver performance" });
+    }
+  });
+
   // Calculate delivery fee based on customer address
   app.get('/api/storefront/delivery-fee/:restaurantId', async (req: any, res) => {
     try {
