@@ -146,6 +146,12 @@ export default function Storefront() {
   const [contactSubject, setContactSubject] = useState("");
   const [contactMessage, setContactMessage] = useState("");
 
+  // Promo code state
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<any>(null);
+  const [promoCodeError, setPromoCodeError] = useState("");
+  const [applyingPromo, setApplyingPromo] = useState(false);
+
   // Try hostname-based lookup first, fallback to slug
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: slug ? ["/api/storefront/restaurant", slug] : ["/api/storefront/by-hostname"],
@@ -332,19 +338,83 @@ export default function Storefront() {
     0
   );
   
+  // Calculate promo discount
+  const calculateDiscount = (promo: any, amount: number): number => {
+    if (!promo) return 0;
+    const discountConfig = promo.discount as any;
+    if (discountConfig?.type === 'percentage') {
+      return amount * (parseFloat(discountConfig.value) / 100);
+    } else if (discountConfig?.type === 'fixed') {
+      return parseFloat(discountConfig.value);
+    }
+    return 0;
+  };
+  
+  const promoDiscount = appliedPromo ? calculateDiscount(appliedPromo, subtotal) : 0;
+  const subtotalAfterDiscount = Math.max(0, subtotal - promoDiscount);
+  
   // Use restaurant's custom tax rate and handle tax-included pricing
   const taxRate = restaurant?.taxRate ? parseFloat(restaurant.taxRate) / 100 : 0;
   const taxIncludedInPrice = restaurant?.taxIncludedInPrice || false;
   const taxLabel = restaurant?.taxLabel || 'Tax';
   
-  // Calculate tax based on whether it's included in price or not
+  // Calculate tax based on discounted subtotal
   const taxAmount = taxIncludedInPrice 
-    ? subtotal * (taxRate / (1 + taxRate))  // Extract tax that's already included
-    : subtotal * taxRate;  // Add tax on top
+    ? subtotalAfterDiscount * (taxRate / (1 + taxRate))  // Extract tax that's already included
+    : subtotalAfterDiscount * taxRate;  // Add tax on top
   
   const total = taxIncludedInPrice 
-    ? subtotal + deliveryFee  // Tax already in subtotal
-    : subtotal + taxAmount + deliveryFee;  // Add tax and delivery fee
+    ? subtotalAfterDiscount + deliveryFee  // Tax already in subtotal
+    : subtotalAfterDiscount + taxAmount + deliveryFee;  // Add tax and delivery fee
+  
+  // Apply promo code function
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) {
+      setPromoCodeError("Please enter a promo code");
+      return;
+    }
+    
+    setApplyingPromo(true);
+    setPromoCodeError("");
+    
+    try {
+      const endpoint = slug ? `/api/storefront/${slug}/validate-promo` : `/api/storefront/${restaurant?.slug}/validate-promo`;
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          promoCode: promoCode.trim(),
+          orderTotal: subtotal 
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        setPromoCodeError(error.message || "Invalid promo code");
+        setApplyingPromo(false);
+        return;
+      }
+      
+      const promo = await response.json();
+      setAppliedPromo(promo);
+      toast({ 
+        title: "Promo code applied!", 
+        description: `${promo.name || 'Discount'} has been applied to your order` 
+      });
+    } catch (error) {
+      setPromoCodeError("Failed to apply promo code");
+    } finally {
+      setApplyingPromo(false);
+    }
+  };
+  
+  // Remove promo code function
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoCode("");
+    setPromoCodeError("");
+    toast({ title: "Promo code removed" });
+  };
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
@@ -375,6 +445,8 @@ export default function Storefront() {
             unitPrice: ci.menuItem.price,
           })),
           subtotal: subtotal.toFixed(2),
+          promoCode: appliedPromo?.promoCode || null,
+          promoDiscount: promoDiscount > 0 ? promoDiscount.toFixed(2) : null,
           tax: taxAmount.toFixed(2),
           total: total.toFixed(2),
         }),
@@ -388,6 +460,9 @@ export default function Storefront() {
         setCustomerPhone("");
         setCustomerEmail("");
         setPaymentMethod('cash');
+        setAppliedPromo(null);
+        setPromoCode("");
+        setPromoCodeError("");
       } else if (data.paymentMethod === 'paypal') {
         setCurrentOrderId(data.orderId);
         renderPayPalButtons(data.orderId, total);
@@ -400,6 +475,9 @@ export default function Storefront() {
         setCustomerPhone("");
         setCustomerEmail("");
         setPaymentMethod('cash');
+        setAppliedPromo(null);
+        setPromoCode("");
+        setPromoCodeError("");
       }
     },
     onError: () => {
@@ -471,6 +549,9 @@ export default function Storefront() {
           setCustomerEmail("");
           setCurrentOrderId(null);
           paypalRendered.current = false;
+          setAppliedPromo(null);
+          setPromoCode("");
+          setPromoCodeError("");
         } catch (error) {
           toast({ title: t('storefront.orderError'), variant: "destructive" });
         }
@@ -829,6 +910,66 @@ export default function Storefront() {
                 )}
                 </div>
 
+                {/* Promo Code Section */}
+                <div className="space-y-2 border-t pt-4">
+                  {!appliedPromo ? (
+                    <div className="space-y-2">
+                      <Label className="text-sm">Promo Code</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter promo code"
+                          value={promoCode}
+                          onChange={(e) => {
+                            setPromoCode(e.target.value);
+                            setPromoCodeError("");
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleApplyPromo();
+                            }
+                          }}
+                          disabled={applyingPromo || cart.length === 0}
+                          data-testid="input-promo-code"
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={handleApplyPromo}
+                          disabled={applyingPromo || !promoCode.trim() || cart.length === 0}
+                          data-testid="button-apply-promo"
+                          size="default"
+                        >
+                          {applyingPromo ? "Applying..." : "Apply"}
+                        </Button>
+                      </div>
+                      {promoCodeError && (
+                        <p className="text-xs text-destructive" data-testid="promo-error">
+                          {promoCodeError}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                          {appliedPromo.name || 'Promo Applied'}
+                        </span>
+                        <span className="text-xs text-green-600 dark:text-green-300">
+                          Code: {appliedPromo.promoCode}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemovePromo}
+                        data-testid="button-remove-promo"
+                        className="h-8 text-green-700 hover:text-green-900 dark:text-green-300 dark:hover:text-green-100"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-3 border-t pt-4">
                     <div className="space-y-2 w-full">
                       <div className="flex justify-between text-sm">
@@ -837,6 +978,14 @@ export default function Storefront() {
                           {formatPrice(subtotal)}
                         </span>
                       </div>
+                      {promoDiscount > 0 && (
+                        <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                          <span>Discount ({appliedPromo?.promoCode})</span>
+                          <span data-testid="promo-discount">
+                            -{formatPrice(promoDiscount)}
+                          </span>
+                        </div>
+                      )}
                       {deliveryFee > 0 && (
                         <div className="flex justify-between text-sm">
                           <span>{t('storefront.deliveryFee')}</span>
