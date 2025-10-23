@@ -414,6 +414,24 @@ export default function Storefront() {
     }
   }, [currentOrderId, paypalReady, paymentMethod]);
 
+  // Auto-set order type when only one option is enabled
+  useEffect(() => {
+    if (!restaurant?.orderTypes) return;
+    
+    const orderTypes = restaurant.orderTypes as { pickup: boolean; delivery: boolean };
+    const pickupEnabled = orderTypes.pickup ?? true;
+    const deliveryEnabled = orderTypes.delivery ?? true;
+
+    // If only pickup is enabled, set to pickup
+    if (pickupEnabled && !deliveryEnabled && orderType !== 'pickup') {
+      setOrderType('pickup');
+    }
+    // If only delivery is enabled, set to delivery
+    if (!pickupEnabled && deliveryEnabled && orderType !== 'delivery') {
+      setOrderType('delivery');
+    }
+  }, [restaurant?.orderTypes]);
+
   // Fetch delivery fee when address is complete
   useEffect(() => {
     if (!restaurant?.id || !deliveryCountry || !deliveryCity) {
@@ -670,19 +688,35 @@ export default function Storefront() {
                       data-testid="input-customer-email"
                     />
                     
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Order Type</Label>
-                      <RadioGroup value={orderType} onValueChange={(value: 'pickup' | 'delivery') => setOrderType(value)} data-testid="order-type-toggle">
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="delivery" id="delivery" data-testid="radio-delivery" />
-                          <Label htmlFor="delivery" className="font-normal cursor-pointer">Delivery</Label>
+                    {(() => {
+                      const orderTypes = restaurant?.orderTypes as { pickup: boolean; delivery: boolean } | null;
+                      const pickupEnabled = orderTypes?.pickup ?? true;
+                      const deliveryEnabled = orderTypes?.delivery ?? true;
+                      const bothEnabled = pickupEnabled && deliveryEnabled;
+
+                      // Only show toggle if both types are enabled
+                      if (!bothEnabled) return null;
+
+                      return (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Order Type</Label>
+                          <RadioGroup value={orderType} onValueChange={(value: 'pickup' | 'delivery') => setOrderType(value)} data-testid="order-type-toggle">
+                            {deliveryEnabled && (
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="delivery" id="delivery" data-testid="radio-delivery" />
+                                <Label htmlFor="delivery" className="font-normal cursor-pointer">Delivery</Label>
+                              </div>
+                            )}
+                            {pickupEnabled && (
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="pickup" id="pickup" data-testid="radio-pickup" />
+                                <Label htmlFor="pickup" className="font-normal cursor-pointer">Pickup</Label>
+                              </div>
+                            )}
+                          </RadioGroup>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="pickup" id="pickup" data-testid="radio-pickup" />
-                          <Label htmlFor="pickup" className="font-normal cursor-pointer">Pickup</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
+                      );
+                    })()}
 
                     {orderType === 'pickup' && restaurant?.address && (
                       <div className="p-3 bg-muted rounded-md">
