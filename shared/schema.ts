@@ -109,6 +109,8 @@ export const menuItems = pgTable("menu_items", {
   crossSellItemIds: text("cross_sell_item_ids").array(),
   downsellItemIds: text("downsell_item_ids").array(),
   marketingTactics: jsonb("marketing_tactics"),
+  // Modifiers/Options configuration
+  options: jsonb("options"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

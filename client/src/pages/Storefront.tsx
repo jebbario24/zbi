@@ -20,6 +20,14 @@ import {
   SheetTrigger,
   SheetFooter,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard, Banknote } from "lucide-react";
 import { SiPaypal, SiApple, SiGoogle } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +39,10 @@ import { LivePurchaseNotifications } from "@/components/marketing/LivePurchaseNo
 interface CartItem {
   menuItem: MenuItem;
   quantity: number;
+  selectedOptions?: Array<{
+    optionGroupLabel: string;
+    choices: Array<{ label: string; priceCents: number }>;
+  }>;
 }
 
 interface OpeningHours {
@@ -110,6 +122,14 @@ export default function Storefront() {
   const [paypalReady, setPaypalReady] = useState(false);
   const paypalButtonsRef = useRef<HTMLDivElement>(null);
   const paypalRendered = useRef(false);
+  
+  // Item options modal state
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [selectedItemOptions, setSelectedItemOptions] = useState<Array<{
+    optionGroupLabel: string;
+    choices: Array<{ label: string; priceCents: number }>;
+  }>>([]);
 
   // Try hostname-based lookup first, fallback to slug
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
@@ -199,11 +219,21 @@ export default function Storefront() {
   }, [restaurant?.openingHours]);
 
   const addToCart = (item: MenuItem) => {
-    const existingItem = cart.find((ci) => ci.menuItem.id === item.id);
+    // Check if item has options - if yes, open modal for selection
+    const itemOptions = (item.options as any) || [];
+    if (itemOptions.length > 0) {
+      setSelectedItem(item);
+      setSelectedItemOptions([]);
+      setItemModalOpen(true);
+      return;
+    }
+    
+    // No options - add directly to cart
+    const existingItem = cart.find((ci) => ci.menuItem.id === item.id && !ci.selectedOptions);
     if (existingItem) {
       setCart(
         cart.map((ci) =>
-          ci.menuItem.id === item.id
+          ci.menuItem.id === item.id && !ci.selectedOptions
             ? { ...ci, quantity: ci.quantity + 1 }
             : ci
         )
@@ -213,12 +243,28 @@ export default function Storefront() {
     }
     toast({ title: `${item.name} added to cart` });
   };
+  
+  const addToCartWithOptions = () => {
+    if (!selectedItem) return;
+    
+    // Add item with selected options to cart
+    setCart([...cart, { 
+      menuItem: selectedItem, 
+      quantity: 1,
+      selectedOptions: selectedItemOptions
+    }]);
+    
+    toast({ title: `${selectedItem.name} added to cart` });
+    setItemModalOpen(false);
+    setSelectedItem(null);
+    setSelectedItemOptions([]);
+  };
 
-  const updateQuantity = (itemId: string, delta: number) => {
+  const updateQuantity = (index: number, delta: number) => {
     setCart(
       cart
-        .map((ci) =>
-          ci.menuItem.id === itemId
+        .map((ci, idx) =>
+          idx === index
             ? { ...ci, quantity: ci.quantity + delta }
             : ci
         )
@@ -226,12 +272,19 @@ export default function Storefront() {
     );
   };
 
-  const removeFromCart = (itemId: string) => {
-    setCart(cart.filter((ci) => ci.menuItem.id !== itemId));
+  const removeFromCart = (index: number) => {
+    setCart(cart.filter((_, idx) => idx !== index));
   };
 
   const subtotal = cart.reduce(
-    (sum, item) => sum + parseFloat(item.menuItem.price) * item.quantity,
+    (sum, item) => {
+      const optionsTotal = (item.selectedOptions || []).reduce(
+        (opSum, group) => opSum + group.choices.reduce((s, c) => s + c.priceCents, 0),
+        0
+      ) / 100;
+      const itemTotal = parseFloat(item.menuItem.price) + optionsTotal;
+      return sum + itemTotal * item.quantity;
+    },
     0
   );
   
@@ -493,8 +546,15 @@ export default function Storefront() {
               ) : (
                 <ScrollArea className="flex-1 my-4">
                   <div className="space-y-4 px-1">
-                      {cart.map((item) => (
-                        <div key={item.menuItem.id} className="flex gap-4 p-3 rounded-lg border">
+                      {cart.map((item, index) => {
+                        const optionsTotal = (item.selectedOptions || []).reduce(
+                          (sum, group) => sum + group.choices.reduce((s, c) => s + c.priceCents, 0),
+                          0
+                        ) / 100;
+                        const itemTotal = parseFloat(item.menuItem.price) + optionsTotal;
+                        
+                        return (
+                        <div key={`${item.menuItem.id}-${index}`} className="flex gap-4 p-3 rounded-lg border">
                           {item.menuItem.imageUrl && (
                             <img
                               src={item.menuItem.imageUrl}
@@ -504,26 +564,41 @@ export default function Storefront() {
                           )}
                           <div className="flex-1">
                             <h4 className="font-medium mb-1">{item.menuItem.name}</h4>
+                            {item.selectedOptions && item.selectedOptions.length > 0 && (
+                              <div className="text-xs text-muted-foreground mb-1 space-y-1">
+                                {item.selectedOptions.map((optionGroup, idx) => (
+                                  <div key={idx}>
+                                    <span className="font-medium">{optionGroup.optionGroupLabel}:</span>{' '}
+                                    {optionGroup.choices.map(c => c.label).join(', ')}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             <p className="text-sm text-primary font-medium">
-                              {formatPrice(item.menuItem.price)}
+                              {formatPrice(itemTotal.toFixed(2))}
+                              {optionsTotal > 0 && (
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  (base: {formatPrice(item.menuItem.price)} + {formatPrice(optionsTotal.toFixed(2))})
+                                </span>
+                              )}
                             </p>
                             <div className="flex items-center gap-2 mt-2">
                               <Button
                                 variant="outline"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => updateQuantity(item.menuItem.id, -1)}
-                                data-testid={`button-decrease-${item.menuItem.id}`}
+                                onClick={() => updateQuantity(index, -1)}
+                                data-testid={`button-decrease-${item.menuItem.id}-${index}`}
                               >
                                 <Minus className="h-3 w-3" />
                               </Button>
-                              <span className="w-8 text-center" data-testid={`quantity-${item.menuItem.id}`}>{item.quantity}</span>
+                              <span className="w-8 text-center" data-testid={`quantity-${item.menuItem.id}-${index}`}>{item.quantity}</span>
                               <Button
                                 variant="outline"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => updateQuantity(item.menuItem.id, 1)}
-                                data-testid={`button-increase-${item.menuItem.id}`}
+                                onClick={() => updateQuantity(index, 1)}
+                                data-testid={`button-increase-${item.menuItem.id}-${index}`}
                               >
                                 <Plus className="h-3 w-3" />
                               </Button>
@@ -531,15 +606,16 @@ export default function Storefront() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 ml-auto"
-                                onClick={() => removeFromCart(item.menuItem.id)}
-                                data-testid={`button-remove-${item.menuItem.id}`}
+                                onClick={() => removeFromCart(index)}
+                                data-testid={`button-remove-${item.menuItem.id}-${index}`}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     <div className="space-y-3 border-t pt-4">
@@ -1048,6 +1124,143 @@ export default function Storefront() {
           </div>
         </div>
       )}
+
+      {/* Item Options Modal */}
+      <Dialog open={itemModalOpen} onOpenChange={setItemModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedItem?.name}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedItem && (
+            <div className="space-y-6">
+              {selectedItem.description && (
+                <p className="text-sm text-muted-foreground">{selectedItem.description}</p>
+              )}
+              
+              <div className="text-lg font-bold text-primary">
+                {formatPrice(selectedItem.price)}
+              </div>
+              
+              {((selectedItem.options as any) || []).map((optionGroup: any, optionIndex: number) => (
+                <div key={optionIndex} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">{optionGroup.label}</h3>
+                    {optionGroup.required && (
+                      <Badge variant="destructive" className="text-xs">Required</Badge>
+                    )}
+                  </div>
+                  
+                  {optionGroup.type === 'single' ? (
+                    <RadioGroup
+                      value={
+                        selectedItemOptions.find(o => o.optionGroupLabel === optionGroup.label)?.choices[0]?.label || ""
+                      }
+                      onValueChange={(value) => {
+                        const choice = optionGroup.choices.find((c: any) => c.label === value);
+                        if (choice) {
+                          setSelectedItemOptions(prev => [
+                            ...prev.filter(o => o.optionGroupLabel !== optionGroup.label),
+                            {
+                              optionGroupLabel: optionGroup.label,
+                              choices: [choice]
+                            }
+                          ]);
+                        }
+                      }}
+                    >
+                      {optionGroup.choices.map((choice: any, choiceIndex: number) => (
+                        <div key={choiceIndex} className="flex items-center space-x-2 border rounded-lg p-3 hover-elevate">
+                          <RadioGroupItem value={choice.label} id={`option-${optionIndex}-${choiceIndex}`} />
+                          <label 
+                            htmlFor={`option-${optionIndex}-${choiceIndex}`} 
+                            className="flex-1 cursor-pointer flex items-center justify-between"
+                          >
+                            <span>{choice.label}</span>
+                            {choice.priceCents > 0 && (
+                              <span className="text-sm text-muted-foreground">
+                                +{formatPrice((choice.priceCents / 100).toFixed(2))}
+                              </span>
+                            )}
+                          </label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  ) : (
+                    <div className="space-y-2">
+                      {optionGroup.choices.map((choice: any, choiceIndex: number) => {
+                        const selectedGroup = selectedItemOptions.find(o => o.optionGroupLabel === optionGroup.label);
+                        const isSelected = selectedGroup?.choices.some(c => c.label === choice.label);
+                        
+                        return (
+                          <div key={choiceIndex} className="flex items-center space-x-2 border rounded-lg p-3 hover-elevate">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedItemOptions(prev => {
+                                    const existing = prev.find(o => o.optionGroupLabel === optionGroup.label);
+                                    if (existing) {
+                                      return prev.map(o => 
+                                        o.optionGroupLabel === optionGroup.label
+                                          ? { ...o, choices: [...o.choices, choice] }
+                                          : o
+                                      );
+                                    } else {
+                                      return [...prev, { optionGroupLabel: optionGroup.label, choices: [choice] }];
+                                    }
+                                  });
+                                } else {
+                                  setSelectedItemOptions(prev => 
+                                    prev.map(o => 
+                                      o.optionGroupLabel === optionGroup.label
+                                        ? { ...o, choices: o.choices.filter(c => c.label !== choice.label) }
+                                        : o
+                                    ).filter(o => o.choices.length > 0)
+                                  );
+                                }
+                              }}
+                              id={`option-${optionIndex}-${choiceIndex}`}
+                            />
+                            <label 
+                              htmlFor={`option-${optionIndex}-${choiceIndex}`} 
+                              className="flex-1 cursor-pointer flex items-center justify-between"
+                            >
+                              <span>{choice.label}</span>
+                              {choice.priceCents > 0 && (
+                                <span className="text-sm text-muted-foreground">
+                                  +{formatPrice((choice.priceCents / 100).toFixed(2))}
+                                </span>
+                              )}
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setItemModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={addToCartWithOptions}
+              disabled={
+                selectedItem && ((selectedItem.options as any) || []).some((optionGroup: any) => 
+                  optionGroup.required && !selectedItemOptions.some(o => o.optionGroupLabel === optionGroup.label)
+                )
+              }
+              data-testid="button-add-to-cart-with-options"
+            >
+              Add to Cart
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

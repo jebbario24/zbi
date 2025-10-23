@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit, TrendingUp, AlertTriangle, Users, Zap, X, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit, TrendingUp, AlertTriangle, Users, Zap, X, Copy, ListChecks, ChevronDown, ChevronUp } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -74,6 +74,19 @@ const itemSchema = z.object({
     socialProofMessage: z.string().optional(),
     socialProofCount: z.coerce.number().optional(),
   }).optional(),
+  // Item options/modifiers
+  options: z.array(z.object({
+    label: z.string(),
+    type: z.enum(['single', 'multiple']),
+    required: z.boolean(),
+    minSelections: z.number().optional(),
+    maxSelections: z.number().optional(),
+    choices: z.array(z.object({
+      label: z.string(),
+      priceCents: z.number(),
+    })),
+    displayOrder: z.number(),
+  })).optional(),
 });
 
 export default function Menu() {
@@ -135,6 +148,7 @@ export default function Menu() {
         socialProofMessage: "",
         socialProofCount: 0,
       },
+      options: [],
     },
   });
 
@@ -162,6 +176,7 @@ export default function Menu() {
           socialProofMessage: "",
           socialProofCount: 0,
         },
+        options: (editingMenuItem.options as any) || [],
       });
       setItemDialogOpen(true);
     }
@@ -1003,6 +1018,210 @@ export default function Menu() {
                         />
                       </div>
                     )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Modifiers & Options */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <ListChecks className="h-4 w-4" />
+                        <span>Modifiers & Options</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const currentOptions = itemForm.getValues("options") || [];
+                          itemForm.setValue("options", [
+                            ...currentOptions,
+                            {
+                              label: "",
+                              type: "single" as const,
+                              required: false,
+                              choices: [],
+                              displayOrder: currentOptions.length,
+                            },
+                          ]);
+                        }}
+                        data-testid="button-add-option-group"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Option Group
+                      </Button>
+                    </div>
+
+                    <FormDescription>
+                      Add modifiers like size, toppings, or special requests to let customers customize this item
+                    </FormDescription>
+
+                    {(itemForm.watch("options") as any[])?.map((option: any, optionIndex: number) => (
+                      <div key={optionIndex} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-sm">Option Group #{optionIndex + 1}</div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const currentOptions = itemForm.getValues("options") || [];
+                              itemForm.setValue("options", currentOptions.filter((_, i) => i !== optionIndex));
+                            }}
+                            data-testid={`button-remove-option-group-${optionIndex}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Label</label>
+                            <Input
+                              placeholder="e.g., Size, Toppings"
+                              value={option.label}
+                              onChange={(e) => {
+                                const currentOptions = itemForm.getValues("options") || [];
+                                currentOptions[optionIndex].label = e.target.value;
+                                itemForm.setValue("options", [...currentOptions]);
+                              }}
+                              data-testid={`input-option-label-${optionIndex}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Type</label>
+                            <Select
+                              value={option.type}
+                              onValueChange={(value: "single" | "multiple") => {
+                                const currentOptions = itemForm.getValues("options") || [];
+                                currentOptions[optionIndex].type = value;
+                                itemForm.setValue("options", [...currentOptions]);
+                              }}
+                            >
+                              <SelectTrigger data-testid={`select-option-type-${optionIndex}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="single">Single Choice</SelectItem>
+                                <SelectItem value="multiple">Multiple Choice</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            checked={option.required}
+                            onCheckedChange={(checked) => {
+                              const currentOptions = itemForm.getValues("options") || [];
+                              currentOptions[optionIndex].required = checked as boolean;
+                              itemForm.setValue("options", [...currentOptions]);
+                            }}
+                            data-testid={`checkbox-option-required-${optionIndex}`}
+                          />
+                          <label className="text-sm">Required (customer must select)</label>
+                        </div>
+
+                        {option.type === 'multiple' && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Min Selections</label>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={option.minSelections || 0}
+                                onChange={(e) => {
+                                  const currentOptions = itemForm.getValues("options") || [];
+                                  currentOptions[optionIndex].minSelections = parseInt(e.target.value) || 0;
+                                  itemForm.setValue("options", [...currentOptions]);
+                                }}
+                                data-testid={`input-option-min-${optionIndex}`}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Max Selections</label>
+                              <Input
+                                type="number"
+                                placeholder="Unlimited"
+                                value={option.maxSelections || ""}
+                                onChange={(e) => {
+                                  const currentOptions = itemForm.getValues("options") || [];
+                                  currentOptions[optionIndex].maxSelections = parseInt(e.target.value) || undefined;
+                                  itemForm.setValue("options", [...currentOptions]);
+                                }}
+                                data-testid={`input-option-max-${optionIndex}`}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium">Choices</label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const currentOptions = itemForm.getValues("options") || [];
+                                currentOptions[optionIndex].choices.push({ label: "", priceCents: 0 });
+                                itemForm.setValue("options", [...currentOptions]);
+                              }}
+                              data-testid={`button-add-choice-${optionIndex}`}
+                            >
+                              <Plus className="mr-1 h-3 w-3" />
+                              Add Choice
+                            </Button>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {option.choices.map((choice, choiceIndex) => (
+                              <div key={choiceIndex} className="flex gap-2">
+                                <Input
+                                  placeholder="Choice name"
+                                  value={choice.label}
+                                  onChange={(e) => {
+                                    const currentOptions = itemForm.getValues("options") || [];
+                                    currentOptions[optionIndex].choices[choiceIndex].label = e.target.value;
+                                    itemForm.setValue("options", [...currentOptions]);
+                                  }}
+                                  data-testid={`input-choice-label-${optionIndex}-${choiceIndex}`}
+                                  className="flex-1"
+                                />
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  value={(choice.priceCents / 100).toFixed(2)}
+                                  onChange={(e) => {
+                                    const currentOptions = itemForm.getValues("options") || [];
+                                    currentOptions[optionIndex].choices[choiceIndex].priceCents = Math.round(parseFloat(e.target.value || "0") * 100);
+                                    itemForm.setValue("options", [...currentOptions]);
+                                  }}
+                                  data-testid={`input-choice-price-${optionIndex}-${choiceIndex}`}
+                                  className="w-24"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const currentOptions = itemForm.getValues("options") || [];
+                                    currentOptions[optionIndex].choices.splice(choiceIndex, 1);
+                                    itemForm.setValue("options", [...currentOptions]);
+                                  }}
+                                  data-testid={`button-remove-choice-${optionIndex}-${choiceIndex}`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   <DialogFooter className="gap-2 sm:gap-0">
