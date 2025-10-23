@@ -17,6 +17,7 @@ import {
   customerReviews,
   inboxMessages,
   promoRules,
+  bundles as bundlesTable,
   type User,
   type UpsertUser,
   type Restaurant,
@@ -778,6 +779,66 @@ export class DatabaseStorage implements IStorage {
         sql`(${promoRules.endsAt} IS NULL OR ${promoRules.endsAt} >= ${now})`
       ));
     return promo || null;
+  }
+
+  // Bundle Management
+  async getBundles(restaurantId: string): Promise<any[]> {
+    const bundles = await db
+      .select()
+      .from(bundlesTable)
+      .where(eq(bundlesTable.restaurantId, restaurantId))
+      .orderBy(desc(bundlesTable.createdAt));
+    return bundles;
+  }
+
+  async getActiveBundles(restaurantId: string): Promise<any[]> {
+    const bundles = await db
+      .select()
+      .from(bundlesTable)
+      .where(and(
+        eq(bundlesTable.restaurantId, restaurantId),
+        eq(bundlesTable.isActive, true)
+      ))
+      .orderBy(desc(bundlesTable.sales));
+    return bundles;
+  }
+
+  async getBundle(id: string): Promise<any | null> {
+    const [bundle] = await db
+      .select()
+      .from(bundlesTable)
+      .where(eq(bundlesTable.id, id));
+    return bundle || null;
+  }
+
+  async createBundle(bundle: any): Promise<any> {
+    const [created] = await db
+      .insert(bundlesTable)
+      .values(bundle)
+      .returning();
+    return created;
+  }
+
+  async updateBundle(id: string, updates: any): Promise<any> {
+    const [updated] = await db
+      .update(bundlesTable)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(bundlesTable.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBundle(id: string): Promise<void> {
+    await db
+      .delete(bundlesTable)
+      .where(eq(bundlesTable.id, id));
+  }
+
+  async incrementBundleSales(id: string): Promise<void> {
+    await db
+      .update(bundlesTable)
+      .set({ sales: sql`${bundlesTable.sales} + 1` })
+      .where(eq(bundlesTable.id, id));
   }
 }
 
