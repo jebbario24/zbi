@@ -17,7 +17,8 @@ import {
   Truck,
   FileText,
   MessageSquare,
-  DollarSign
+  DollarSign,
+  Shield
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -138,6 +139,16 @@ const storeItems = [
     titleKey: "navigation.onlineStore",
     url: "/online-store",
     icon: Palette,
+  },
+  {
+    titleKey: "Pixels & Tracking",
+    url: "/marketing/pixels",
+    icon: BarChart3,
+  },
+  {
+    titleKey: "Domain Verification",
+    url: "/marketing/domain-verification",
+    icon: Shield,
   },
 ];
 
