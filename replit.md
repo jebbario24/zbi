@@ -1,77 +1,50 @@
 # EatOut Restaurant Management Platform
 
 ## Overview
-EatOut is a comprehensive SaaS restaurant management platform for commission-free online ordering and restaurant operations. It offers a subscription-based model with a dual-interface: a professional admin dashboard and a customer-facing online storefront. The platform is multi-tenant, providing each restaurant with a customizable online menu store via subdomain or custom domain. It supports multiple currencies and countries, with future plans for delivery app and mobile marketplace integrations.
+EatOut is a comprehensive SaaS restaurant management platform offering commission-free online ordering and restaurant operations. It features a subscription-based, multi-tenant architecture with a professional admin dashboard and a customizable customer-facing online storefront for each restaurant, accessible via subdomain or custom domain. The platform supports multiple currencies and countries, with ambitions for future integration with delivery apps and mobile marketplaces. Its core purpose is to empower restaurants with efficient online presence and operational tools.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
-
-## Recent Changes (October 2025)
-
-### Cart Payment UI Redesign
-- **5 Payment Method Buttons**: Replaced radio button selection with distinct, branded buttons:
-  - Apple Pay (black, Stripe-powered) - Shows only when Stripe is enabled in settings
-  - Google Pay (white/gray, Stripe-powered) - Shows only when Stripe is enabled in settings
-  - Credit/Debit Card (black, Stripe) - Shows only when Stripe is enabled in settings
-  - PayPal (PayPal blue, OAuth) - Shows only when PayPal is enabled in settings
-  - Cash on Delivery (outline style) - Shows only when Cash is enabled in settings
-- **Explicit Configuration Required**: Payment buttons only display when explicitly enabled in Online Store → Payment Methods settings
-- **Mobile Responsive**: 2-column grid for Apple/Google Pay, full-width for others, proper touch targets (h-16)
-
-### Order Notification System
-- **Real-time Badge**: Red notification badge on Orders sidebar menu showing pending order count
-- **Audio Alerts**: Beep notification when new orders arrive (requires user interaction with page first due to browser autoplay policies)
-- **Smart Polling**: Checks for new orders every 10 seconds via `/api/orders/new-count` endpoint
-- **First Order Detection**: Properly detects transition from 0→1 pending orders
-
-### Opening Hours Synchronization
-- **Real-time Status Badge**: Storefront displays green "Open" or red "Closed" badge that automatically syncs with configured opening hours
-- **Smart Time Detection**: Compares current day/time against restaurant's opening hours to determine open/closed status
-- **Customer-Friendly Hours Display**: Shows today's hours in 12-hour format (e.g., "9:00 AM - 10:00 PM") below restaurant name with clock icon
-- **Closed Day Handling**: Displays "Closed today" when restaurant is marked as closed for the current day
-- **Automatic Updates**: Status and hours sync instantly when owner changes opening hours in Online Store settings
 
 ## System Architecture
 
 ### Frontend Architecture
 - **Technology Stack:** React with TypeScript, Vite, Wouter for routing, TanStack Query for server state, Shadcn/ui (Radix UI), Tailwind CSS.
-- **Design System:** Hybrid approach combining Material Design for the admin dashboard and reference-based design (klit.ma, Toast, Square) for the storefront. Features a custom color palette (brand orange), Inter/Outfit typography, dark mode for admin, and component library path aliases. Storefront is completely standalone without EatOut branding or sidebar - rendered as an independent online store with full-width layout, banner images, horizontal category navigation, and grid-based menu display.
-- **Key UI Patterns:** Server-side rendering, authentication-guarded routes, role-based routing (admin vs owner), responsive design (mobile-first), toast notifications, sidebar navigation, and sheet/drawer components for mobile.
+- **Design System:** Hybrid approach with Material Design for the admin dashboard and a custom, standalone storefront design. Features a custom color palette (brand orange), Inter/Outfit typography, dark mode for admin, and component library path aliases. Storefronts are independent, full-width, and brand-agnostic.
+- **Key UI Patterns:** Server-side rendering, authentication-guarded routes, role-based routing (admin vs owner), responsive design (mobile-first), toast notifications, sidebar navigation, and sheet/drawer components.
 
 ### Backend Architecture
 - **Server Framework:** Express.js on Node.js with TypeScript.
-- **Authentication & Authorization:** Session-based authentication using Replit Auth (OpenID Connect/Passport strategy) with httpOnly cookies and a PostgreSQL session store. Role-based access control (admin/owner) with middleware protection. Protected API routes and automatic session refresh.
-- **Multi-Tenant Architecture:** Single database with `restaurant_id` foreign key separation. Hostname-based routing (custom domains/subdomains) maps to specific restaurants, isolating all data by `restaurantId`.
-- **Admin Panel:** Platform admin role with dedicated dashboard showing MRR, active subscriptions, trial counts, and all restaurants management. Admins bypass subscription checks and have access to platform-wide analytics.
+- **Authentication & Authorization:** Session-based authentication using Replit Auth (OpenID Connect/Passport strategy) with httpOnly cookies and PostgreSQL session store. Role-based access control (admin/owner) and protected API routes.
+- **Multi-Tenant Architecture:** Single database with `restaurant_id` foreign key separation. Hostname-based routing maps custom domains/subdomains to specific restaurants, ensuring data isolation.
+- **Admin Panel:** Dedicated platform admin dashboard for MRR tracking, subscription management, and platform-wide analytics, bypassing subscription checks.
 
 ### Data Storage
-- **Database:** Neon Serverless PostgreSQL with Drizzle ORM for type-safe queries.
-- **Schema Design:** Multi-tenant with `restaurant_id` across all tables. Core entities include users, restaurants, menu items, orders, reservations, staff, and inventory. Supports custom domains/subdomains, URL slugs, decimal fields for currency, and JSONB for flexible settings.
-- **Data Relationships:** Standard one-to-many and many-to-many relationships link users to restaurants, restaurants to menus/orders, and orders to menu items.
+- **Database:** Neon Serverless PostgreSQL with Drizzle ORM.
+- **Schema Design:** Multi-tenant with `restaurant_id` across all tables. Core entities include users, restaurants, menu items, orders, reservations, staff, and inventory. Payment infrastructure includes `restaurantPayoutAccounts` (bank details, payout schedule), `earningsLedger` (financial transaction tracking), `payoutRuns` (batch payout execution), `payoutRunLedgerEntries` (join table linking payout runs to ledger entries), and driver-related tables (`driverProfiles`, `driverWalletBalances`, `walletTransactions`). Orders table extended with payment tracking: `paymentProvider`, `paymentIntentId`, `platformCaptureStatus`, `restaurantShare`, `driverShare`, `platformFee`, `assignedDriverId`. Restaurants table includes tax configuration: `taxRate`, `taxIncludedInPrice`, `taxLabel`. Supports custom domains/subdomains, URL slugs, decimal fields for currency, and JSONB for flexible settings.
+- **Data Relationships:** Standard one-to-many and many-to-many relationships. Restaurant payout accounts have one-to-one relationship with restaurants. Earnings ledger and wallet transactions link to restaurants and drivers. PayoutRuns link to multiple ledger entries via `payoutRunLedgerEntries` join table.
 
 ### System Design Choices
-- **Online Store Customization:** Restaurant owners can customize branding (logo, cover photo), manage opening hours, and add images to menu items.
-- **Payment Settings & Methods:** Stripe Connect and PayPal OAuth integration for secure multi-tenant payment processing. Each restaurant connects their own Stripe and PayPal accounts via OAuth flows. Platform automatically earns 2% commission per transaction using Stripe's `on_behalf_of` and `application_fee_amount` parameters. Restaurants can enable/disable payment methods (Stripe, PayPal, Cash on Delivery) individually.
-- **Subscription & Billing:** $79/month subscription with 7-day free trial. New users automatically receive 7-day trial upon signup (configured in server/replitAuth.ts). Stripe webhooks handle subscription lifecycle (payment_succeeded, payment_failed, subscription_deleted, subscription_updated). Billing page shows subscription status, next billing date, and cancellation option. Platform admin dashboard tracks MRR and subscription metrics.
-- **Onboarding Flow:** Landing page offers two entry points: "Get Started Free" (navigates to /subscribe) and "Login" (navigates to /api/login). Unauthenticated users accessing /subscribe see feature list and "Sign In to Subscribe" button. After OIDC authentication, users receive automatic 7-day trial. Subscribe page (/subscribe) is accessible to both authenticated and unauthenticated users - shows sign-in prompt when not logged in, shows payment form when authenticated. Users can subscribe early during trial period. Authentication detection uses React Query status field (`status === 'success'`) for reliable state management. Fixed JSON parsing in subscription initialization to properly handle Stripe client secret creation.
-- **Multi-Currency & Regional Settings:** Comprehensive worldwide support with 170+ currencies (ISO-4217 aligned) and 195+ countries (all 193 UN members plus key territories like Palestine, Taiwan, Kosovo, Western Sahara). Features searchable Command/Popover selectors with real-time filtering for easy currency and country selection. Locale-aware price formatting using `Intl.NumberFormat`.
-- **Internationalization (i18n):** Full multi-language support using i18next and react-i18next with automatic RTL (right-to-left) text support. Platform supports separate language settings for admin dashboard (`platformLanguage`) and customer storefront (`storefrontLanguage`). Currently implemented languages: English, Spanish, French, German, Arabic, Portuguese, Italian, Chinese (Simplified), and Japanese. RTL languages (Arabic, Hebrew, Farsi, Urdu) automatically set document direction to RTL and apply appropriate text alignment. Language preferences are stored per-restaurant in the database and automatically applied when users access the platform. Translation files located in `client/src/locales/` with complete coverage for navigation menus, common UI elements, storefront customer-facing text, payment options, and order management. Language switching is handled automatically via i18n.changeLanguage with DOM updates for direction attributes.
-- **Table Categories & Management:** Full CRUD for tables with optional categorization (e.g., Interior, Exterior) and capacity tracking.
-- **Staff Management:** Full CRUD for staff members with active/inactive status toggling and detailed information.
-- **Comprehensive CRUD Operations:** Complete create, read, update, and delete functionality for menu items, tables, reservations, and inventory, ensuring consistent UI patterns and optimistic UI updates with React Query cache invalidation. Menu items and tables both support duplication via Copy button (hover-revealed alongside Edit/Delete), which creates a new item with " (Copy)" appended to the name/table number while preserving all other attributes (for menu items: description, price, category, image, availability; for tables: capacity, category). All duplicate and delete endpoints enforce restaurant ownership verification to prevent cross-tenant data access.
-- **Analytics Dashboard:** Real-time analytics with batched database queries for performance. Features date-based filtering (Today, Yesterday, Last 7 days, This month, Last month, Year) with normalized date boundaries to accurately segment data. Displays total revenue, order counts, average order value, popular menu items (aggregated by quantity sold from filtered orders), and revenue breakdown by order type (dine-in, takeout, delivery, online). Uses efficient single-query fetching of all order items to avoid N+1 query patterns, with client-side filtering by order ID set to maintain consistency across all metrics.
-- **Location-Based Delivery Zones:** Transformed from coordinate-based (latitude/longitude/radius) to location-based system (country/city/neighborhood). Features searchable Command/Popover selectors for country and city selection with fallback to manual text input for cities not in the predefined list. Static cities data covers 70+ countries with major cities. Database schema includes both legacy coordinate fields (optional for migration) and new location fields. Each zone includes delivery fee, optional minimum order amount, and active/inactive status toggle.
-- **Marketing Features:** Customer-facing storefront includes three marketing components controlled via restaurant.marketingSettings JSONB field:
-  1. **Frequently Bought Together** - Shows upsell items below menu items based on `upsellItemIds` array. Displays up to 3 related items with bundle pricing and "Add Bundle to Cart" button that adds all items at once.
-  2. **Countdown Timer** - Displays urgency timer at top of menu with configurable duration and message (e.g., "Limited time offer - 29:45"). Auto-resets when countdown expires.
-  3. **Live Purchase Notifications** - Shows bottom-left notifications of recent completed orders (e.g., "John Doe ordered Pizza • 5m ago"). Polls `/api/storefront/recent-purchases/:restaurantId` endpoint every 30s and cycles through notifications every 15s. Each notification displays for 5s before fading out.
+- **UI/UX Decisions:**
+    - **Cart Payment UI:** Features 5 distinct payment buttons (Apple Pay, Google Pay, Credit/Debit Card via Stripe; PayPal; Cash on Delivery) which display based on explicit restaurant payment method settings (configured in Online Store → Payment Methods). All payments processed through platform-owned accounts. Mobile responsive design with proper touch targets.
+    - **Order Notification System:** Real-time red badge on Orders sidebar for pending orders, audio alerts for new orders, and smart polling every 10 seconds.
+    - **Opening Hours Synchronization:** Storefront displays real-time "Open"/"Closed" status badge, customer-friendly 12-hour format hours, and "Closed today" messages, automatically updating with owner changes.
+- **Technical Implementations:**
+    - **Online Store Customization:** Owners can customize branding (logo, cover photo), opening hours, and menu item images.
+    - **Platform-Managed Payments:** Centralized payment model via platform-owned Stripe and PayPal accounts. Platform collects payments, charges a 2% commission, and distributes 98% of subtotal to restaurants (100% of delivery fees to drivers). Financial reconciliation data (payment provider, capture status, shares) stored in orders table. Restaurants configure bank details and payout schedules.
+    - **Tax Customization:** Per-restaurant configurable tax rates, labels, and inclusion in menu prices. Storefront calculates and displays tax breakdown.
+    - **Subscription & Billing:** $79/month subscription with a 7-day free trial. Stripe webhooks manage subscription lifecycle. Admin dashboard tracks MRR.
+    - **Onboarding Flow:** "Get Started Free" and "Login" entry points. Unauthenticated users access feature list. Authenticated users receive an automatic 7-day trial. Subscription page allows early subscription during trial.
+    - **Multi-Currency & Regional Settings:** Worldwide support for 170+ currencies and 195+ countries using searchable selectors and locale-aware price formatting (`Intl.NumberFormat`).
+    - **Internationalization (i18n):** Full multi-language support using i18next with automatic RTL text support. Separate language settings for admin (`platformLanguage`) and storefront (`storefrontLanguage`).
+    - **Comprehensive CRUD Operations:** Full create, read, update, and delete functionality for menu items, tables, reservations, and inventory with optimistic UI updates and duplicate functionality.
+    - **Analytics Dashboard:** Real-time analytics with batched queries, date-based filtering, and metrics for revenue, orders, average order value, popular items, and revenue by order type.
+    - **Location-Based Delivery Zones:** Transformed from coordinate-based to country/city/neighborhood. Zones include delivery fee, optional minimum order, and active/inactive status. Cart validates delivery addresses using case-insensitive zone matching (trim + toLowerCase for country/city/neighborhood) via `/api/storefront/delivery-fee/:restaurantId` endpoint. If address is outside coverage, checkout is blocked and error message displayed. Delivery fee (if applicable) is added to cart total and 100% goes to drivers, with restaurant receiving only the subtotal portion after platform fee deduction.
+    - **Marketing Features:** Customer-facing storefront includes "Frequently Bought Together" upsell (bundle pricing), "Countdown Timer" (urgency), and "Live Purchase Notifications" (recent order alerts).
 
 ## External Dependencies
 
-- **Payment Processing:** Stripe Connect integration for multi-tenant payments with 2% platform commission. Each restaurant connects their own Stripe account via OAuth, and the platform processes payments `on_behalf_of` the connected account with automatic fee collection. PayPal OAuth integration for merchant account linking. Frontend uses @stripe/stripe-js and @stripe/react-stripe-js for Stripe Elements. Backend uses Stripe SDK and @paypal/paypal-server-sdk for payment processing. Supports Google Pay and Apple Pay through Stripe.
-- **Internationalization:** i18next, react-i18next, and i18next-browser-languagedetector for multi-language support with automatic language detection and persistence.
-- **Development Tools:** Replit-specific plugins, runtime error overlay, source map support (@jridgewell/trace-mapping), and Hot Module Replacement (HMR).
-- **UI Components:** Radix UI primitives, Lucide React for icons, React Hook Form with Zod validation, CMDK for command palette, and Embla Carousel.
-- **Build & Deployment:** ESBuild for server, Vite for client-side bundling, platform-agnostic builds, and static asset serving.
-- **File Storage:** Replit Object Storage integration via @google-cloud/storage for restaurant assets (logos, cover photos, menu item images) using Uppy for file uploads. Images are automatically made public via ACL policies when uploaded. Image URLs are stored as `/objects/uploads/[uuid]` format in the database and served through the `/objects/*` route without authentication for public access.
-- **Planned Integrations:** "EatOut Delivery" app synchronization, mobile app marketplace integration, and potential drag-and-drop customization platform.
+- **Payment Processing:** Platform-managed payments using platform-owned Stripe and PayPal accounts. Platform collects all customer payments via `/api/checkout/stripe` and `/api/paypal/capture-order/:paypalOrderId` endpoints using platform credentials (`process.env.STRIPE_SECRET_KEY`, `process.env.PAYPAL_CLIENT_ID`). No connected accounts or OAuth flows. Uses @stripe/stripe-js, @stripe/react-stripe-js for frontend, Stripe SDK (v2025-09-30.clover) and @paypal/paypal-server-sdk for backend. Supports Google Pay, Apple Pay, credit/debit cards via Stripe, and PayPal. Payment confirmation uses `confirmOrderWithPayment(orderId, paymentProvider, paymentIntentId, totalAmount, deliveryFee)` which: (1) Calculates shares (platformFee = totalAmount * 2%, driverShare = deliveryFee for delivery orders, restaurantShare = totalAmount - platformFee - driverShare); (2) Updates order with payment tracking (`paymentProvider`, `platformCaptureStatus: 'captured'`, `paymentIntentId`, share amounts); (3) Sets order status to 'confirmed'.
+- **Internationalization:** i18next, react-i18next, i18next-browser-languagedetector.
+- **UI Components:** Radix UI primitives, Lucide React (icons), React Hook Form (with Zod validation), CMDK (command palette), Embla Carousel.
+- **File Storage:** Replit Object Storage integration via @google-cloud/storage for restaurant assets, using Uppy for uploads.
