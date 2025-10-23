@@ -105,6 +105,8 @@ const onlineOrderSchema = z.object({
     unitPrice: z.string(),
   })),
   subtotal: z.string(),
+  promoCode: z.string().nullable().optional(),
+  promoDiscount: z.string().nullable().optional(),
   tax: z.string(),
   total: z.string(),
 });
@@ -2122,6 +2124,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deliveryFee: data.deliveryFee || '0',
         paymentMethod: data.paymentMethod || null,
         subtotal: data.subtotal,
+        promoCode: data.promoCode || null,
+        promoDiscount: data.promoDiscount || '0',
         tax: data.tax,
         total: data.total,
         status: 'pending',

@@ -236,6 +236,8 @@ export const orders = pgTable("orders", {
   deliveryAddress: text("delivery_address"),
   deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).default('0'),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  promoCode: varchar("promo_code", { length: 100 }),
+  promoDiscount: decimal("promo_discount", { precision: 10, scale: 2 }).default('0'),
   tax: decimal("tax", { precision: 10, scale: 2 }).notNull().default('0'),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
   status: varchar("status", { length: 50 }).notNull().default('pending'),
