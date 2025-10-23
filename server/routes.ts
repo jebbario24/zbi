@@ -26,25 +26,25 @@ import {
 } from '@paypal/paypal-server-sdk';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
-}
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-09-30.clover",
-});
+// Initialize Stripe only if credentials are available
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-09-30.clover",
+    })
+  : null;
 
-if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
-  throw new Error('Missing required PayPal secrets: PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET');
-}
-const paypalClient = new Client({
-  clientCredentialsAuthCredentials: {
-    oAuthClientId: process.env.PAYPAL_CLIENT_ID,
-    oAuthClientSecret: process.env.PAYPAL_CLIENT_SECRET
-  },
-  timeout: 0,
-  environment: Environment.Sandbox,
-});
-const paypalOrdersController = new OrdersController(paypalClient);
+// Initialize PayPal only if credentials are available
+const paypalClient = (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET)
+  ? new Client({
+      clientCredentialsAuthCredentials: {
+        oAuthClientId: process.env.PAYPAL_CLIENT_ID,
+        oAuthClientSecret: process.env.PAYPAL_CLIENT_SECRET
+      },
+      timeout: 0,
+      environment: Environment.Sandbox,
+    })
+  : null;
+const paypalOrdersController = paypalClient ? new OrdersController(paypalClient) : null;
 
 // Helper function to generate sequential order numbers
 async function generateOrderNumber(restaurantId: string, prefix: 'ORD' | 'WEB'): Promise<string> {
@@ -335,6 +335,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Subscription routes
   app.post('/api/create-subscription', isAuthenticated, async (req: any, res) => {
     try {
+      if (!stripe) {
+        return res.status(503).json({ message: "Payment processing is not configured" });
+      }
+
       const userId = req.user.id;
       const user = await storage.getUser(userId);
       
@@ -460,6 +464,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/subscription-status', isAuthenticated, async (req: any, res) => {
     try {
+      if (!stripe) {
+        return res.status(503).json({ message: "Payment processing is not configured" });
+      }
+
       const userId = req.user.id;
       const user = await storage.getUser(userId);
       
@@ -526,6 +534,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/cancel-subscription', isAuthenticated, async (req: any, res) => {
     try {
+      if (!stripe) {
+        return res.status(503).json({ message: "Payment processing is not configured" });
+      }
+
       const userId = req.user.id;
       const user = await storage.getUser(userId);
       
@@ -547,6 +559,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Stripe webhook endpoint for subscription events
   app.post('/api/webhooks/stripe', async (req, res) => {
+    if (!stripe) {
+      return res.status(503).send('Payment processing is not configured');
+    }
+
     const sig = req.headers['stripe-signature'];
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -2292,6 +2308,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stripe checkout endpoint - platform-managed payments
   app.post('/api/checkout/stripe', async (req, res) => {
     try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe payment processing is not configured" });
+      }
+
       const { restaurantId, amount, currency, orderId } = req.body;
 
       if (!restaurantId || !amount || !currency) {
@@ -2303,13 +2323,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Restaurant not found" });
       }
 
-      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-      if (!stripeSecretKey) {
-        return res.status(500).json({ error: "Stripe not configured" });
-      }
-
-      const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-09-30.clover" });
-      
       const amountInCents = Math.round(parseFloat(amount) * 100);
 
       // Create payment intent directly to platform account (platform-managed payments)
@@ -2336,6 +2349,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PayPal create order
   app.post('/api/paypal/create-order', async (req, res) => {
     try {
+      if (!paypalOrdersController) {
+        return res.status(503).json({ message: "PayPal payment processing is not configured" });
+      }
+
       const { orderId, total } = req.body;
       
       const orderRequest = {
@@ -2370,6 +2387,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PayPal capture payment - platform-managed payments
   app.post('/api/paypal/capture-order/:paypalOrderId', async (req, res) => {
     try {
+      if (!paypalOrdersController) {
+        return res.status(503).json({ message: "PayPal payment processing is not configured" });
+      }
+
       const { paypalOrderId } = req.params;
       const { orderId, totalAmount, deliveryFee } = req.body;
 
