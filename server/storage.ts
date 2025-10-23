@@ -11,6 +11,9 @@ import {
   inventory,
   deliveryZones,
   driverProfiles,
+  restaurantPayoutAccounts,
+  earningsLedger,
+  payoutRuns,
   type User,
   type UpsertUser,
   type Restaurant,
@@ -34,7 +37,6 @@ import {
   type DeliveryZone,
   type InsertDeliveryZone,
   type DriverProfile,
-  restaurantPayoutAccounts,
   type RestaurantPayoutAccount,
   type InsertRestaurantPayoutAccount,
 } from "@shared/schema";
@@ -120,6 +122,11 @@ export interface IStorage {
   // Payout account operations
   getPayoutAccount(restaurantId: string): Promise<RestaurantPayoutAccount | undefined>;
   createOrUpdatePayoutAccount(restaurantId: string, account: Partial<InsertRestaurantPayoutAccount>): Promise<RestaurantPayoutAccount>;
+  
+  // Earnings and Payouts operations
+  getEarningsLedger(restaurantId: string): Promise<any[]>;
+  getPayoutRuns(restaurantId: string): Promise<any[]>;
+  getPendingEarnings(restaurantId: string): Promise<{ total: string; count: number }>;
   
   // Driver operations
   getAllDrivers(): Promise<DriverProfile[]>;
@@ -560,6 +567,41 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return updated;
+  }
+
+  // Earnings and Payouts operations
+  async getEarningsLedger(restaurantId: string): Promise<any[]> {
+    const ledger = await db
+      .select()
+      .from(earningsLedger)
+      .where(eq(earningsLedger.restaurantId, restaurantId))
+      .orderBy(desc(earningsLedger.createdAt));
+    return ledger;
+  }
+
+  async getPayoutRuns(restaurantId: string): Promise<any[]> {
+    const runs = await db
+      .select()
+      .from(payoutRuns)
+      .where(eq(payoutRuns.restaurantId, restaurantId))
+      .orderBy(desc(payoutRuns.createdAt));
+    return runs;
+  }
+
+  async getPendingEarnings(restaurantId: string): Promise<{ total: string; count: number }> {
+    const pending = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${earningsLedger.restaurantShare}), 0)`,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(earningsLedger)
+      .where(
+        and(
+          eq(earningsLedger.restaurantId, restaurantId),
+          eq(earningsLedger.restaurantPayoutStatus, 'pending')
+        )
+      );
+    return pending[0] || { total: '0', count: 0 };
   }
 
   // Driver operations

@@ -1480,6 +1480,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payout routes
+  app.get('/api/earnings-ledger', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.json([]);
+      }
+      const ledger = await storage.getEarningsLedger(restaurant.id);
+      res.json(ledger);
+    } catch (error) {
+      console.error("Error fetching earnings ledger:", error);
+      res.status(500).json({ message: "Failed to fetch earnings ledger" });
+    }
+  });
+
+  app.get('/api/payout-runs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.json([]);
+      }
+      const runs = await storage.getPayoutRuns(restaurant.id);
+      res.json(runs);
+    } catch (error) {
+      console.error("Error fetching payout runs:", error);
+      res.status(500).json({ message: "Failed to fetch payout runs" });
+    }
+  });
+
+  app.get('/api/pending-earnings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.json({ total: '0', count: 0 });
+      }
+      const pending = await storage.getPendingEarnings(restaurant.id);
+      res.json(pending);
+    } catch (error) {
+      console.error("Error fetching pending earnings:", error);
+      res.status(500).json({ message: "Failed to fetch pending earnings" });
+    }
+  });
+
   // Driver routes
   app.get('/api/drivers', isAuthenticated, async (req: any, res) => {
     try {
