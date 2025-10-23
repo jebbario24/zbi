@@ -37,6 +37,11 @@ import { FrequentlyBoughtTogether } from "@/components/marketing/FrequentlyBough
 import { CountdownTimer } from "@/components/marketing/CountdownTimer";
 import { LivePurchaseNotifications } from "@/components/marketing/LivePurchaseNotifications";
 import { PixelScripts, trackViewContent, trackAddToCart, trackInitiateCheckout, trackPurchase } from "@/components/PixelScripts";
+import { BundlesSection } from "@/components/marketing/storefront/BundlesSection";
+import { ActivePromosBanner } from "@/components/marketing/storefront/ActivePromosBanner";
+import { LoyaltyWidget } from "@/components/marketing/storefront/LoyaltyWidget";
+import { ReferralCTA } from "@/components/marketing/storefront/ReferralCTA";
+import { BoostedItemsBadge } from "@/components/marketing/storefront/BoostedItemsBadge";
 
 interface CartItem {
   menuItem: MenuItem;
@@ -151,6 +156,36 @@ export default function Storefront() {
   const [appliedPromo, setAppliedPromo] = useState<any>(null);
   const [promoCodeError, setPromoCodeError] = useState("");
   const [applyingPromo, setApplyingPromo] = useState(false);
+
+  // Mock marketing data (to be replaced with API fetch)
+  const mockBundles = [
+    { id: '1', name: 'Family Feast', items: ['Large Pizza', 'Garlic Bread', '2L Soda'], regularPrice: 45.00, bundlePrice: 35.99, sales: 156, isActive: true },
+    { id: '2', name: 'Date Night Special', items: ['2 Entrees', 'Shared Appetizer', 'Dessert'], regularPrice: 65.00, bundlePrice: 49.99, sales: 89, isActive: true },
+  ];
+
+  const mockPromos = [
+    { id: '1', code: 'WELCOME10', type: 'percentage', value: 10, isActive: true },
+    { id: '2', code: 'FREESHIP', type: 'free_delivery', value: 0, isActive: true },
+  ];
+
+  const mockLoyalty = {
+    pointsBalance: 450,
+    currentTier: 'Gold',
+    pointsToNextTier: 50,
+    rewardCatalog: [
+      { name: 'Free Appetizer', pointsCost: 200, available: true },
+      { name: 'Free Dessert', pointsCost: 150, available: true },
+      { name: '$10 Off', pointsCost: 500, available: false },
+    ],
+  };
+
+  const mockReferral = {
+    referralLink: `${window.location.origin}/store/${slug}?ref=USER123`,
+    referrerReward: '$10 credit',
+    refereeReward: '$5 off',
+    totalReferrals: 8,
+    referralRevenue: 80.00,
+  };
 
   // Try hostname-based lookup first, fallback to slug
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
@@ -1222,6 +1257,17 @@ export default function Storefront() {
           </div>
         )}
 
+        {/* Marketing: Active Promos Banner */}
+        <ActivePromosBanner promos={mockPromos} />
+
+        {/* Marketing: Loyalty Widget */}
+        <LoyaltyWidget loyaltyData={mockLoyalty} enabled={true} />
+
+        {/* Marketing: Bundles & Combos Section */}
+        <BundlesSection bundles={mockBundles} onAddToCart={(bundle) => {
+          toast({ title: "Added to cart", description: `${bundle.name} bundle added!` });
+        }} />
+
         {itemsByCategory ? (
           // Showing all items grouped by category
           <div className="space-y-12">
@@ -1428,6 +1474,11 @@ export default function Storefront() {
         enabled={(restaurant?.marketingSettings as any)?.enableLiveNotifications || false}
         restaurantId={restaurant?.id}
       />
+
+      {/* Marketing: Referral Program */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <ReferralCTA referralData={mockReferral} enabled={true} />
+      </div>
 
       {/* Customer Reviews Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 mt-12 border-t">
