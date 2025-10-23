@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 import {
   index,
+  unique,
   jsonb,
   pgTable,
   timestamp,
@@ -81,39 +82,107 @@ export const restaurants = pgTable("restaurants", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Menus - Menu grouping (Breakfast, Lunch, Dinner, etc.)
+export const menus = pgTable("menus", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  orderIndex: integer("order_index").notNull().default(0),
+  visibility: varchar("visibility", { length: 50 }).notNull().default('public'),
+  displayPeriodStart: timestamp("display_period_start"),
+  displayPeriodEnd: timestamp("display_period_end"),
+  daysOfWeek: text("days_of_week").array(),
+  hoursStart: varchar("hours_start", { length: 10 }),
+  hoursEnd: varchar("hours_end", { length: 10 }),
+  timezone: varchar("timezone", { length: 100 }).default('UTC'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // Unique constraint: slug must be unique per restaurant
+  uniqueSlug: unique().on(table.restaurantId, table.slug),
+  // Performance indexes
+  restaurantIdx: index("menus_restaurant_idx").on(table.restaurantId),
+  restaurantActiveIdx: index("menus_restaurant_active_idx").on(table.restaurantId, table.isActive),
+}));
+
 // Menu Categories
 export const menuCategories = pgTable("menu_categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  menuId: varchar("menu_id").references(() => menus.id, { onDelete: 'cascade' }),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   displayOrder: integer("display_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Performance indexes
+  restaurantIdx: index("menu_categories_restaurant_idx").on(table.restaurantId),
+  menuIdx: index("menu_categories_menu_idx").on(table.menuId),
+  restaurantMenuIdx: index("menu_categories_restaurant_menu_idx").on(table.restaurantId, table.menuId),
+}));
 
-// Menu Items
+// Menu Items - Enhanced for UberEats-style capabilities
 export const menuItems = pgTable("menu_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  menuId: varchar("menu_id").references(() => menus.id, { onDelete: 'set null' }),
   categoryId: varchar("category_id").notNull().references(() => menuCategories.id, { onDelete: 'cascade' }),
+  sku: varchar("sku", { length: 100 }),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  shortDescription: varchar("short_description", { length: 500 }),
+  // Pricing
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  priceCents: integer("price_cents").notNull(),
+  compareAtPrice: decimal("compare_at_price", { precision: 10, scale: 2 }),
+  compareAtPriceCents: integer("compare_at_price_cents"),
+  currency: varchar("currency", { length: 10 }).notNull().default('USD'),
+  costCents: integer("cost_cents"),
+  // Display & Availability
   imageUrl: text("image_url"),
   isAvailable: boolean("is_available").notNull().default(true),
-  preparationTime: integer("preparation_time"),
+  visibleOnline: boolean("visible_online").notNull().default(true),
+  visiblePhone: boolean("visible_phone").notNull().default(true),
+  visibleInStore: boolean("visible_in_store").notNull().default(true),
+  orderIndex: integer("order_index").notNull().default(0),
+  // Operational details
+  prepTimeMinutes: integer("prep_time_minutes"),
+  taxClass: varchar("tax_class", { length: 50 }).default('standard'),
+  // Nutritional & Dietary
+  calories: integer("calories"),
+  allergensJson: jsonb("allergens_json"),
+  tags: text("tags").array(),
+  // Inventory management
+  stockCount: integer("stock_count"),
+  outOfStockAction: varchar("out_of_stock_action", { length: 50 }).default('hide'),
+  // External integrations
+  externalId: varchar("external_id", { length: 255 }),
   // Marketing tactics - per item configuration
   upsellItemIds: text("upsell_item_ids").array(),
   crossSellItemIds: text("cross_sell_item_ids").array(),
   downsellItemIds: text("downsell_item_ids").array(),
   marketingTactics: jsonb("marketing_tactics"),
-  // Modifiers/Options configuration
+  // Modifiers/Options configuration (legacy JSONB - migrating to itemOptions table)
   options: jsonb("options"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Unique constraints
+  uniqueSku: unique().on(table.restaurantId, table.sku),
+  uniqueExternalId: unique().on(table.restaurantId, table.externalId),
+  // Performance indexes
+  restaurantIdx: index("menu_items_restaurant_idx").on(table.restaurantId),
+  menuIdx: index("menu_items_menu_idx").on(table.menuId),
+  categoryIdx: index("menu_items_category_idx").on(table.categoryId),
+  restaurantMenuIdx: index("menu_items_restaurant_menu_idx").on(table.restaurantId, table.menuId),
+  restaurantCategoryIdx: index("menu_items_restaurant_category_idx").on(table.restaurantId, table.categoryId),
+  availabilityIdx: index("menu_items_availability_idx").on(table.restaurantId, table.isAvailable),
+}));
 
 // Tables
 export const tables = pgTable("tables", {
@@ -369,6 +438,7 @@ export const customers = pgTable("customers", {
 // Item Options - Modifiers for menu items (sizes, add-ons, extras)
 export const itemOptions = pgTable("item_options", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
   label: varchar("label", { length: 255 }).notNull(),
   type: varchar("type", { length: 50 }).notNull(), // 'single', 'multi', 'boolean', 'quantity'
@@ -379,7 +449,10 @@ export const itemOptions = pgTable("item_options", {
   displayOrder: integer("display_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_item_options_restaurant").on(table.restaurantId),
+  index("idx_item_options_item").on(table.menuItemId),
+]);
 
 // ========================================
 // MARKETING SUITE - Promos, Loyalty, Campaigns, Boosts, Segmentation
@@ -1099,6 +1172,16 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
 export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
 export type Restaurant = typeof restaurants.$inferSelect;
 
+export const insertMenuSchema = createInsertSchema(menus, {
+  daysOfWeek: z.array(z.string()).optional(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertMenu = z.infer<typeof insertMenuSchema>;
+export type Menu = typeof menus.$inferSelect;
+
 export const insertMenuCategorySchema = createInsertSchema(menuCategories).omit({
   id: true,
   createdAt: true,
@@ -1108,6 +1191,7 @@ export type InsertMenuCategory = z.infer<typeof insertMenuCategorySchema>;
 export type MenuCategory = typeof menuCategories.$inferSelect;
 
 export const insertMenuItemSchema = createInsertSchema(menuItems, {
+  tags: z.array(z.string()).optional(),
   upsellItemIds: z.array(z.string()).optional(),
   crossSellItemIds: z.array(z.string()).optional(),
   downsellItemIds: z.array(z.string()).optional(),
@@ -1129,6 +1213,22 @@ export const insertMenuItemSchema = createInsertSchema(menuItems, {
 });
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
 export type MenuItem = typeof menuItems.$inferSelect;
+
+export const insertItemOptionSchema = createInsertSchema(itemOptions, {
+  choices: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+    priceCents: z.number(),
+    sku: z.string().optional(),
+    available: z.boolean().optional(),
+  })),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertItemOption = z.infer<typeof insertItemOptionSchema>;
+export type ItemOption = typeof itemOptions.$inferSelect;
 
 export const insertTableSchema = createInsertSchema(tables).omit({
   id: true,
@@ -1251,22 +1351,6 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
 });
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
-
-export const insertItemOptionSchema = createInsertSchema(itemOptions, {
-  choices: z.array(z.object({
-    id: z.string(),
-    label: z.string(),
-    priceCents: z.number(),
-    sku: z.string().optional(),
-    available: z.boolean().optional(),
-  })),
-}).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertItemOption = z.infer<typeof insertItemOptionSchema>;
-export type ItemOption = typeof itemOptions.$inferSelect;
 
 // Marketing Insert Schemas
 export const insertPromoRuleSchema = createInsertSchema(promoRules).omit({
