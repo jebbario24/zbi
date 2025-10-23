@@ -37,7 +37,8 @@ Preferred communication style: Simple, everyday language.
 - **Customer Reviews & Ratings:** Storefront displays reviews and ratings; customers can submit reviews, owners can respond.
 - **Customer Contact Form:** Storefront contact form sends messages directly to the restaurant inbox.
 - **Pixel Tracking & Analytics:** Restaurant owners configure Meta, TikTok, Google Analytics, and Google Ads pixels. E-commerce events are automatically fired. Domain verification supported.
-- **Promo Code System:** API routes for fetching and validating promo codes; frontend integration pending.
+- **Promo Code System:** Complete implementation with storefront cart integration (apply/remove codes, discount calculation), validation API routes, and admin edit functionality. Supports percentage discounts, fixed amount discounts, and free delivery promos.
+- **Marketing Suite Edit Functionality:** Admin dashboard marketing pages (Promos, Loyalty) feature comprehensive edit dialogs with string-based input state for free typing, validation-on-save with toast feedback, and support for all field types including decimal values. Edit pattern ready for replication across remaining marketing pages (Bundles, Upsells, Boosts, Campaigns).
 - **Marketing Suite Infrastructure:** Production-ready database schema for customer profiles, smart promos, loyalty, bundles, boosts, segmentation, campaigns, and pixels/referrals.
 
 ### System Design Choices
