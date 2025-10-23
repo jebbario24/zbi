@@ -443,6 +443,48 @@ export const customers = pgTable("customers", {
   index("idx_customers_restaurant_phone").on(table.restaurantId, table.phone),
 ]);
 
+// Customer Reviews - Reviews and ratings for restaurants
+export const customerReviews = pgTable("customer_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
+  customerName: varchar("customer_name", { length: 255 }).notNull(),
+  rating: integer("rating").notNull(), // 1-5 stars
+  comment: text("comment"),
+  response: text("response"), // Restaurant's response to the review
+  respondedAt: timestamp("responded_at"),
+  isPublished: boolean("is_published").notNull().default(true), // Allow restaurants to hide reviews
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_reviews_restaurant").on(table.restaurantId),
+  index("idx_reviews_customer").on(table.customerId),
+  index("idx_reviews_order").on(table.orderId),
+  index("idx_reviews_published").on(table.restaurantId, table.isPublished, table.createdAt),
+]);
+
+// Inbox Messages - Customer messages to restaurants
+export const inboxMessages = pgTable("inbox_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }),
+  customerName: varchar("customer_name", { length: 255 }).notNull(),
+  customerEmail: varchar("customer_email", { length: 255 }),
+  customerPhone: varchar("customer_phone", { length: 50 }),
+  subject: varchar("subject", { length: 500 }),
+  message: text("message").notNull(),
+  status: varchar("status", { length: 50 }).notNull().default('new'), // 'new', 'read', 'responded', 'resolved'
+  response: text("response"),
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_inbox_restaurant").on(table.restaurantId),
+  index("idx_inbox_status").on(table.restaurantId, table.status),
+  index("idx_inbox_customer").on(table.customerId),
+]);
+
 // Item Options - Modifiers for menu items (sizes, add-ons, extras)
 export const itemOptions = pgTable("item_options", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1359,6 +1401,22 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
 });
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
+
+export const insertCustomerReviewSchema = createInsertSchema(customerReviews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCustomerReview = z.infer<typeof insertCustomerReviewSchema>;
+export type CustomerReview = typeof customerReviews.$inferSelect;
+
+export const insertInboxMessageSchema = createInsertSchema(inboxMessages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInboxMessage = z.infer<typeof insertInboxMessageSchema>;
+export type InboxMessage = typeof inboxMessages.$inferSelect;
 
 // Marketing Insert Schemas
 export const insertPromoRuleSchema = createInsertSchema(promoRules).omit({

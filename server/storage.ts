@@ -14,6 +14,9 @@ import {
   restaurantPayoutAccounts,
   earningsLedger,
   payoutRuns,
+  customerReviews,
+  inboxMessages,
+  promoRules,
   type User,
   type UpsertUser,
   type Restaurant,
@@ -39,6 +42,10 @@ import {
   type DriverProfile,
   type RestaurantPayoutAccount,
   type InsertRestaurantPayoutAccount,
+  type CustomerReview,
+  type InsertCustomerReview,
+  type InboxMessage,
+  type InsertInboxMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, like, sql } from "drizzle-orm";
@@ -661,6 +668,77 @@ export class DatabaseStorage implements IStorage {
       earnings: p.earnings,
       rating: '4.8' // Placeholder - would need a ratings table
     }));
+  }
+
+  // Customer Reviews
+  async getCustomerReviews(restaurantId: string): Promise<CustomerReview[]> {
+    const reviews = await db
+      .select()
+      .from(customerReviews)
+      .where(and(
+        eq(customerReviews.restaurantId, restaurantId),
+        eq(customerReviews.isPublished, true)
+      ))
+      .orderBy(desc(customerReviews.createdAt));
+    return reviews;
+  }
+
+  async createCustomerReview(review: InsertCustomerReview): Promise<CustomerReview> {
+    const [created] = await db
+      .insert(customerReviews)
+      .values(review)
+      .returning();
+    return created;
+  }
+
+  // Inbox Messages
+  async getInboxMessages(restaurantId: string): Promise<InboxMessage[]> {
+    const messages = await db
+      .select()
+      .from(inboxMessages)
+      .where(eq(inboxMessages.restaurantId, restaurantId))
+      .orderBy(desc(inboxMessages.createdAt));
+    return messages;
+  }
+
+  async createInboxMessage(message: InsertInboxMessage): Promise<InboxMessage> {
+    const [created] = await db
+      .insert(inboxMessages)
+      .values(message)
+      .returning();
+    return created;
+  }
+
+  // Promo Management
+  async getActiveAutoApplyPromos(restaurantId: string): Promise<any[]> {
+    const now = new Date();
+    const promos = await db
+      .select()
+      .from(promoRules)
+      .where(and(
+        eq(promoRules.restaurantId, restaurantId),
+        eq(promoRules.isActive, true),
+        eq(promoRules.autoApply, true),
+        sql`${promoRules.startsAt} <= ${now}`,
+        sql`(${promoRules.endsAt} IS NULL OR ${promoRules.endsAt} >= ${now})`
+      ))
+      .orderBy(desc(promoRules.priority));
+    return promos;
+  }
+
+  async validatePromoCode(restaurantId: string, promoCode: string): Promise<any | null> {
+    const now = new Date();
+    const [promo] = await db
+      .select()
+      .from(promoRules)
+      .where(and(
+        eq(promoRules.restaurantId, restaurantId),
+        eq(promoRules.promoCode, promoCode),
+        eq(promoRules.isActive, true),
+        sql`${promoRules.startsAt} <= ${now}`,
+        sql`(${promoRules.endsAt} IS NULL OR ${promoRules.endsAt} >= ${now})`
+      ));
+    return promo || null;
   }
 }
 

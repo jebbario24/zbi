@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import type { Restaurant, MenuItem, MenuCategory } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Restaurant, MenuItem, MenuCategory, CustomerReview } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -28,7 +29,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard, Banknote } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard, Banknote, Star, Mail, Phone, MessageSquare, Send, AlertCircle } from "lucide-react";
 import { SiPaypal, SiApple, SiGoogle } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -131,6 +132,19 @@ export default function Storefront() {
     optionGroupLabel: string;
     choices: Array<{ label: string; priceCents: number }>;
   }>>([]);
+  
+  // Review form state
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewName, setReviewName] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  
+  // Contact form state
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactSubject, setContactSubject] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
 
   // Try hostname-based lookup first, fallback to slug
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
@@ -177,6 +191,16 @@ export default function Storefront() {
     enabled: !!restaurant,
     queryFn: async () => {
       const endpoint = slug ? `/api/storefront/${slug}/items` : `/api/storefront/${restaurant?.slug}/items`;
+      const response = await fetch(endpoint);
+      return response.json();
+    },
+  });
+
+  const { data: reviews = [] } = useQuery<CustomerReview[]>({
+    queryKey: ["/api/storefront/reviews", restaurant?.slug],
+    enabled: !!restaurant,
+    queryFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/reviews` : `/api/storefront/${restaurant?.slug}/reviews`;
       const response = await fetch(endpoint);
       return response.json();
     },
@@ -380,6 +404,52 @@ export default function Storefront() {
     },
     onError: () => {
       toast({ title: t('storefront.orderError'), variant: "destructive" });
+    },
+  });
+
+  const submitReviewMutation = useMutation({
+    mutationFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/reviews` : `/api/storefront/${restaurant?.slug}/reviews`;
+      return await apiRequest(endpoint, "POST", {
+        customerName: reviewName,
+        rating: reviewRating,
+        comment: reviewComment,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Review submitted successfully!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/storefront/reviews", restaurant?.slug] });
+      setReviewDialogOpen(false);
+      setReviewName("");
+      setReviewRating(5);
+      setReviewComment("");
+    },
+    onError: () => {
+      toast({ title: "Failed to submit review", variant: "destructive" });
+    },
+  });
+
+  const submitContactMutation = useMutation({
+    mutationFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/contact` : `/api/storefront/${restaurant?.slug}/contact`;
+      return await apiRequest(endpoint, "POST", {
+        customerName: contactName,
+        customerEmail: contactEmail,
+        customerPhone: contactPhone,
+        subject: contactSubject,
+        message: contactMessage,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Message sent successfully!" });
+      setContactName("");
+      setContactEmail("");
+      setContactPhone("");
+      setContactSubject("");
+      setContactMessage("");
+    },
+    onError: () => {
+      toast({ title: "Failed to send message", variant: "destructive" });
     },
   });
 
@@ -1038,11 +1108,32 @@ export default function Storefront() {
                             </div>
                           )}
                           
-                          {!item.isAvailable && (
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                              <Badge variant="destructive" className="text-sm">Out of Stock</Badge>
+                          {!item.isAvailable ? (
+                            <>
+                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                <Badge variant="destructive" className="text-sm">Out of Stock</Badge>
+                              </div>
+                              <div className="absolute top-2 right-2">
+                                <Badge 
+                                  variant="destructive" 
+                                  className="shadow-md"
+                                  data-testid={`badge-out-of-stock-${item.id}`}
+                                >
+                                  Out of Stock
+                                </Badge>
+                              </div>
+                            </>
+                          ) : item.stockCount !== null && item.stockCount !== undefined && item.stockCount < 10 ? (
+                            <div className="absolute top-2 right-2">
+                              <Badge 
+                                className="shadow-md bg-[hsl(38,92%,50%)] text-white border-transparent hover:bg-[hsl(38,92%,45%)]"
+                                data-testid={`badge-low-stock-${item.id}`}
+                              >
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Low Stock
+                              </Badge>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                         
                         <CardContent className="p-4">
@@ -1062,7 +1153,7 @@ export default function Storefront() {
                                   e.stopPropagation();
                                   addToCart(item);
                                 }}
-                                data-testid={`button-add-${item.id}`}
+                                data-testid={`button-add-to-cart-${item.id}`}
                               >
                                 <Plus className="h-4 w-4" />
                               </Button>
@@ -1109,11 +1200,32 @@ export default function Storefront() {
                       </div>
                     )}
                     
-                    {!item.isAvailable && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <Badge variant="destructive" className="text-sm">Out of Stock</Badge>
+                    {!item.isAvailable ? (
+                      <>
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <Badge variant="destructive" className="text-sm">Out of Stock</Badge>
+                        </div>
+                        <div className="absolute top-2 right-2">
+                          <Badge 
+                            variant="destructive" 
+                            className="shadow-md"
+                            data-testid={`badge-out-of-stock-${item.id}`}
+                          >
+                            Out of Stock
+                          </Badge>
+                        </div>
+                      </>
+                    ) : item.stockCount !== null && item.stockCount !== undefined && item.stockCount < 10 ? (
+                      <div className="absolute top-2 right-2">
+                        <Badge 
+                          className="shadow-md bg-[hsl(38,92%,50%)] text-white border-transparent hover:bg-[hsl(38,92%,45%)]"
+                          data-testid={`badge-low-stock-${item.id}`}
+                        >
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Low Stock
+                        </Badge>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                   
                   <CardContent className="p-4">
@@ -1133,7 +1245,7 @@ export default function Storefront() {
                             e.stopPropagation();
                             addToCart(item);
                           }}
-                          data-testid={`button-add-${item.id}`}
+                          data-testid={`button-add-to-cart-${item.id}`}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
@@ -1168,6 +1280,172 @@ export default function Storefront() {
         restaurantId={restaurant?.id}
       />
 
+      {/* Customer Reviews Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 mt-12 border-t">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">Customer Reviews</h2>
+            {reviews.length > 0 && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-5 w-5 ${
+                        i < Math.round(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length)
+                          ? "fill-primary text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-lg font-semibold">
+                  {(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)} out of 5
+                </span>
+                <span className="text-muted-foreground">({reviews.length} reviews)</span>
+              </div>
+            )}
+          </div>
+          <Button 
+            onClick={() => setReviewDialogOpen(true)} 
+            className="gap-2"
+            data-testid="button-write-review"
+          >
+            <Star className="h-4 w-4" />
+            Write a Review
+          </Button>
+        </div>
+
+        {reviews.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <MessageSquare className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">No reviews yet. Be the first to review!</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {reviews.map((review) => (
+              <Card key={review.id} data-testid={`review-${review.id}`}>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-semibold">{review.customerName}</span>
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-4 w-4 ${
+                            i < review.rating ? "fill-primary text-primary" : "text-muted-foreground"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {review.comment && (
+                    <p className="text-sm text-muted-foreground">{review.comment}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-3">
+                    {new Date(review.createdAt!).toLocaleDateString()}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Contact Us Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-3xl font-bold mb-2 text-center">Contact Us</h2>
+          <p className="text-muted-foreground mb-8 text-center">
+            Have a question or feedback? We'd love to hear from you.
+          </p>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-name">Name *</Label>
+                    <Input
+                      id="contact-name"
+                      placeholder="Your name"
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                      data-testid="input-contact-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-email">Email</Label>
+                    <Input
+                      id="contact-email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      data-testid="input-contact-email"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-phone">Phone</Label>
+                    <Input
+                      id="contact-phone"
+                      type="tel"
+                      placeholder="Your phone number"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      data-testid="input-contact-phone"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-subject">Subject</Label>
+                    <Input
+                      id="contact-subject"
+                      placeholder="What is this about?"
+                      value={contactSubject}
+                      onChange={(e) => setContactSubject(e.target.value)}
+                      data-testid="input-contact-subject"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="contact-message">Message *</Label>
+                  <Textarea
+                    id="contact-message"
+                    placeholder="Your message..."
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
+                    rows={5}
+                    data-testid="input-contact-message"
+                  />
+                </div>
+
+                <Button
+                  onClick={() => submitContactMutation.mutate()}
+                  disabled={!contactName || !contactMessage || submitContactMutation.isPending}
+                  className="w-full gap-2"
+                  data-testid="button-submit-contact"
+                >
+                  {submitContactMutation.isPending ? (
+                    "Sending..."
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Send Message
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
       {/* Opening Hours - Footer */}
       {openingHours && (
         <div className="border-t bg-muted/30 mt-12">
@@ -1189,6 +1467,80 @@ export default function Storefront() {
           </div>
         </div>
       )}
+
+      {/* Write a Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Write a Review</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="review-name">Your Name *</Label>
+              <Input
+                id="review-name"
+                placeholder="Enter your name"
+                value={reviewName}
+                onChange={(e) => setReviewName(e.target.value)}
+                data-testid="input-review-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Rating *</Label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    key={rating}
+                    type="button"
+                    onClick={() => setReviewRating(rating)}
+                    className="transition-transform hover:scale-110"
+                    data-testid={`button-rating-${rating}`}
+                  >
+                    <Star
+                      className={`h-8 w-8 cursor-pointer ${
+                        rating <= reviewRating
+                          ? "fill-primary text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="review-comment">Comment</Label>
+              <Textarea
+                id="review-comment"
+                placeholder="Tell us about your experience..."
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                rows={4}
+                data-testid="input-review-comment"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setReviewDialogOpen(false)}
+              data-testid="button-cancel-review"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => submitReviewMutation.mutate()}
+              disabled={!reviewName || submitReviewMutation.isPending}
+              data-testid="button-submit-review"
+            >
+              {submitReviewMutation.isPending ? "Submitting..." : "Submit Review"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Item Options Modal */}
       <Dialog open={itemModalOpen} onOpenChange={setItemModalOpen}>

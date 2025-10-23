@@ -1972,6 +1972,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get reviews for a restaurant
+  app.get('/api/storefront/:slug/reviews', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const reviews = await storage.getCustomerReviews(restaurant.id);
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Submit a review
+  app.post('/api/storefront/:slug/reviews', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const { customerName, rating, comment, orderId } = req.body;
+
+      if (!customerName || !rating || rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Invalid review data" });
+      }
+
+      const review = await storage.createCustomerReview({
+        restaurantId: restaurant.id,
+        customerName,
+        rating,
+        comment: comment || null,
+        orderId: orderId || null,
+        isPublished: true,
+      });
+
+      res.json(review);
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      res.status(500).json({ message: "Failed to submit review" });
+    }
+  });
+
+  // Submit a contact message
+  app.post('/api/storefront/:slug/contact', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const { customerName, customerEmail, customerPhone, subject, message } = req.body;
+
+      if (!customerName || !message) {
+        return res.status(400).json({ message: "Name and message are required" });
+      }
+
+      const inboxMessage = await storage.createInboxMessage({
+        restaurantId: restaurant.id,
+        customerName,
+        customerEmail: customerEmail || null,
+        customerPhone: customerPhone || null,
+        subject: subject || null,
+        message,
+        status: 'new',
+      });
+
+      res.json(inboxMessage);
+    } catch (error) {
+      console.error("Error submitting contact message:", error);
+      res.status(500).json({ message: "Failed to submit message" });
+    }
+  });
+
+  // Get active auto-apply promos for a restaurant
+  app.get('/api/storefront/:slug/promos', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const promos = await storage.getActiveAutoApplyPromos(restaurant.id);
+      res.json(promos);
+    } catch (error) {
+      console.error("Error fetching promos:", error);
+      res.status(500).json({ message: "Failed to fetch promos" });
+    }
+  });
+
+  // Validate a promo code
+  app.post('/api/storefront/:slug/validate-promo', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const { promoCode, orderTotal } = req.body;
+
+      if (!promoCode) {
+        return res.status(400).json({ message: "Promo code is required" });
+      }
+
+      const promo = await storage.validatePromoCode(restaurant.id, promoCode);
+
+      if (!promo) {
+        return res.status(404).json({ message: "Invalid or expired promo code" });
+      }
+
+      // Check minimum order amount if specified
+      const conditions = promo.conditions as any;
+      if (conditions?.minOrderAmount && orderTotal < parseFloat(conditions.minOrderAmount)) {
+        return res.status(400).json({ 
+          message: `Minimum order amount of ${restaurant.currency} ${conditions.minOrderAmount} required` 
+        });
+      }
+
+      res.json(promo);
+    } catch (error) {
+      console.error("Error validating promo:", error);
+      res.status(500).json({ message: "Failed to validate promo code" });
+    }
+  });
+
   app.post('/api/storefront/:slug/checkout', async (req, res) => {
     try {
       const restaurant = await storage.getRestaurantBySlug(req.params.slug);
