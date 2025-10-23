@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,10 +23,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import type { MenuItem } from "@shared/schema";
 
 interface Bundle {
   id: string;
@@ -40,6 +49,14 @@ interface Bundle {
 export default function Bundles() {
   const { t } = useTranslation();
   const { toast } = useToast();
+
+  // Fetch available menu items
+  const { data: menuItems = [] } = useQuery<MenuItem[]>({
+    queryKey: ["/api/menu-items"],
+  });
+
+  // Filter only available menu items
+  const availableMenuItems = menuItems.filter(item => item.isAvailable);
 
   const [bundles, setBundles] = useState<Bundle[]>([
     {
@@ -446,15 +463,9 @@ export default function Bundles() {
                 <div className="space-y-2">
                   {bundleItems.map((item, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={item}
-                        onChange={(e) => {
-                          const updated = [...bundleItems];
-                          updated[index] = e.target.value;
-                          setBundleItems(updated);
-                        }}
-                        data-testid={`input-edit-item-${index}`}
-                      />
+                      <div className="flex-1 px-3 py-2 border rounded-md bg-muted text-sm">
+                        {item}
+                      </div>
                       <Button
                         size="icon"
                         variant="ghost"
@@ -466,14 +477,27 @@ export default function Bundles() {
                     </div>
                   ))}
                   <div className="flex items-center gap-2">
-                    <Input
-                      value={newItem}
-                      onChange={(e) => setNewItem(e.target.value)}
-                      placeholder="Add new item"
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-                      data-testid="input-new-item"
-                    />
-                    <Button onClick={handleAddItem} data-testid="button-add-item">
+                    <Select value={newItem} onValueChange={setNewItem}>
+                      <SelectTrigger className="flex-1" data-testid="select-new-item">
+                        <SelectValue placeholder="Select menu item to add" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableMenuItems.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            No available menu items
+                          </div>
+                        ) : (
+                          availableMenuItems
+                            .filter(menuItem => !bundleItems.includes(menuItem.name))
+                            .map((menuItem) => (
+                              <SelectItem key={menuItem.id} value={menuItem.name}>
+                                {menuItem.name}
+                              </SelectItem>
+                            ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={handleAddItem} disabled={!newItem} data-testid="button-add-item">
                       Add
                     </Button>
                   </div>
@@ -581,15 +605,9 @@ export default function Bundles() {
               <div className="space-y-2">
                 {newBundleItems.map((item, index) => (
                   <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={item}
-                      onChange={(e) => {
-                        const updated = [...newBundleItems];
-                        updated[index] = e.target.value;
-                        setNewBundleItems(updated);
-                      }}
-                      data-testid={`input-new-bundle-item-${index}`}
-                    />
+                    <div className="flex-1 px-3 py-2 border rounded-md bg-muted text-sm">
+                      {item}
+                    </div>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -601,14 +619,27 @@ export default function Bundles() {
                   </div>
                 ))}
                 <div className="flex items-center gap-2">
-                  <Input
-                    value={newBundleNewItem}
-                    onChange={(e) => setNewBundleNewItem(e.target.value)}
-                    placeholder="Add item (e.g., Large Pizza)"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddNewBundleItem()}
-                    data-testid="input-new-bundle-new-item"
-                  />
-                  <Button onClick={handleAddNewBundleItem} data-testid="button-add-new-bundle-item">
+                  <Select value={newBundleNewItem} onValueChange={setNewBundleNewItem}>
+                    <SelectTrigger className="flex-1" data-testid="select-new-bundle-new-item">
+                      <SelectValue placeholder="Select menu item to add" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableMenuItems.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground text-center">
+                          No available menu items
+                        </div>
+                      ) : (
+                        availableMenuItems
+                          .filter(menuItem => !newBundleItems.includes(menuItem.name))
+                          .map((menuItem) => (
+                            <SelectItem key={menuItem.id} value={menuItem.name}>
+                              {menuItem.name}
+                            </SelectItem>
+                          ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={handleAddNewBundleItem} disabled={!newBundleNewItem} data-testid="button-add-new-bundle-item">
                     Add
                   </Button>
                 </div>
