@@ -97,6 +97,13 @@ export default function Storefront() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
+  const [deliveryCountry, setDeliveryCountry] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryNeighborhood, setDeliveryNeighborhood] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
+  const [deliveryAvailable, setDeliveryAvailable] = useState<boolean>(true);
+  const [deliveryError, setDeliveryError] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'cash' | 'apple' | 'google'>('cash');
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [paypalReady, setPaypalReady] = useState(false);
@@ -217,12 +224,30 @@ export default function Storefront() {
     (sum, item) => sum + parseFloat(item.menuItem.price) * item.quantity,
     0
   );
-  const tax = subtotal * 0.1;
-  const total = subtotal + tax;
+  
+  // Use restaurant's custom tax rate and handle tax-included pricing
+  const taxRate = restaurant?.taxRate ? parseFloat(restaurant.taxRate) / 100 : 0;
+  const taxIncludedInPrice = restaurant?.taxIncludedInPrice || false;
+  const taxLabel = restaurant?.taxLabel || 'Tax';
+  
+  // Calculate tax based on whether it's included in price or not
+  const taxAmount = taxIncludedInPrice 
+    ? subtotal * (taxRate / (1 + taxRate))  // Extract tax that's already included
+    : subtotal * taxRate;  // Add tax on top
+  
+  const total = taxIncludedInPrice 
+    ? subtotal + deliveryFee  // Tax already in subtotal
+    : subtotal + taxAmount + deliveryFee;  // Add tax and delivery fee
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
       const endpoint = slug ? `/api/storefront/${slug}/checkout` : `/api/storefront/${restaurant?.slug}/checkout`;
+      
+      // Build shipping address from components or use the legacy field
+      const fullAddress = deliveryCountry && deliveryCity
+        ? `${deliveryNeighborhood ? deliveryNeighborhood + ', ' : ''}${deliveryCity}, ${deliveryCountry}`
+        : shippingAddress;
+      
       return await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -230,7 +255,8 @@ export default function Storefront() {
           customerName,
           customerPhone,
           customerEmail: customerEmail || null,
-          shippingAddress: shippingAddress || null,
+          shippingAddress: fullAddress || null,
+          deliveryFee: deliveryFee.toFixed(2),
           paymentMethod,
           items: cart.map((ci) => ({
             menuItemId: ci.menuItem.id,
@@ -238,7 +264,7 @@ export default function Storefront() {
             unitPrice: ci.menuItem.price,
           })),
           subtotal: subtotal.toFixed(2),
-          tax: tax.toFixed(2),
+          tax: taxAmount.toFixed(2),
           total: total.toFixed(2),
         }),
       }).then((res) => res.json());
@@ -300,6 +326,52 @@ export default function Storefront() {
       renderPayPalButtons(currentOrderId, total);
     }
   }, [currentOrderId, paypalReady, paymentMethod]);
+
+  // Fetch delivery fee when address is complete
+  useEffect(() => {
+    if (!restaurant?.id || !deliveryCountry || !deliveryCity) {
+      setDeliveryFee(0);
+      setDeliveryAvailable(true);
+      setDeliveryError("");
+      return;
+    }
+
+    const fetchDeliveryFee = async () => {
+      setDeliveryFeeLoading(true);
+      setDeliveryError("");
+      try {
+        const params = new URLSearchParams({
+          country: deliveryCountry,
+          city: deliveryCity,
+          ...(deliveryNeighborhood && { neighborhood: deliveryNeighborhood }),
+        });
+        
+        const response = await fetch(`/api/storefront/delivery-fee/${restaurant.id}?${params}`);
+        const data = await response.json();
+        
+        // Check if response is OK and delivery is available
+        if (response.ok && data.deliveryAvailable && data.deliveryFee !== undefined) {
+          setDeliveryFee(parseFloat(data.deliveryFee));
+          setDeliveryAvailable(true);
+          setDeliveryError("");
+        } else {
+          // Delivery not available to this location
+          setDeliveryFee(0);
+          setDeliveryAvailable(false);
+          setDeliveryError(data.message || t('storefront.deliveryNotAvailable'));
+        }
+      } catch (error) {
+        console.error("Error fetching delivery fee:", error);
+        setDeliveryFee(0);
+        setDeliveryAvailable(false);
+        setDeliveryError(t('storefront.deliveryError'));
+      } finally {
+        setDeliveryFeeLoading(false);
+      }
+    };
+
+    fetchDeliveryFee();
+  }, [restaurant?.id, deliveryCountry, deliveryCity, deliveryNeighborhood]);
 
   const openingHours = restaurant?.openingHours as any;
   const enabledPaymentMethods = restaurant?.paymentMethods as { stripe?: boolean; paypal?: boolean; cash?: boolean } || {};
@@ -477,11 +549,33 @@ export default function Storefront() {
                       data-testid="input-customer-email"
                     />
                     <Input
-                      placeholder={`${t('storefront.address')} *`}
-                      value={shippingAddress}
-                      onChange={(e) => setShippingAddress(e.target.value)}
-                      data-testid="input-shipping-address"
+                      placeholder={`${t('storefront.country')} *`}
+                      value={deliveryCountry}
+                      onChange={(e) => setDeliveryCountry(e.target.value)}
+                      data-testid="input-delivery-country"
                     />
+                    <Input
+                      placeholder={`${t('storefront.city')} *`}
+                      value={deliveryCity}
+                      onChange={(e) => setDeliveryCity(e.target.value)}
+                      data-testid="input-delivery-city"
+                    />
+                    <Input
+                      placeholder={`${t('storefront.neighborhood')} (${t('storefront.optional')})`}
+                      value={deliveryNeighborhood}
+                      onChange={(e) => setDeliveryNeighborhood(e.target.value)}
+                      data-testid="input-delivery-neighborhood"
+                    />
+                    {deliveryFeeLoading && (
+                      <p className="text-xs text-muted-foreground">
+                        {t('storefront.calculatingDeliveryFee')}...
+                      </p>
+                    )}
+                    {deliveryError && !deliveryFeeLoading && (
+                      <p className="text-xs text-destructive" data-testid="delivery-error">
+                        {deliveryError}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-3 border-t pt-4">
@@ -492,12 +586,30 @@ export default function Storefront() {
                           {formatPrice(subtotal)}
                         </span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Tax (10%)</span>
-                        <span data-testid="tax">
-                          {formatPrice(tax)}
-                        </span>
-                      </div>
+                      {deliveryFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>{t('storefront.deliveryFee')}</span>
+                          <span data-testid="delivery-fee">
+                            {formatPrice(deliveryFee)}
+                          </span>
+                        </div>
+                      )}
+                      {!taxIncludedInPrice && taxAmount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>{taxLabel} {taxRate > 0 && `(${(taxRate * 100).toFixed(1)}%)`}</span>
+                          <span data-testid="tax">
+                            {formatPrice(taxAmount)}
+                          </span>
+                        </div>
+                      )}
+                      {taxIncludedInPrice && taxAmount > 0 && (
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>{taxLabel} (included in prices)</span>
+                          <span data-testid="tax-included">
+                            {formatPrice(taxAmount)}
+                          </span>
+                        </div>
+                      )}
                       <Separator />
                       <div className="flex justify-between text-lg font-bold">
                         <span>{t('storefront.total')}</span>
@@ -515,7 +627,7 @@ export default function Storefront() {
                           <Button
                             variant="outline"
                             className="h-16 bg-black hover:bg-black/90 text-white border-black flex flex-col items-center justify-center gap-1"
-                            disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                            disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
                             onClick={() => {
                               setPaymentMethod('apple');
                               setCurrentOrderId(null);
@@ -533,7 +645,7 @@ export default function Storefront() {
                           <Button
                             variant="outline"
                             className="h-16 bg-white hover:bg-gray-50 text-gray-800 border-gray-300 flex flex-col items-center justify-center gap-1"
-                            disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                            disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
                             onClick={() => {
                               setPaymentMethod('google');
                               setCurrentOrderId(null);
@@ -552,7 +664,7 @@ export default function Storefront() {
                         <Button
                           variant="outline"
                           className="w-full h-16 bg-black hover:bg-black/90 text-white border-black flex items-center justify-center gap-2"
-                          disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                          disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
                           onClick={() => {
                             setPaymentMethod('stripe');
                             setCurrentOrderId(null);
@@ -570,7 +682,7 @@ export default function Storefront() {
                         <Button
                           variant="outline"
                           className="w-full h-16 bg-[#0070BA] hover:bg-[#005EA6] text-white border-[#0070BA] flex items-center justify-center gap-2"
-                          disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                          disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
                           onClick={() => {
                             setPaymentMethod('paypal');
                             setCurrentOrderId(null);
@@ -594,7 +706,7 @@ export default function Storefront() {
                         <Button
                           variant="outline"
                           className="w-full h-16 flex items-center justify-center gap-2"
-                          disabled={!customerName || !customerPhone || !shippingAddress || checkoutMutation.isPending}
+                          disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
                           onClick={() => {
                             setPaymentMethod('cash');
                             setCurrentOrderId(null);

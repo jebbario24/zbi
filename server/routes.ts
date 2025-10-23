@@ -1464,6 +1464,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Calculate delivery fee based on customer address
+  app.get('/api/storefront/delivery-fee/:restaurantId', async (req: any, res) => {
+    try {
+      const { restaurantId } = req.params;
+      const { country, city, neighborhood } = req.query;
+
+      if (!country || !city) {
+        return res.status(400).json({ message: "Country and city are required" });
+      }
+
+      // Normalize inputs for case-insensitive comparison
+      const normalizedCountry = String(country).trim().toLowerCase();
+      const normalizedCity = String(city).trim().toLowerCase();
+      const normalizedNeighborhood = neighborhood ? String(neighborhood).trim().toLowerCase() : null;
+
+      // Get all active delivery zones for the restaurant
+      const zones = await storage.getDeliveryZones(restaurantId);
+      const activeZones = zones.filter(z => z.isActive);
+
+      if (activeZones.length === 0) {
+        return res.status(404).json({ 
+          message: "Delivery not available",
+          deliveryAvailable: false 
+        });
+      }
+
+      let matchedZone = null;
+
+      // If neighborhood provided, match exact neighborhood
+      if (normalizedNeighborhood) {
+        matchedZone = activeZones.find(z => 
+          z.country?.trim().toLowerCase() === normalizedCountry && 
+          z.city?.trim().toLowerCase() === normalizedCity && 
+          z.neighborhood?.trim().toLowerCase() === normalizedNeighborhood
+        );
+        
+        // If neighborhood provided but no match found, delivery not available
+        if (!matchedZone) {
+          return res.status(404).json({ 
+            message: "Delivery not available to this neighborhood",
+            deliveryAvailable: false 
+          });
+        }
+      } else {
+        // No neighborhood provided, match city-level zones (zones without specific neighborhood)
+        matchedZone = activeZones.find(z => 
+          z.country?.trim().toLowerCase() === normalizedCountry && 
+          z.city?.trim().toLowerCase() === normalizedCity && 
+          !z.neighborhood
+        );
+      }
+
+      if (!matchedZone) {
+        return res.status(404).json({ 
+          message: "Delivery not available to this location",
+          deliveryAvailable: false 
+        });
+      }
+
+      res.json({
+        deliveryAvailable: true,
+        deliveryFee: matchedZone.deliveryFee,
+        minimumOrderAmount: matchedZone.minimumOrder,
+        zone: {
+          id: matchedZone.id,
+          country: matchedZone.country,
+          city: matchedZone.city,
+          neighborhood: matchedZone.neighborhood,
+        }
+      });
+    } catch (error) {
+      console.error("Error calculating delivery fee:", error);
+      res.status(500).json({ message: "Failed to calculate delivery fee" });
+    }
+  });
+
   // Analytics routes
   app.get('/api/analytics/stats', isAuthenticated, async (req: any, res) => {
     try {
