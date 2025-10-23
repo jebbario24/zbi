@@ -41,6 +41,8 @@ import Upsells from "@/pages/marketing/Upsells";
 import Messages from "@/pages/marketing/Messages";
 import Social from "@/pages/marketing/Social";
 import Bundles from "@/pages/marketing/Bundles";
+import Pixels from "@/pages/marketing/Pixels";
+import DomainVerification from "@/pages/marketing/DomainVerification";
 import Drivers from "@/pages/Drivers";
 import Reports from "@/pages/Reports";
 import Inbox from "@/pages/Inbox";
@@ -101,6 +103,8 @@ function AuthenticatedRouter() {
       <Route path="/marketing/messages" component={Messages} />
       <Route path="/marketing/social" component={Social} />
       <Route path="/marketing/bundles" component={Bundles} />
+      <Route path="/marketing/pixels" component={Pixels} />
+      <Route path="/marketing/domain-verification" component={DomainVerification} />
       <Route path="/drivers" component={Drivers} />
       <Route path="/reports" component={Reports} />
       <Route path="/inbox" component={Inbox} />
