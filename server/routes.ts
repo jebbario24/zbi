@@ -89,10 +89,15 @@ const orderSchema = z.object({
 });
 
 const onlineOrderSchema = z.object({
+  orderType: z.enum(['pickup', 'delivery']).default('delivery'),
   customerName: z.string().nullable().optional(),
   customerPhone: z.string().nullable().optional(),
   customerEmail: z.string().nullable().optional(),
   shippingAddress: z.string().nullable().optional(),
+  deliveryCountry: z.string().nullable().optional(),
+  deliveryCity: z.string().nullable().optional(),
+  deliveryAddress: z.string().nullable().optional(),
+  deliveryFee: z.string().nullable().optional(),
   paymentMethod: z.enum(['stripe', 'paypal', 'cash', 'apple', 'google']).optional().default('cash'),
   items: z.array(z.object({
     menuItemId: z.string(),
@@ -1863,11 +1868,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const order = await storage.createOrder({
         restaurantId: restaurant.id,
         orderNumber,
-        orderType: 'online',
+        orderType: data.orderType,
         customerName: data.customerName || null,
         customerPhone: data.customerPhone || null,
         customerEmail: data.customerEmail || null,
         shippingAddress: data.shippingAddress || null,
+        deliveryCountry: data.deliveryCountry || null,
+        deliveryCity: data.deliveryCity || null,
+        deliveryAddress: data.deliveryAddress || null,
+        deliveryFee: data.deliveryFee || '0',
         paymentMethod: data.paymentMethod || null,
         subtotal: data.subtotal,
         tax: data.tax,
