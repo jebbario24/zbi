@@ -157,11 +157,6 @@ export default function Storefront() {
   const [promoCodeError, setPromoCodeError] = useState("");
   const [applyingPromo, setApplyingPromo] = useState(false);
 
-  // Mock marketing data (to be replaced with API fetch)
-  const mockBundles = [
-    { id: '1', name: 'Family Feast', items: ['Large Pizza', 'Garlic Bread', '2L Soda'], regularPrice: 45.00, bundlePrice: 35.99, sales: 156, isActive: true },
-    { id: '2', name: 'Date Night Special', items: ['2 Entrees', 'Shared Appetizer', 'Dessert'], regularPrice: 65.00, bundlePrice: 49.99, sales: 89, isActive: true },
-  ];
 
   const mockPromos = [
     { id: '1', code: 'WELCOME10', type: 'percentage', value: 10, isActive: true },
@@ -242,6 +237,16 @@ export default function Storefront() {
     enabled: !!restaurant,
     queryFn: async () => {
       const endpoint = slug ? `/api/storefront/${slug}/reviews` : `/api/storefront/${restaurant?.slug}/reviews`;
+      const response = await fetch(endpoint);
+      return response.json();
+    },
+  });
+
+  const { data: bundles = [] } = useQuery<any[]>({
+    queryKey: ["/api/storefront/bundles", restaurant?.slug],
+    enabled: !!restaurant,
+    queryFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/bundles` : `/api/storefront/${restaurant?.slug}/bundles`;
       const response = await fetch(endpoint);
       return response.json();
     },
@@ -1264,7 +1269,7 @@ export default function Storefront() {
         <LoyaltyWidget loyaltyData={mockLoyalty} enabled={true} />
 
         {/* Marketing: Bundles & Combos Section */}
-        <BundlesSection bundles={mockBundles} onAddToCart={(bundle) => {
+        <BundlesSection bundles={bundles} onAddToCart={(bundle) => {
           toast({ title: "Added to cart", description: `${bundle.name} bundle added!` });
         }} />
 
