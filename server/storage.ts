@@ -91,6 +91,7 @@ export interface IStorage {
   getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem: MenuItem })[]>;
   createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order>;
   updateOrderStatus(orderId: string, status: string): Promise<Order>;
+  confirmOrderWithPayment(orderId: string, paymentProvider: string, paymentIntentId: string, totalAmount: number, deliveryFee?: number): Promise<Order>;
   getLastOrderByPrefix(restaurantId: string, prefix: string): Promise<Order | undefined>;
   
   // Staff operations
@@ -362,6 +363,48 @@ export class DatabaseStorage implements IStorage {
       .set({ status, updatedAt: new Date() })
       .where(eq(orders.id, orderId))
       .returning();
+    return updated;
+  }
+
+  async confirmOrderWithPayment(orderId: string, paymentProvider: string, paymentIntentId: string, totalAmount: number, deliveryFee: number = 0): Promise<Order> {
+    const currentOrder = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (!currentOrder || currentOrder.length === 0) {
+      throw new Error("Order not found");
+    }
+    
+    const order = currentOrder[0];
+    
+    // Calculate amounts correctly to avoid double-counting delivery fees
+    // totalAmount = subtotal + tax + deliveryFee (what customer pays)
+    const platformFeeRate = 0.02; // 2% platform fee
+    const platformFee = Math.round(totalAmount * platformFeeRate * 100) / 100;
+    
+    // Driver gets 100% of delivery fee (if delivery order)
+    const driverShare = order.orderType === 'delivery' ? deliveryFee : 0;
+    
+    // Restaurant gets: totalAmount - platformFee - driverShare
+    const restaurantShare = Math.round((totalAmount - platformFee - driverShare) * 100) / 100;
+    
+    // Update order with payment tracking data
+    const [updated] = await db
+      .update(orders)
+      .set({
+        status: 'confirmed',
+        paymentProvider,
+        platformCaptureStatus: 'captured',
+        paymentIntentId,
+        restaurantShare: restaurantShare.toString(),
+        driverShare: driverShare.toString(),
+        platformFee: platformFee.toString(),
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+    
+    // TODO: Create earnings ledger entries
+    // This will be implemented fully in task #10 (admin payout management)
+    // For now, the payment tracking data is stored in the orders table
+    
     return updated;
   }
 

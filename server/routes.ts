@@ -2090,7 +2090,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Stripe checkout endpoint with 2% platform fee
+  // Stripe checkout endpoint - platform-managed payments
   app.post('/api/checkout/stripe', async (req, res) => {
     try {
       const { restaurantId, amount, currency, orderId } = req.body;
@@ -2104,30 +2104,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Restaurant not found" });
       }
 
-      if (!restaurant.stripeAccountId) {
-        return res.status(400).json({ error: "Restaurant has not connected Stripe account" });
-      }
-
-      const stripePlatformKey = process.env.STRIPE_PLATFORM_SECRET_KEY;
-      if (!stripePlatformKey) {
+      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+      if (!stripeSecretKey) {
         return res.status(500).json({ error: "Stripe not configured" });
       }
 
-      const platformStripe = new Stripe(stripePlatformKey, { apiVersion: "2025-09-30.clover" });
+      const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-09-30.clover" });
       
-      // Calculate 2% platform fee
       const amountInCents = Math.round(parseFloat(amount) * 100);
-      const platformFeeInCents = Math.round(amountInCents * 0.02); // 2% fee
 
-      // Create payment intent from platform account on behalf of connected account with 2% platform fee
-      const paymentIntent = await platformStripe.paymentIntents.create({
+      // Create payment intent directly to platform account (platform-managed payments)
+      const paymentIntent = await stripe.paymentIntents.create({
         amount: amountInCents,
         currency: currency.toLowerCase(),
-        application_fee_amount: platformFeeInCents,
-        on_behalf_of: restaurant.stripeAccountId,
-        transfer_data: {
-          destination: restaurant.stripeAccountId,
-        },
         metadata: {
           restaurantId,
           orderId: orderId || '',
@@ -2179,11 +2168,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PayPal capture payment
+  // PayPal capture payment - platform-managed payments
   app.post('/api/paypal/capture-order/:paypalOrderId', async (req, res) => {
     try {
       const { paypalOrderId } = req.params;
-      const { orderId } = req.body;
+      const { orderId, totalAmount, deliveryFee } = req.body;
 
       const captureRequest = {
         id: paypalOrderId,
@@ -2193,10 +2182,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const capture = await paypalOrdersController.captureOrder(captureRequest);
       
       if (capture.result.status === 'COMPLETED') {
-        // Update order status to confirmed
-        await storage.updateOrderStatus(orderId, 'confirmed');
+        const captureId = capture.result.purchaseUnits?.[0]?.payments?.captures?.[0]?.id || paypalOrderId;
         
-        const captureId = capture.result.purchaseUnits?.[0]?.payments?.captures?.[0]?.id;
+        // Confirm order with payment tracking and ledger entry creation
+        await storage.confirmOrderWithPayment(
+          orderId,
+          'paypal',
+          captureId,
+          parseFloat(totalAmount) || 0,
+          parseFloat(deliveryFee) || 0
+        );
+        
         res.json({ 
           success: true,
           orderId,
