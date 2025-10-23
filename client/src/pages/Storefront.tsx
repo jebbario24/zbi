@@ -93,6 +93,7 @@ export default function Storefront() {
   const { t, i18n } = useTranslation();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('delivery');
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -169,6 +170,15 @@ export default function Storefront() {
       }
     };
   }, [restaurant?.currency]);
+
+  // Reset delivery fee when switching to pickup
+  useEffect(() => {
+    if (orderType === 'pickup') {
+      setDeliveryFee(0);
+      setDeliveryAvailable(true);
+      setDeliveryError("");
+    }
+  }, [orderType]);
 
   const filteredItems = selectedCategory
     ? items?.filter((item) => item.categoryId === selectedCategory)
@@ -252,11 +262,15 @@ export default function Storefront() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          orderType,
           customerName,
           customerPhone,
           customerEmail: customerEmail || null,
           shippingAddress: fullAddress || null,
-          deliveryFee: deliveryFee.toFixed(2),
+          deliveryCountry: orderType === 'delivery' ? deliveryCountry : null,
+          deliveryCity: orderType === 'delivery' ? deliveryCity : null,
+          deliveryAddress: orderType === 'delivery' ? fullAddress : null,
+          deliveryFee: orderType === 'delivery' ? deliveryFee.toFixed(2) : '0.00',
           paymentMethod,
           items: cart.map((ci) => ({
             menuItemId: ci.menuItem.id,
@@ -548,12 +562,36 @@ export default function Storefront() {
                       onChange={(e) => setCustomerEmail(e.target.value)}
                       data-testid="input-customer-email"
                     />
-                    <Input
-                      placeholder={`${t('storefront.country')} *`}
-                      value={deliveryCountry}
-                      onChange={(e) => setDeliveryCountry(e.target.value)}
-                      data-testid="input-delivery-country"
-                    />
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Order Type</Label>
+                      <RadioGroup value={orderType} onValueChange={(value: 'pickup' | 'delivery') => setOrderType(value)} data-testid="order-type-toggle">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="delivery" id="delivery" data-testid="radio-delivery" />
+                          <Label htmlFor="delivery" className="font-normal cursor-pointer">Delivery</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="pickup" id="pickup" data-testid="radio-pickup" />
+                          <Label htmlFor="pickup" className="font-normal cursor-pointer">Pickup</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {orderType === 'pickup' && restaurant?.address && (
+                      <div className="p-3 bg-muted rounded-md">
+                        <p className="text-sm font-medium mb-1">Pickup Location:</p>
+                        <p className="text-sm text-muted-foreground">{restaurant.address}</p>
+                      </div>
+                    )}
+
+                    {orderType === 'delivery' && (
+                      <>
+                        <Input
+                          placeholder={`${t('storefront.country')} *`}
+                          value={deliveryCountry}
+                          onChange={(e) => setDeliveryCountry(e.target.value)}
+                          data-testid="input-delivery-country"
+                        />
                     <Input
                       placeholder={`${t('storefront.city')} *`}
                       value={deliveryCity}
@@ -576,9 +614,11 @@ export default function Storefront() {
                         {deliveryError}
                       </p>
                     )}
-                  </div>
+                  </>
+                )}
+                </div>
 
-                  <div className="space-y-3 border-t pt-4">
+                <div className="space-y-3 border-t pt-4">
                     <div className="space-y-2 w-full">
                       <div className="flex justify-between text-sm">
                         <span>{t('storefront.subtotal')}</span>
@@ -627,7 +667,7 @@ export default function Storefront() {
                           <Button
                             variant="outline"
                             className="h-16 bg-black hover:bg-black/90 text-white border-black flex flex-col items-center justify-center gap-1"
-                            disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
+                            disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
                             onClick={() => {
                               setPaymentMethod('apple');
                               setCurrentOrderId(null);
@@ -645,7 +685,7 @@ export default function Storefront() {
                           <Button
                             variant="outline"
                             className="h-16 bg-white hover:bg-gray-50 text-gray-800 border-gray-300 flex flex-col items-center justify-center gap-1"
-                            disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
+                            disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
                             onClick={() => {
                               setPaymentMethod('google');
                               setCurrentOrderId(null);
@@ -664,7 +704,7 @@ export default function Storefront() {
                         <Button
                           variant="outline"
                           className="w-full h-16 bg-black hover:bg-black/90 text-white border-black flex items-center justify-center gap-2"
-                          disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
+                          disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
                           onClick={() => {
                             setPaymentMethod('stripe');
                             setCurrentOrderId(null);
@@ -682,7 +722,7 @@ export default function Storefront() {
                         <Button
                           variant="outline"
                           className="w-full h-16 bg-[#0070BA] hover:bg-[#005EA6] text-white border-[#0070BA] flex items-center justify-center gap-2"
-                          disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
+                          disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
                           onClick={() => {
                             setPaymentMethod('paypal');
                             setCurrentOrderId(null);
@@ -706,7 +746,7 @@ export default function Storefront() {
                         <Button
                           variant="outline"
                           className="w-full h-16 flex items-center justify-center gap-2"
-                          disabled={!customerName || !customerPhone || !deliveryCountry || !deliveryCity || !deliveryAvailable || checkoutMutation.isPending}
+                          disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
                           onClick={() => {
                             setPaymentMethod('cash');
                             setCurrentOrderId(null);
