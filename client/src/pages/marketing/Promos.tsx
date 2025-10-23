@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 import { Plus, Percent, Calendar, Users } from "lucide-react";
 
 type Promo = {
@@ -24,8 +25,20 @@ type Promo = {
 
 export default function Promos() {
   const { t } = useTranslation();
+  const { toast } = useToast();
+  
   const [editingPromo, setEditingPromo] = useState<Promo | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  
+  const [newPromo, setNewPromo] = useState({
+    code: '',
+    type: 'percentage',
+    value: 0,
+    maxUses: null as number | null,
+    isActive: true,
+    expiresAt: null as string | null,
+  });
 
   const [promos, setPromos] = useState<Promo[]>([
     { 
@@ -93,6 +106,64 @@ export default function Promos() {
     setEditingPromo(null);
   };
 
+  // Create Promo handlers
+  const handleOpenCreateDialog = () => {
+    setNewPromo({
+      code: '',
+      type: 'percentage',
+      value: 0,
+      maxUses: null,
+      isActive: true,
+      expiresAt: null,
+    });
+    setCreateDialogOpen(true);
+  };
+
+  const handleSaveNewPromo = () => {
+    const trimmedCode = newPromo.code.trim().toUpperCase();
+    
+    if (!trimmedCode) {
+      toast({ variant: "destructive", title: "Invalid code", description: "Promo code is required" });
+      return;
+    }
+
+    // Check if code already exists
+    if (promos.some(p => p.code === trimmedCode)) {
+      toast({ variant: "destructive", title: "Duplicate code", description: "This promo code already exists" });
+      return;
+    }
+
+    if (newPromo.type !== 'free_delivery') {
+      if (newPromo.value <= 0) {
+        toast({ variant: "destructive", title: "Invalid value", description: "Discount value must be greater than 0" });
+        return;
+      }
+      if (newPromo.type === 'percentage' && newPromo.value > 100) {
+        toast({ variant: "destructive", title: "Invalid percentage", description: "Percentage cannot exceed 100%" });
+        return;
+      }
+    }
+
+    const createdPromo: Promo = {
+      id: Date.now().toString(),
+      code: trimmedCode,
+      type: newPromo.type,
+      value: newPromo.type === 'free_delivery' ? 0 : newPromo.value,
+      redemptions: 0,
+      maxUses: newPromo.maxUses,
+      isActive: newPromo.isActive,
+      expiresAt: newPromo.expiresAt,
+    };
+
+    setPromos([...promos, createdPromo]);
+    setCreateDialogOpen(false);
+    toast({ title: "Success", description: "Promo code created successfully" });
+  };
+
+  const handleCancelNewPromo = () => {
+    setCreateDialogOpen(false);
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -102,7 +173,7 @@ export default function Promos() {
             Create auto-discount rules with intelligent conditions
           </p>
         </div>
-        <Button data-testid="button-create-promo">
+        <Button onClick={handleOpenCreateDialog} data-testid="button-create-promo">
           <Plus className="h-4 w-4 mr-2" />
           Create Promo
         </Button>
@@ -327,6 +398,117 @@ export default function Promos() {
             </Button>
             <Button onClick={handleSaveEdit} data-testid="button-save-edit">
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Promo Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-md" data-testid="dialog-create-promo">
+          <DialogHeader>
+            <DialogTitle>Create New Promo Code</DialogTitle>
+            <DialogDescription>
+              Set up a new promotional discount code
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-code">Promo Code</Label>
+              <Input
+                id="new-code"
+                value={newPromo.code}
+                onChange={(e) => setNewPromo({ ...newPromo, code: e.target.value.toUpperCase() })}
+                placeholder="PROMO10"
+                data-testid="input-new-code"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-type">Type</Label>
+              <Select 
+                value={newPromo.type}
+                onValueChange={(value) => setNewPromo({ ...newPromo, type: value, value: 0 })}
+              >
+                <SelectTrigger id="new-type" data-testid="select-new-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="percentage">Percentage Off</SelectItem>
+                  <SelectItem value="fixed">Fixed Amount Off</SelectItem>
+                  <SelectItem value="free_delivery">Free Delivery</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {newPromo.type !== 'free_delivery' && (
+              <div className="space-y-2">
+                <Label htmlFor="new-value">
+                  {newPromo.type === 'percentage' ? 'Percentage (%)' : 'Amount ($)'}
+                </Label>
+                <Input
+                  id="new-value"
+                  type="number"
+                  step={newPromo.type === 'fixed' ? '0.01' : '1'}
+                  value={newPromo.value}
+                  onChange={(e) => setNewPromo({ 
+                    ...newPromo, 
+                    value: newPromo.type === 'fixed' 
+                      ? parseFloat(e.target.value) || 0 
+                      : parseInt(e.target.value) || 0 
+                  })}
+                  placeholder={newPromo.type === 'percentage' ? '10' : '5.00'}
+                  data-testid="input-new-value"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="new-max-uses">Max Uses (optional)</Label>
+              <Input
+                id="new-max-uses"
+                type="number"
+                value={newPromo.maxUses || ''}
+                onChange={(e) => setNewPromo({ 
+                  ...newPromo, 
+                  maxUses: e.target.value ? parseInt(e.target.value) : null 
+                })}
+                placeholder="Unlimited"
+                data-testid="input-new-max-uses"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-expires">Expires At (optional)</Label>
+              <Input
+                id="new-expires"
+                type="date"
+                value={newPromo.expiresAt || ''}
+                onChange={(e) => setNewPromo({ ...newPromo, expiresAt: e.target.value || null })}
+                data-testid="input-new-expires"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="new-active"
+                checked={newPromo.isActive}
+                onCheckedChange={(checked) => setNewPromo({ ...newPromo, isActive: checked })}
+                data-testid="switch-new-active"
+              />
+              <Label htmlFor="new-active" className="cursor-pointer">
+                Active
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelNewPromo} data-testid="button-cancel-new">
+              Cancel
+            </Button>
+            <Button onClick={handleSaveNewPromo} data-testid="button-save-new">
+              Create Promo
             </Button>
           </DialogFooter>
         </DialogContent>
