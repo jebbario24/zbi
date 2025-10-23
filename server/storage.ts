@@ -709,6 +709,45 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async respondToReview(reviewId: string, response: string): Promise<CustomerReview> {
+    const [updated] = await db
+      .update(customerReviews)
+      .set({
+        response,
+        respondedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(customerReviews.id, reviewId))
+      .returning();
+    return updated;
+  }
+
+  async respondToMessage(messageId: string, response: string): Promise<InboxMessage> {
+    const [updated] = await db
+      .update(inboxMessages)
+      .set({
+        response,
+        respondedAt: new Date(),
+        status: 'responded',
+        updatedAt: new Date(),
+      })
+      .where(eq(inboxMessages.id, messageId))
+      .returning();
+    return updated;
+  }
+
+  async updateMessageStatus(messageId: string, status: string): Promise<InboxMessage> {
+    const [updated] = await db
+      .update(inboxMessages)
+      .set({
+        status,
+        updatedAt: new Date(),
+      })
+      .where(eq(inboxMessages.id, messageId))
+      .returning();
+    return updated;
+  }
+
   // Promo Management
   async getActiveAutoApplyPromos(restaurantId: string): Promise<any[]> {
     const now = new Date();

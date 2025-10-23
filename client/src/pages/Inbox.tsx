@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,60 +10,80 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MessageSquare, Star, CheckCircle2, Mail, Phone, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
-import type { Order } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { CustomerReview, InboxMessage } from "@shared/schema";
 
 export default function Inbox() {
   const { t } = useTranslation();
+  const { toast } = useToast();
+  const [reviewResponses, setReviewResponses] = useState<Record<string, string>>({});
 
-  const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ["/api/orders"],
+  // Fetch real inbox messages
+  const { data: messages = [], isLoading: messagesLoading } = useQuery<InboxMessage[]>({
+    queryKey: ["/api/inbox/messages"],
   });
 
-  const completedOrders = orders.filter(o => o.status === 'completed' || o.status === 'delivered');
-  const ordersWithIssues = orders.filter(o => o.status === 'cancelled' || o.status === 'refunded');
+  // Fetch real reviews
+  const { data: reviews = [], isLoading: reviewsLoading } = useQuery<CustomerReview[]>({
+    queryKey: ["/api/reviews"],
+  });
 
-  const messages = completedOrders.slice(0, 10).map(order => ({
-    id: order.id,
-    customerName: order.customerName,
-    customerPhone: order.customerPhone,
-    orderNumber: order.orderNumber,
-    subject: 'Order Inquiry',
-    message: `Question about order #${order.orderNumber}`,
-    createdAt: order.createdAt || new Date().toISOString(),
-    isRead: Math.random() > 0.3,
-  }));
+  const isLoading = messagesLoading || reviewsLoading;
 
-  const reviews = completedOrders.slice(0, 8).map(order => ({
-    id: order.id,
-    customerName: order.customerName,
-    orderNumber: order.orderNumber,
-    rating: Math.floor(Math.random() * 2) + 4,
-    comment: [
-      'Great food and fast delivery!',
-      'Delicious meal, highly recommend',
-      'Good service, will order again',
-      'Food was fresh and tasty',
-      'Perfect portion sizes',
-      'Excellent quality',
-    ][Math.floor(Math.random() * 6)],
-    createdAt: order.createdAt || new Date().toISOString(),
-    responded: Math.random() > 0.5,
-  }));
+  // Respond to review mutation
+  const respondToReviewMutation = useMutation({
+    mutationFn: async ({ reviewId, response }: { reviewId: string; response: string }) => {
+      return await apiRequest(`/api/reviews/${reviewId}/respond`, {
+        method: "POST",
+        body: JSON.stringify({ response }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reviews"] });
+      toast({ title: "Success", description: "Review response submitted successfully" });
+      setReviewResponses({});
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to submit review response",
+        variant: "destructive",
+      });
+    },
+  });
 
-  const resolutions = ordersWithIssues.map(order => ({
-    id: order.id,
-    orderNumber: order.orderNumber,
-    customerName: order.customerName,
-    issue: order.status === 'cancelled' ? 'Order Cancelled' : 'Refund Requested',
-    resolution: order.status === 'cancelled' 
-      ? 'Customer requested cancellation before preparation' 
-      : 'Full refund issued to original payment method',
-    status: 'resolved',
-    createdAt: order.createdAt || new Date().toISOString(),
-  }));
+  // Mark message as read mutation
+  const markAsReadMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      return await apiRequest(`/api/inbox/messages/${messageId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: 'read' }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inbox/messages"] });
+    },
+  });
 
-  const unreadCount = messages.filter(m => !m.isRead).length;
-  const unansweredReviews = reviews.filter(r => !r.responded).length;
+  const unreadCount = messages.filter(m => m.status === 'new').length;
+  const unansweredReviews = reviews.filter(r => !r.response).length;
+
+  const handleRespondToReview = (reviewId: string) => {
+    const response = reviewResponses[reviewId];
+    if (!response || !response.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a response",
+        variant: "destructive",
+      });
+      return;
+    }
+    respondToReviewMutation.mutate({ reviewId, response });
+  };
+
+  // Create mock resolutions from cancelled/refunded orders (keeping this as-is for now)
+  const resolutions: any[] = [];
 
   return (
     <div className="p-6 space-y-6">
@@ -116,7 +137,7 @@ export default function Inbox() {
               {messages.map((message) => (
                 <Card 
                   key={message.id} 
-                  className={!message.isRead ? 'border-primary' : ''}
+                  className={message.status === 'new' ? 'border-primary' : ''}
                   data-testid={`message-${message.id}`}
                 >
                   <CardHeader>
@@ -124,20 +145,26 @@ export default function Inbox() {
                       <div className="flex items-start gap-3">
                         <Avatar>
                           <AvatarFallback>
-                            {message.customerName.split(' ').map(n => n[0]).join('')}
+                            {message.customerName?.split(' ').map(n => n[0]).join('') || 'U'}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <CardTitle className="text-base">{message.customerName}</CardTitle>
-                            {!message.isRead && (
+                            <CardTitle className="text-base">{message.customerName || 'Unknown'}</CardTitle>
+                            {message.status === 'new' && (
                               <Badge variant="default" className="text-xs">New</Badge>
                             )}
                           </div>
                           <CardDescription className="flex items-center gap-2 mt-1">
-                            <Phone className="h-3 w-3" />
-                            {message.customerPhone}
-                            <span className="ml-2">Order #{message.orderNumber}</span>
+                            {message.customerPhone && (
+                              <>
+                                <Phone className="h-3 w-3" />
+                                {message.customerPhone}
+                              </>
+                            )}
+                            {message.customerEmail && (
+                              <span className="ml-2">{message.customerEmail}</span>
+                            )}
                           </CardDescription>
                         </div>
                       </div>
@@ -148,15 +175,29 @@ export default function Inbox() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="text-sm">
-                      <strong className="block mb-1">{message.subject}</strong>
+                      {message.subject && <strong className="block mb-1">{message.subject}</strong>}
                       <p className="text-muted-foreground">{message.message}</p>
                     </div>
+                    {message.response && (
+                      <div className="bg-muted p-3 rounded-lg text-sm">
+                        <div className="flex items-center gap-2 mb-2 font-medium">
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          Your Response
+                        </div>
+                        <p className="text-muted-foreground">{message.response}</p>
+                      </div>
+                    )}
                     <div className="flex gap-2">
-                      <Button size="sm" variant="default" data-testid={`button-reply-${message.id}`}>
-                        <Mail className="h-3 w-3 mr-1" />
-                        Reply
-                      </Button>
-                      <Button size="sm" variant="outline">Mark as Read</Button>
+                      {message.status === 'new' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => markAsReadMutation.mutate(message.id)}
+                          data-testid={`button-mark-read-${message.id}`}
+                        >
+                          Mark as Read
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -191,12 +232,14 @@ export default function Inbox() {
                       <div className="flex items-start gap-3">
                         <Avatar>
                           <AvatarFallback>
-                            {review.customerName.split(' ').map(n => n[0]).join('')}
+                            {review.customerName?.split(' ').map(n => n[0]).join('') || 'U'}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <CardTitle className="text-base">{review.customerName}</CardTitle>
-                          <CardDescription>Order #{review.orderNumber}</CardDescription>
+                          <CardTitle className="text-base">{review.customerName || 'Anonymous'}</CardTitle>
+                          <CardDescription>
+                            {review.orderId && `Order #${review.orderId.substring(0, 8)}`}
+                          </CardDescription>
                         </div>
                       </div>
                       <div className="text-right">
@@ -215,26 +258,41 @@ export default function Inbox() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <p className="text-sm">{review.comment}</p>
-                    {review.responded ? (
+                    {review.comment && <p className="text-sm">{review.comment}</p>}
+                    {review.response ? (
                       <div className="bg-muted p-3 rounded-lg text-sm">
                         <div className="flex items-center gap-2 mb-2 font-medium">
                           <CheckCircle2 className="h-4 w-4 text-green-500" />
                           Your Response
                         </div>
                         <p className="text-muted-foreground">
-                          Thank you for your feedback! We're glad you enjoyed your meal.
+                          {review.response}
                         </p>
+                        {review.respondedAt && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Responded on {format(new Date(review.respondedAt), 'MMM dd, yyyy')}
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <Textarea 
                           placeholder="Write a response to this review..." 
                           className="min-h-20"
+                          value={reviewResponses[review.id] || ''}
+                          onChange={(e) => setReviewResponses(prev => ({
+                            ...prev,
+                            [review.id]: e.target.value
+                          }))}
                           data-testid={`input-review-response-${review.id}`}
                         />
-                        <Button size="sm" data-testid={`button-respond-${review.id}`}>
-                          Send Response
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleRespondToReview(review.id)}
+                          disabled={respondToReviewMutation.isPending}
+                          data-testid={`button-respond-${review.id}`}
+                        >
+                          {respondToReviewMutation.isPending ? 'Sending...' : 'Send Response'}
                         </Button>
                       </div>
                     )}

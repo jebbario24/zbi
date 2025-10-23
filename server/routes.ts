@@ -1292,6 +1292,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inbox & Reviews routes
+  app.get('/api/inbox/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.json([]);
+      }
+      const messages = await storage.getInboxMessages(restaurant.id);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching inbox messages:", error);
+      res.status(500).json({ message: "Failed to fetch inbox messages" });
+    }
+  });
+
+  app.post('/api/inbox/messages/:id/respond', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { response } = req.body;
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const updated = await storage.respondToMessage(id, response);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error responding to message:", error);
+      res.status(400).json({ message: "Failed to respond to message" });
+    }
+  });
+
+  app.patch('/api/inbox/messages/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const updated = await storage.updateMessageStatus(id, status);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating message status:", error);
+      res.status(400).json({ message: "Failed to update message status" });
+    }
+  });
+
+  app.get('/api/reviews', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.json([]);
+      }
+      const reviews = await storage.getCustomerReviews(restaurant.id);
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  app.post('/api/reviews/:id/respond', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { response } = req.body;
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const updated = await storage.respondToReview(id, response);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error responding to review:", error);
+      res.status(400).json({ message: "Failed to respond to review" });
+    }
+  });
+
   // Staff routes
   app.get('/api/staff', isAuthenticated, async (req: any, res) => {
     try {
@@ -2677,7 +2762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/restaurants/:id/pixels', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const restaurant = await storage.getRestaurantById(id);
+      const restaurant = await storage.getRestaurant(id);
       
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
@@ -2708,7 +2793,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/restaurants/:id/domain-verification', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const restaurant = await storage.getRestaurantById(id);
+      const restaurant = await storage.getRestaurant(id);
       
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
