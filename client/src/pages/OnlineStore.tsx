@@ -156,6 +156,21 @@ export default function OnlineStore() {
     paypalClientSecret: "",
   });
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethods>(defaultPaymentMethods);
+  const [taxSettings, setTaxSettings] = useState({
+    taxRate: "0.00",
+    taxIncludedInPrice: false,
+    taxLabel: "Tax",
+  });
+  const [payoutSettings, setPayoutSettings] = useState({
+    accountHolderName: "",
+    bankName: "",
+    accountNumber: "",
+    routingNumber: "",
+    iban: "",
+    swiftCode: "",
+    country: "",
+    payoutSchedule: "weekly" as "daily" | "weekly",
+  });
 
   const { data: restaurant, isLoading } = useQuery<Restaurant>({
     queryKey: ["/api/restaurants/me"],
@@ -239,6 +254,30 @@ export default function OnlineStore() {
     },
   });
 
+  const taxSettingsMutation = useMutation({
+    mutationFn: async (settings: typeof taxSettings) => {
+      return apiRequest("/api/restaurant/tax-settings", "PUT", settings);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
+      toast({ title: "Tax settings updated successfully!" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update tax settings", variant: "destructive" });
+    },
+  });
+
+  const payoutSettingsMutation = useMutation({
+    mutationFn: async (settings: typeof payoutSettings) => {
+      return apiRequest("/api/restaurant/payout-settings", "PUT", settings);
+    },
+    onSuccess: () => {
+      toast({ title: "Payout settings saved successfully!" });
+    },
+    onError: () => {
+      toast({ title: "Failed to save payout settings", variant: "destructive" });
+    },
+  });
 
   const marketingForm = useForm<z.infer<typeof marketingSchema>>({
     resolver: zodResolver(marketingSchema),
@@ -388,6 +427,33 @@ export default function OnlineStore() {
     }
   }, [restaurant?.marketingSettings]);
 
+  // Load existing tax settings
+  useEffect(() => {
+    if (restaurant) {
+      setTaxSettings({
+        taxRate: restaurant.taxRate || "0.00",
+        taxIncludedInPrice: restaurant.taxIncludedInPrice || false,
+        taxLabel: restaurant.taxLabel || "Tax",
+      });
+    }
+  }, [restaurant?.taxRate, restaurant?.taxIncludedInPrice, restaurant?.taxLabel]);
+
+  // Load existing payout settings
+  useEffect(() => {
+    if (restaurant?.payoutAccount) {
+      const account = restaurant.payoutAccount as any;
+      setPayoutSettings({
+        accountHolderName: account.accountHolderName || "",
+        bankName: account.bankName || "",
+        accountNumber: account.accountNumber || "",
+        routingNumber: account.routingNumber || "",
+        iban: account.iban || "",
+        swiftCode: account.swiftCode || "",
+        country: account.country || "",
+        payoutSchedule: account.payoutSchedule || "weekly",
+      });
+    }
+  }, [restaurant?.payoutAccount]);
 
   if (isLoading) {
     return (
@@ -834,6 +900,188 @@ export default function OnlineStore() {
             data-testid="button-save-payment-methods"
           >
             Save Payment Methods
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Tax Configuration Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tax Configuration</CardTitle>
+          <CardDescription>Configure tax rates and labels for your store</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tax-rate">Tax Rate (%)</Label>
+            <Input
+              id="tax-rate"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={taxSettings.taxRate}
+              onChange={(e) => setTaxSettings(prev => ({ ...prev, taxRate: e.target.value }))}
+              placeholder="0.00"
+              data-testid="input-tax-rate"
+            />
+            <p className="text-sm text-muted-foreground">Enter tax rate as a percentage (e.g., 13.50 for 13.5%)</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tax-label">Tax Label</Label>
+            <Input
+              id="tax-label"
+              value={taxSettings.taxLabel}
+              onChange={(e) => setTaxSettings(prev => ({ ...prev, taxLabel: e.target.value }))}
+              placeholder="Tax"
+              data-testid="input-tax-label"
+            />
+            <p className="text-sm text-muted-foreground">Display name for tax (e.g., "Tax", "VAT", "GST")</p>
+          </div>
+
+          <div className="flex items-center justify-between" data-testid="tax-included-toggle">
+            <div className="space-y-0.5">
+              <Label htmlFor="tax-included">Tax Included in Prices</Label>
+              <p className="text-sm text-muted-foreground">If enabled, menu prices already include tax</p>
+            </div>
+            <Switch
+              id="tax-included"
+              checked={taxSettings.taxIncludedInPrice}
+              onCheckedChange={(checked) => setTaxSettings(prev => ({ ...prev, taxIncludedInPrice: checked }))}
+              data-testid="switch-tax-included"
+            />
+          </div>
+
+          <Button 
+            onClick={() => taxSettingsMutation.mutate(taxSettings)}
+            disabled={taxSettingsMutation.isPending}
+            data-testid="button-save-tax-settings"
+          >
+            Save Tax Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Payout Configuration Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Bank Account & Payout Settings</CardTitle>
+          <CardDescription>Configure where you want to receive your earnings (daily or weekly payouts)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="account-holder">Account Holder Name</Label>
+              <Input
+                id="account-holder"
+                value={payoutSettings.accountHolderName}
+                onChange={(e) => setPayoutSettings(prev => ({ ...prev, accountHolderName: e.target.value }))}
+                placeholder="John Doe"
+                data-testid="input-account-holder"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bank-name">Bank Name</Label>
+              <Input
+                id="bank-name"
+                value={payoutSettings.bankName}
+                onChange={(e) => setPayoutSettings(prev => ({ ...prev, bankName: e.target.value }))}
+                placeholder="Bank of America"
+                data-testid="input-bank-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="account-number">Account Number</Label>
+              <Input
+                id="account-number"
+                value={payoutSettings.accountNumber}
+                onChange={(e) => setPayoutSettings(prev => ({ ...prev, accountNumber: e.target.value }))}
+                placeholder="1234567890"
+                data-testid="input-account-number"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="routing-number">Routing Number (US Only)</Label>
+              <Input
+                id="routing-number"
+                value={payoutSettings.routingNumber}
+                onChange={(e) => setPayoutSettings(prev => ({ ...prev, routingNumber: e.target.value }))}
+                placeholder="021000021"
+                data-testid="input-routing-number"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="iban">IBAN (International)</Label>
+              <Input
+                id="iban"
+                value={payoutSettings.iban}
+                onChange={(e) => setPayoutSettings(prev => ({ ...prev, iban: e.target.value }))}
+                placeholder="GB82 WEST 1234 5698 7654 32"
+                data-testid="input-iban"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="swift-code">SWIFT/BIC Code</Label>
+              <Input
+                id="swift-code"
+                value={payoutSettings.swiftCode}
+                onChange={(e) => setPayoutSettings(prev => ({ ...prev, swiftCode: e.target.value }))}
+                placeholder="BOFAUS3N"
+                data-testid="input-swift-code"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="bank-country">Bank Country</Label>
+            <Input
+              id="bank-country"
+              value={payoutSettings.country}
+              onChange={(e) => setPayoutSettings(prev => ({ ...prev, country: e.target.value }))}
+              placeholder="United States"
+              data-testid="input-bank-country"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="payout-schedule">Payout Schedule</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={payoutSettings.payoutSchedule === "daily" ? "default" : "outline"}
+                onClick={() => setPayoutSettings(prev => ({ ...prev, payoutSchedule: "daily" }))}
+                data-testid="button-payout-daily"
+                className="flex-1"
+              >
+                Daily
+              </Button>
+              <Button
+                variant={payoutSettings.payoutSchedule === "weekly" ? "default" : "outline"}
+                onClick={() => setPayoutSettings(prev => ({ ...prev, payoutSchedule: "weekly" }))}
+                data-testid="button-payout-weekly"
+                className="flex-1"
+              >
+                Weekly
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {payoutSettings.payoutSchedule === "daily" 
+                ? "You'll receive payouts every day" 
+                : "You'll receive payouts every Monday"}
+            </p>
+          </div>
+
+          <Button 
+            onClick={() => payoutSettingsMutation.mutate(payoutSettings)}
+            disabled={payoutSettingsMutation.isPending}
+            data-testid="button-save-payout-settings"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save Bank Account
           </Button>
         </CardContent>
       </Card>

@@ -642,7 +642,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const restaurant = await storage.getRestaurantByOwnerId(userId);
-      res.json(restaurant || null);
+      
+      if (!restaurant) {
+        return res.json(null);
+      }
+
+      // Fetch payout account data
+      const payoutAccount = await storage.getPayoutAccount(restaurant.id);
+      
+      res.json({
+        ...restaurant,
+        payoutAccount: payoutAccount || null
+      });
     } catch (error) {
       console.error("Error fetching restaurant:", error);
       res.status(500).json({ message: "Failed to fetch restaurant" });
@@ -2058,6 +2069,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json({ success: true });
     } catch (error) {
       console.error("Error updating regional settings:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/restaurant/tax-settings", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+    const { taxRate, taxIncludedInPrice, taxLabel } = req.body;
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      await storage.updateRestaurant(restaurant.id, { 
+        taxRate: taxRate || "0.00",
+        taxIncludedInPrice: taxIncludedInPrice || false,
+        taxLabel: taxLabel || "Tax"
+      });
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error updating tax settings:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/restaurant/payout-settings", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+    const { accountHolderName, bankName, accountNumber, routingNumber, iban, swiftCode, country, payoutSchedule } = req.body;
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      // Create or update payout account
+      await storage.createOrUpdatePayoutAccount(restaurant.id, {
+        accountHolderName,
+        bankName,
+        accountNumber,
+        routingNumber,
+        iban,
+        swiftCode,
+        country,
+        payoutSchedule: payoutSchedule || "weekly"
+      });
+      
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error saving payout settings:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

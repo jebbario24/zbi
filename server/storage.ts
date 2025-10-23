@@ -32,6 +32,9 @@ import {
   type InsertInventory,
   type DeliveryZone,
   type InsertDeliveryZone,
+  restaurantPayoutAccounts,
+  type RestaurantPayoutAccount,
+  type InsertRestaurantPayoutAccount,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, like } from "drizzle-orm";
@@ -111,6 +114,10 @@ export interface IStorage {
   createDeliveryZone(zone: InsertDeliveryZone): Promise<DeliveryZone>;
   updateDeliveryZone(id: string, zone: Partial<InsertDeliveryZone>): Promise<DeliveryZone>;
   deleteDeliveryZone(id: string): Promise<void>;
+  
+  // Payout account operations
+  getPayoutAccount(restaurantId: string): Promise<RestaurantPayoutAccount | undefined>;
+  createOrUpdatePayoutAccount(restaurantId: string, account: Partial<InsertRestaurantPayoutAccount>): Promise<RestaurantPayoutAccount>;
   
   // Admin operations
   getAllRestaurants(): Promise<(Restaurant & { owner: User })[]>;
@@ -486,6 +493,39 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDeliveryZone(id: string): Promise<void> {
     await db.delete(deliveryZones).where(eq(deliveryZones.id, id));
+  }
+
+  async getPayoutAccount(restaurantId: string): Promise<RestaurantPayoutAccount | undefined> {
+    const [account] = await db
+      .select()
+      .from(restaurantPayoutAccounts)
+      .where(eq(restaurantPayoutAccounts.restaurantId, restaurantId));
+    return account;
+  }
+
+  async createOrUpdatePayoutAccount(restaurantId: string, account: Partial<InsertRestaurantPayoutAccount>): Promise<RestaurantPayoutAccount> {
+    // Check if account already exists
+    const [existing] = await db
+      .select()
+      .from(restaurantPayoutAccounts)
+      .where(eq(restaurantPayoutAccounts.restaurantId, restaurantId));
+
+    if (existing) {
+      // Update existing account
+      const [updated] = await db
+        .update(restaurantPayoutAccounts)
+        .set({ ...account, updatedAt: new Date() })
+        .where(eq(restaurantPayoutAccounts.restaurantId, restaurantId))
+        .returning();
+      return updated;
+    } else {
+      // Create new account
+      const [newAccount] = await db
+        .insert(restaurantPayoutAccounts)
+        .values({ ...account, restaurantId })
+        .returning();
+      return newAccount;
+    }
   }
 
   async getAllRestaurants(): Promise<(Restaurant & { owner: User })[]> {
