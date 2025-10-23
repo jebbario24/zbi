@@ -348,6 +348,7 @@ export const walletTransactions = pgTable("wallet_transactions", {
 // Customers - Customer profiles for marketing & loyalty
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   phone: varchar("phone", { length: 50 }),
   email: varchar("email", { length: 255 }),
   name: varchar("name", { length: 255 }),
@@ -360,7 +361,10 @@ export const customers = pgTable("customers", {
   tags: jsonb("tags"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_customers_restaurant_email").on(table.restaurantId, table.email),
+  index("idx_customers_restaurant_phone").on(table.restaurantId, table.phone),
+]);
 
 // Item Options - Modifiers for menu items (sizes, add-ons, extras)
 export const itemOptions = pgTable("item_options", {
@@ -402,21 +406,32 @@ export const promoRules = pgTable("promo_rules", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_promo_rules_restaurant").on(table.restaurantId),
+  index("idx_promo_rules_code").on(table.promoCode),
+  index("idx_promo_rules_active_dates").on(table.restaurantId, table.isActive, table.startsAt, table.endsAt),
+  index("idx_promo_rules_auto_apply").on(table.restaurantId, table.autoApply, table.isActive),
+]);
 
 // Promo Redemptions - Track promo usage
 export const promoRedemptions = pgTable("promo_redemptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   promoRuleId: varchar("promo_rule_id").notNull().references(() => promoRules.id, { onDelete: 'cascade' }),
   orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
   customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }),
   discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_promo_redemptions_restaurant").on(table.restaurantId),
+  index("idx_promo_redemptions_customer").on(table.customerId),
+  index("idx_promo_redemptions_promo").on(table.promoRuleId),
+]);
 
 // Promo Performance - Analytics for promos
 export const promoPerformance = pgTable("promo_performance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   promoRuleId: varchar("promo_rule_id").notNull().references(() => promoRules.id, { onDelete: 'cascade' }),
   date: timestamp("date").notNull(),
   impressions: integer("impressions").notNull().default(0),
@@ -425,7 +440,10 @@ export const promoPerformance = pgTable("promo_performance", {
   discountGiven: decimal("discount_given", { precision: 10, scale: 2 }).default('0'),
   ordersCount: integer("orders_count").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_promo_performance_restaurant_date").on(table.restaurantId, table.date),
+  index("idx_promo_performance_promo").on(table.promoRuleId),
+]);
 
 // Loyalty Tiers - Bronze, Silver, Gold tiers
 export const loyaltyTiers = pgTable("loyalty_tiers", {
@@ -438,7 +456,9 @@ export const loyaltyTiers = pgTable("loyalty_tiers", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_loyalty_tiers_restaurant").on(table.restaurantId),
+]);
 
 // Loyalty Accounts - Customer loyalty points and tiers
 export const loyaltyAccounts = pgTable("loyalty_accounts", {
@@ -450,11 +470,15 @@ export const loyaltyAccounts = pgTable("loyalty_accounts", {
   tierId: varchar("tier_id").references(() => loyaltyTiers.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_loyalty_accounts_restaurant").on(table.restaurantId),
+  index("idx_loyalty_accounts_customer").on(table.customerId),
+]);
 
 // Loyalty Transactions - Points earn/redeem history
 export const loyaltyTransactions = pgTable("loyalty_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   loyaltyAccountId: varchar("loyalty_account_id").notNull().references(() => loyaltyAccounts.id, { onDelete: 'cascade' }),
   type: varchar("type", { length: 50 }).notNull(), // 'earn', 'redeem', 'expire', 'adjustment'
   points: integer("points").notNull(),
@@ -463,7 +487,10 @@ export const loyaltyTransactions = pgTable("loyalty_transactions", {
   orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_loyalty_transactions_restaurant").on(table.restaurantId),
+  index("idx_loyalty_transactions_account").on(table.loyaltyAccountId),
+]);
 
 // Bundles - Combo meals and bundle offers
 export const bundles = pgTable("bundles", {
@@ -484,11 +511,15 @@ export const bundles = pgTable("bundles", {
 // Bundle Items - Items included in bundles
 export const bundleItems = pgTable("bundle_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   bundleId: varchar("bundle_id").notNull().references(() => bundles.id, { onDelete: 'cascade' }),
   menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
   quantity: integer("quantity").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_bundle_items_restaurant").on(table.restaurantId),
+  index("idx_bundle_items_bundle").on(table.bundleId),
+]);
 
 // Upsell Rules - Smart pairing and cart suggestions
 export const upsellRules = pgTable("upsell_rules", {
@@ -532,12 +563,16 @@ export const boostSlots = pgTable("boost_slots", {
 // Boost Impressions - Track boost performance
 export const boostImpressions = pgTable("boost_impressions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   boostSlotId: varchar("boost_slot_id").notNull().references(() => boostSlots.id, { onDelete: 'cascade' }),
   viewerId: varchar("viewer_id"), // Anonymous or customer ID
   orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
   converted: boolean("converted").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_boost_impressions_restaurant").on(table.restaurantId),
+  index("idx_boost_impressions_slot").on(table.boostSlotId),
+]);
 
 // Customer Segments - Segmentation for targeted campaigns
 export const customerSegments = pgTable("customer_segments", {
@@ -554,10 +589,15 @@ export const customerSegments = pgTable("customer_segments", {
 // Segment Members - Customers in segments (computed/cached)
 export const segmentMembers = pgTable("segment_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   segmentId: varchar("segment_id").notNull().references(() => customerSegments.id, { onDelete: 'cascade' }),
   customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: 'cascade' }),
   addedAt: timestamp("added_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_segment_members_restaurant").on(table.restaurantId),
+  index("idx_segment_members_segment").on(table.segmentId),
+  index("idx_segment_members_customer").on(table.customerId),
+]);
 
 // Campaigns - Marketing campaign definitions
 export const campaigns = pgTable("campaigns", {
@@ -579,6 +619,7 @@ export const campaigns = pgTable("campaigns", {
 // Campaign Runs - Campaign execution logs
 export const campaignRuns = pgTable("campaign_runs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: 'cascade' }),
   scheduledFor: timestamp("scheduled_for").notNull(),
   startedAt: timestamp("started_at"),
@@ -590,7 +631,11 @@ export const campaignRuns = pgTable("campaign_runs", {
   redemptionsCount: integer("redemptions_count").notNull().default(0),
   status: varchar("status", { length: 50 }).notNull().default('pending'), // 'pending', 'running', 'completed', 'failed'
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_campaign_runs_restaurant").on(table.restaurantId),
+  index("idx_campaign_runs_campaign").on(table.campaignId),
+  index("idx_campaign_runs_scheduled").on(table.scheduledFor, table.status),
+]);
 
 // Marketing Events - Event tracking for analytics
 export const marketingEvents = pgTable("marketing_events", {
@@ -601,7 +646,11 @@ export const marketingEvents = pgTable("marketing_events", {
   sessionId: varchar("session_id", { length: 255 }),
   eventData: jsonb("event_data"), // Context-specific data
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_marketing_events_restaurant").on(table.restaurantId),
+  index("idx_marketing_events_type").on(table.eventType),
+  index("idx_marketing_events_customer").on(table.customerId),
+]);
 
 // Marketing Metrics Daily - Aggregated daily metrics
 export const marketingMetricsDaily = pgTable("marketing_metrics_daily", {
@@ -617,7 +666,9 @@ export const marketingMetricsDaily = pgTable("marketing_metrics_daily", {
   avgOrderValue: decimal("avg_order_value", { precision: 10, scale: 2 }).default('0'),
   conversionRate: decimal("conversion_rate", { precision: 5, scale: 2 }).default('0'),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_marketing_metrics_restaurant_date").on(table.restaurantId, table.date),
+]);
 
 // Pixels - Third-party tracking pixels (Meta, TikTok, Google)
 export const pixels = pgTable("pixels", {
@@ -636,6 +687,7 @@ export const pixels = pgTable("pixels", {
 // Pixel Events - Track pixel event fires
 export const pixelEvents = pgTable("pixel_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   pixelId: varchar("pixel_id").notNull().references(() => pixels.id, { onDelete: 'cascade' }),
   eventName: varchar("event_name", { length: 100 }).notNull(), // 'ViewContent', 'AddToCart', 'Purchase'
   eventData: jsonb("event_data"),
@@ -643,7 +695,11 @@ export const pixelEvents = pgTable("pixel_events", {
   orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
   status: varchar("status", { length: 50 }).notNull().default('pending'), // 'pending', 'sent', 'failed'
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_pixel_events_restaurant").on(table.restaurantId),
+  index("idx_pixel_events_pixel").on(table.pixelId),
+  index("idx_pixel_events_status").on(table.status),
+]);
 
 // Referral Programs - Referral program configuration
 export const referralPrograms = pgTable("referral_programs", {
@@ -663,17 +719,23 @@ export const referralPrograms = pgTable("referral_programs", {
 // Referral Links - Unique referral codes per customer
 export const referralLinks = pgTable("referral_links", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   referralProgramId: varchar("referral_program_id").notNull().references(() => referralPrograms.id, { onDelete: 'cascade' }),
   referrerId: varchar("referrer_id").notNull().references(() => customers.id, { onDelete: 'cascade' }),
   referralCode: varchar("referral_code", { length: 50 }).notNull().unique(),
   clicksCount: integer("clicks_count").notNull().default(0),
   conversionsCount: integer("conversions_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_referral_links_restaurant").on(table.restaurantId),
+  index("idx_referral_links_code").on(table.referralCode),
+  index("idx_referral_links_referrer").on(table.referrerId),
+]);
 
 // Referral Rewards - Track referral rewards given
 export const referralRewards = pgTable("referral_rewards", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   referralLinkId: varchar("referral_link_id").notNull().references(() => referralLinks.id, { onDelete: 'cascade' }),
   refereeId: varchar("referee_id").notNull().references(() => customers.id, { onDelete: 'cascade' }),
   orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
@@ -682,7 +744,11 @@ export const referralRewards = pgTable("referral_rewards", {
   status: varchar("status", { length: 50 }).notNull().default('pending'), // 'pending', 'awarded', 'expired'
   awardedAt: timestamp("awarded_at"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_referral_rewards_restaurant").on(table.restaurantId),
+  index("idx_referral_rewards_link").on(table.referralLinkId),
+  index("idx_referral_rewards_status").on(table.status),
+]);
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
