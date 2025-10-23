@@ -343,6 +343,37 @@ export const walletTransactions = pgTable("wallet_transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Customers - Customer profiles for marketing & loyalty
+export const customers = pgTable("customers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  name: varchar("name", { length: 255 }),
+  signupSource: varchar("signup_source", { length: 100 }),
+  firstOrderAt: timestamp("first_order_at"),
+  lastOrderAt: timestamp("last_order_at"),
+  ordersCount: integer("orders_count").notNull().default(0),
+  lifetimeValueCents: integer("lifetime_value_cents").notNull().default(0),
+  tags: jsonb("tags"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Item Options - Modifiers for menu items (sizes, add-ons, extras)
+export const itemOptions = pgTable("item_options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  label: varchar("label", { length: 255 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // 'single', 'multi', 'boolean', 'quantity'
+  required: boolean("required").notNull().default(false),
+  minSelections: integer("min_selections").default(0),
+  maxSelections: integer("max_selections"),
+  choices: jsonb("choices").notNull(), // [{id, label, priceCents, sku, available}]
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   restaurants: many(restaurants),
@@ -381,6 +412,7 @@ export const menuItemsRelations = relations(menuItems, ({ one, many }) => ({
     references: [menuCategories.id],
   }),
   orderItems: many(orderItems),
+  options: many(itemOptions),
 }));
 
 export const tablesRelations = relations(tables, ({ one, many }) => ({
@@ -522,6 +554,13 @@ export const walletTransactionsRelations = relations(walletTransactions, ({ one 
   relatedLedger: one(earningsLedger, {
     fields: [walletTransactions.relatedLedgerId],
     references: [earningsLedger.id],
+  }),
+}));
+
+export const itemOptionsRelations = relations(itemOptions, ({ one }) => ({
+  menuItem: one(menuItems, {
+    fields: [itemOptions.menuItemId],
+    references: [menuItems.id],
   }),
 }));
 
@@ -681,3 +720,27 @@ export const insertWalletTransactionSchema = createInsertSchema(walletTransactio
 });
 export type InsertWalletTransaction = z.infer<typeof insertWalletTransactionSchema>;
 export type WalletTransaction = typeof walletTransactions.$inferSelect;
+
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type Customer = typeof customers.$inferSelect;
+
+export const insertItemOptionSchema = createInsertSchema(itemOptions, {
+  choices: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+    priceCents: z.number(),
+    sku: z.string().optional(),
+    available: z.boolean().optional(),
+  })),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertItemOption = z.infer<typeof insertItemOptionSchema>;
+export type ItemOption = typeof itemOptions.$inferSelect;
