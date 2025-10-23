@@ -73,6 +73,9 @@ export const restaurants = pgTable("restaurants", {
   timezone: varchar("timezone", { length: 100 }).default('UTC'),
   platformLanguage: varchar("platform_language", { length: 10 }).default('en'),
   storefrontLanguage: varchar("storefront_language", { length: 10 }).default('en'),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default('0.00'),
+  taxIncludedInPrice: boolean("tax_included_in_price").default(false),
+  taxLabel: varchar("tax_label", { length: 50 }).default('Tax'),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -160,6 +163,12 @@ export const orders = pgTable("orders", {
   paymentStatus: varchar("payment_status", { length: 50 }).notNull().default('pending'),
   paymentMethod: varchar("payment_method", { length: 50 }),
   paymentIntentId: varchar("payment_intent_id", { length: 255 }),
+  paymentProvider: varchar("payment_provider", { length: 50 }),
+  platformCaptureStatus: varchar("platform_capture_status", { length: 50 }).default('pending'),
+  restaurantShare: decimal("restaurant_share", { precision: 10, scale: 2 }),
+  driverShare: decimal("driver_share", { precision: 10, scale: 2 }),
+  platformFee: decimal("platform_fee", { precision: 10, scale: 2 }),
+  assignedDriverId: varchar("assigned_driver_id").references(() => driverProfiles.id, { onDelete: 'set null' }),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -218,6 +227,120 @@ export const deliveryZones = pgTable("delivery_zones", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Platform Payment Settings - Global Stripe/PayPal credentials
+export const platformPaymentSettings = pgTable("platform_payment_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stripePublicKey: text("stripe_public_key"),
+  stripeSecretKey: text("stripe_secret_key"),
+  paypalClientId: text("paypal_client_id"),
+  paypalClientSecret: text("paypal_client_secret"),
+  platformFeePercentage: decimal("platform_fee_percentage", { precision: 5, scale: 2 }).default('2.00'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Restaurant Payout Accounts - Bank details for restaurant payouts
+export const restaurantPayoutAccounts = pgTable("restaurant_payout_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().unique().references(() => restaurants.id, { onDelete: 'cascade' }),
+  accountHolderName: varchar("account_holder_name", { length: 255 }),
+  bankName: varchar("bank_name", { length: 255 }),
+  accountNumber: varchar("account_number", { length: 100 }),
+  routingNumber: varchar("routing_number", { length: 50 }),
+  iban: varchar("iban", { length: 50 }),
+  swiftCode: varchar("swift_code", { length: 20 }),
+  country: varchar("country", { length: 100 }),
+  payoutSchedule: varchar("payout_schedule", { length: 20 }).notNull().default('weekly'),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Driver Profiles - Driver information for delivery app
+export const driverProfiles = pgTable("driver_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").unique().references(() => users.id, { onDelete: 'cascade' }),
+  firstName: varchar("first_name", { length: 255 }).notNull(),
+  lastName: varchar("last_name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  vehicleType: varchar("vehicle_type", { length: 50 }),
+  vehiclePlate: varchar("vehicle_plate", { length: 50 }),
+  currentLat: decimal("current_lat", { precision: 10, scale: 7 }),
+  currentLng: decimal("current_lng", { precision: 10, scale: 7 }),
+  isActive: boolean("is_active").notNull().default(true),
+  isAvailable: boolean("is_available").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Driver Wallet Balances - Current balance for each driver
+export const driverWalletBalances = pgTable("driver_wallet_balances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().unique().references(() => driverProfiles.id, { onDelete: 'cascade' }),
+  balance: decimal("balance", { precision: 10, scale: 2 }).notNull().default('0.00'),
+  pendingBalance: decimal("pending_balance", { precision: 10, scale: 2 }).notNull().default('0.00'),
+  lifetimeEarnings: decimal("lifetime_earnings", { precision: 10, scale: 2 }).notNull().default('0.00'),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Earnings Ledger - Per-order payment splits and tracking
+export const earningsLedger = pgTable("earnings_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  driverId: varchar("driver_id").references(() => driverProfiles.id, { onDelete: 'set null' }),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  restaurantShare: decimal("restaurant_share", { precision: 10, scale: 2 }).notNull(),
+  driverShare: decimal("driver_share", { precision: 10, scale: 2 }).default('0.00'),
+  platformFee: decimal("platform_fee", { precision: 10, scale: 2 }).notNull(),
+  paymentProvider: varchar("payment_provider", { length: 50 }).notNull(),
+  paymentIntentId: varchar("payment_intent_id", { length: 255 }),
+  platformCaptureStatus: varchar("platform_capture_status", { length: 50 }).notNull().default('pending'),
+  restaurantPayoutStatus: varchar("restaurant_payout_status", { length: 50 }).notNull().default('pending'),
+  driverPayoutStatus: varchar("driver_payout_status", { length: 50 }).default('pending'),
+  restaurantPaidAt: timestamp("restaurant_paid_at"),
+  driverPaidAt: timestamp("driver_paid_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payout Runs - Batched restaurant payouts
+export const payoutRuns = pgTable("payout_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  payoutProvider: varchar("payout_provider", { length: 50 }).notNull(),
+  payoutTransactionId: varchar("payout_transaction_id", { length: 255 }),
+  status: varchar("status", { length: 50 }).notNull().default('pending'),
+  failureReason: text("failure_reason"),
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payout Run Ledger Entries - Join table for payout runs and earnings ledger
+export const payoutRunLedgerEntries = pgTable("payout_run_ledger_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  payoutRunId: varchar("payout_run_id").notNull().references(() => payoutRuns.id, { onDelete: 'cascade' }),
+  ledgerEntryId: varchar("ledger_entry_id").notNull().references(() => earningsLedger.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Wallet Transactions - Driver wallet credits/debits and payout audit
+export const walletTransactions = pgTable("wallet_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => driverProfiles.id, { onDelete: 'cascade' }),
+  type: varchar("type", { length: 50 }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  balanceBefore: decimal("balance_before", { precision: 10, scale: 2 }).notNull(),
+  balanceAfter: decimal("balance_after", { precision: 10, scale: 2 }).notNull(),
+  relatedOrderId: varchar("related_order_id").references(() => orders.id, { onDelete: 'set null' }),
+  relatedLedgerId: varchar("related_ledger_id").references(() => earningsLedger.id, { onDelete: 'set null' }),
+  payoutTransactionId: varchar("payout_transaction_id", { length: 255 }),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Relations
@@ -289,7 +412,12 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     fields: [orders.tableId],
     references: [tables.id],
   }),
+  assignedDriver: one(driverProfiles, {
+    fields: [orders.assignedDriverId],
+    references: [driverProfiles.id],
+  }),
   items: many(orderItems),
+  ledgerEntry: one(earningsLedger),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
@@ -321,6 +449,79 @@ export const deliveryZonesRelations = relations(deliveryZones, ({ one }) => ({
   restaurant: one(restaurants, {
     fields: [deliveryZones.restaurantId],
     references: [restaurants.id],
+  }),
+}));
+
+export const restaurantPayoutAccountsRelations = relations(restaurantPayoutAccounts, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [restaurantPayoutAccounts.restaurantId],
+    references: [restaurants.id],
+  }),
+}));
+
+export const driverProfilesRelations = relations(driverProfiles, ({ one, many }) => ({
+  user: one(users, {
+    fields: [driverProfiles.userId],
+    references: [users.id],
+  }),
+  walletBalance: one(driverWalletBalances),
+  ledgerEntries: many(earningsLedger),
+  walletTransactions: many(walletTransactions),
+}));
+
+export const driverWalletBalancesRelations = relations(driverWalletBalances, ({ one }) => ({
+  driver: one(driverProfiles, {
+    fields: [driverWalletBalances.driverId],
+    references: [driverProfiles.id],
+  }),
+}));
+
+export const earningsLedgerRelations = relations(earningsLedger, ({ one }) => ({
+  order: one(orders, {
+    fields: [earningsLedger.orderId],
+    references: [orders.id],
+  }),
+  restaurant: one(restaurants, {
+    fields: [earningsLedger.restaurantId],
+    references: [restaurants.id],
+  }),
+  driver: one(driverProfiles, {
+    fields: [earningsLedger.driverId],
+    references: [driverProfiles.id],
+  }),
+}));
+
+export const payoutRunsRelations = relations(payoutRuns, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [payoutRuns.restaurantId],
+    references: [restaurants.id],
+  }),
+  ledgerEntries: many(payoutRunLedgerEntries),
+}));
+
+export const payoutRunLedgerEntriesRelations = relations(payoutRunLedgerEntries, ({ one }) => ({
+  payoutRun: one(payoutRuns, {
+    fields: [payoutRunLedgerEntries.payoutRunId],
+    references: [payoutRuns.id],
+  }),
+  ledgerEntry: one(earningsLedger, {
+    fields: [payoutRunLedgerEntries.ledgerEntryId],
+    references: [earningsLedger.id],
+  }),
+}));
+
+export const walletTransactionsRelations = relations(walletTransactions, ({ one }) => ({
+  driver: one(driverProfiles, {
+    fields: [walletTransactions.driverId],
+    references: [driverProfiles.id],
+  }),
+  relatedOrder: one(orders, {
+    fields: [walletTransactions.relatedOrderId],
+    references: [orders.id],
+  }),
+  relatedLedger: one(earningsLedger, {
+    fields: [walletTransactions.relatedLedgerId],
+    references: [earningsLedger.id],
   }),
 }));
 
@@ -421,3 +622,62 @@ export const insertDeliveryZoneSchema = createInsertSchema(deliveryZones).omit({
 });
 export type InsertDeliveryZone = z.infer<typeof insertDeliveryZoneSchema>;
 export type DeliveryZone = typeof deliveryZones.$inferSelect;
+
+export const insertPlatformPaymentSettingsSchema = createInsertSchema(platformPaymentSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPlatformPaymentSettings = z.infer<typeof insertPlatformPaymentSettingsSchema>;
+export type PlatformPaymentSettings = typeof platformPaymentSettings.$inferSelect;
+
+export const insertRestaurantPayoutAccountSchema = createInsertSchema(restaurantPayoutAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertRestaurantPayoutAccount = z.infer<typeof insertRestaurantPayoutAccountSchema>;
+export type RestaurantPayoutAccount = typeof restaurantPayoutAccounts.$inferSelect;
+
+export const insertDriverProfileSchema = createInsertSchema(driverProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDriverProfile = z.infer<typeof insertDriverProfileSchema>;
+export type DriverProfile = typeof driverProfiles.$inferSelect;
+
+export const insertDriverWalletBalanceSchema = createInsertSchema(driverWalletBalances).omit({
+  id: true,
+  updatedAt: true,
+});
+export type InsertDriverWalletBalance = z.infer<typeof insertDriverWalletBalanceSchema>;
+export type DriverWalletBalance = typeof driverWalletBalances.$inferSelect;
+
+export const insertEarningsLedgerSchema = createInsertSchema(earningsLedger).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertEarningsLedger = z.infer<typeof insertEarningsLedgerSchema>;
+export type EarningsLedger = typeof earningsLedger.$inferSelect;
+
+export const insertPayoutRunSchema = createInsertSchema(payoutRuns).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPayoutRun = z.infer<typeof insertPayoutRunSchema>;
+export type PayoutRun = typeof payoutRuns.$inferSelect;
+
+export const insertPayoutRunLedgerEntrySchema = createInsertSchema(payoutRunLedgerEntries).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPayoutRunLedgerEntry = z.infer<typeof insertPayoutRunLedgerEntrySchema>;
+export type PayoutRunLedgerEntry = typeof payoutRunLedgerEntries.$inferSelect;
+
+export const insertWalletTransactionSchema = createInsertSchema(walletTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertWalletTransaction = z.infer<typeof insertWalletTransactionSchema>;
+export type WalletTransaction = typeof walletTransactions.$inferSelect;
