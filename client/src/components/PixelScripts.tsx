@@ -69,34 +69,36 @@ export function PixelScripts({
       })(window, document, 'ttq');
     }
 
-    // Google Analytics 4 initialization
-    if (googleAnalyticsId && typeof window !== 'undefined') {
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`;
-      document.head.appendChild(script);
-
+    // Google Analytics 4 and Google Ads initialization
+    if ((googleAnalyticsId || googleAdsId) && typeof window !== 'undefined') {
+      // Initialize dataLayer and gtag globally (only once)
       (window as any).dataLayer = (window as any).dataLayer || [];
-      function gtag(...args: any[]) {
-        (window as any).dataLayer.push(arguments);
+      if (!(window as any).gtag) {
+        (window as any).gtag = function(...args: any[]) {
+          (window as any).dataLayer.push(arguments);
+        };
+        (window as any).gtag('js', new Date());
       }
-      gtag('js', new Date());
-      gtag('config', googleAnalyticsId);
-    }
 
-    // Google Ads initialization
-    if (googleAdsId && typeof window !== 'undefined') {
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = `https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`;
-      document.head.appendChild(script);
-
-      (window as any).dataLayer = (window as any).dataLayer || [];
-      function gtag(...args: any[]) {
-        (window as any).dataLayer.push(arguments);
+      // Load Google Analytics 4 script
+      if (googleAnalyticsId) {
+        const gaScript = document.createElement('script');
+        gaScript.async = true;
+        gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`;
+        document.head.appendChild(gaScript);
+        (window as any).gtag('config', googleAnalyticsId);
       }
-      gtag('js', new Date());
-      gtag('config', googleAdsId);
+
+      // Load Google Ads script (reuse the same gtag loader if GA is already present)
+      if (googleAdsId) {
+        if (!googleAnalyticsId) {
+          const adsScript = document.createElement('script');
+          adsScript.async = true;
+          adsScript.src = `https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`;
+          document.head.appendChild(adsScript);
+        }
+        (window as any).gtag('config', googleAdsId);
+      }
     }
   }, [metaPixelId, tiktokPixelId, googleAnalyticsId, googleAdsId]);
 
