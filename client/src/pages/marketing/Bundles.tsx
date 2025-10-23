@@ -52,7 +52,7 @@ export default function Bundles() {
 
   // Fetch available menu items
   const { data: menuItems = [] } = useQuery<MenuItem[]>({
-    queryKey: ["/api/menu-items"],
+    queryKey: ["/api/menu/items"],
   });
 
   // Filter only available menu items
