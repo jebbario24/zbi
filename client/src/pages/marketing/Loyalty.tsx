@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Award, Users, TrendingUp, Star } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,14 @@ type PointsConfig = {
   minimumRedemption: number;
 };
 
+type ProgramSettings = {
+  enabled: boolean;
+  programName: string;
+  programDescription: string;
+  welcomeBonus: number;
+  autoEnroll: boolean;
+};
+
 export default function Loyalty() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -52,6 +61,14 @@ export default function Loyalty() {
     pointsPerDollar: 10,
     redemptionValue: 1.00,
     minimumRedemption: 100,
+  });
+
+  const [programSettings, setProgramSettings] = useState<ProgramSettings>({
+    enabled: true,
+    programName: "EatOut Rewards",
+    programDescription: "Earn points with every purchase and unlock exclusive rewards",
+    welcomeBonus: 100,
+    autoEnroll: true,
   });
 
   // Edit tier dialog state
@@ -70,6 +87,13 @@ export default function Loyalty() {
     pointsPerDollar: '',
     redemptionValue: '',
     minimumRedemption: '',
+  });
+
+  // Edit program settings dialog state
+  const [editSettingsDialogOpen, setEditSettingsDialogOpen] = useState(false);
+  const [editingSettings, setEditingSettings] = useState<ProgramSettings>(programSettings);
+  const [settingsInputs, setSettingsInputs] = useState({
+    welcomeBonus: '',
   });
 
   const totalMembers = tiers.reduce((sum, t) => sum + t.members, 0);
@@ -204,6 +228,54 @@ export default function Loyalty() {
     setEditingPoints(pointsConfig);
   };
 
+  // Program settings edit handlers
+  const handleEditSettingsClick = () => {
+    setEditingSettings({ ...programSettings });
+    setSettingsInputs({
+      welcomeBonus: programSettings.welcomeBonus.toString(),
+    });
+    setEditSettingsDialogOpen(true);
+  };
+
+  const handleSaveSettingsEdit = () => {
+    // Convert string inputs to numbers
+    const welcomeBonus = parseInt(settingsInputs.welcomeBonus);
+    
+    // Validate
+    if (!editingSettings.programName || editingSettings.programName.trim() === '') {
+      toast({
+        variant: "destructive",
+        title: "Invalid Program Name",
+        description: "Program name is required.",
+      });
+      return;
+    }
+    if (isNaN(welcomeBonus) || welcomeBonus < 0) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Welcome Bonus",
+        description: "Welcome bonus must be a number >= 0.",
+      });
+      return;
+    }
+    
+    setProgramSettings({
+      ...editingSettings,
+      welcomeBonus,
+    });
+    setEditSettingsDialogOpen(false);
+    
+    toast({
+      title: "Settings Updated",
+      description: "Program settings have been updated successfully.",
+    });
+  };
+
+  const handleCancelSettingsEdit = () => {
+    setEditSettingsDialogOpen(false);
+    setEditingSettings(programSettings);
+  };
+
   const colorOptions = [
     { value: 'bg-orange-700', label: 'Orange' },
     { value: 'bg-gray-400', label: 'Gray' },
@@ -224,7 +296,11 @@ export default function Loyalty() {
             Points, tiers, and rewards to keep customers coming back
           </p>
         </div>
-        <Button variant="outline" data-testid="button-loyalty-settings">
+        <Button 
+          variant="outline" 
+          onClick={handleEditSettingsClick}
+          data-testid="button-loyalty-settings"
+        >
           <Settings className="h-4 w-4 mr-2" />
           Settings
         </Button>
@@ -555,6 +631,112 @@ export default function Loyalty() {
             <Button 
               onClick={handleSavePointsEdit}
               data-testid="button-save-points-edit"
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Program Settings Dialog */}
+      <Dialog open={editSettingsDialogOpen} onOpenChange={setEditSettingsDialogOpen}>
+        <DialogContent className="max-w-md" data-testid="dialog-edit-settings">
+          <DialogHeader>
+            <DialogTitle>Program Settings</DialogTitle>
+            <DialogDescription>
+              Configure your loyalty program settings
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="edit-program-enabled">Enable Loyalty Program</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Turn the program on or off for customers
+                  </p>
+                </div>
+                <Switch
+                  id="edit-program-enabled"
+                  checked={editingSettings.enabled}
+                  onCheckedChange={(checked) => setEditingSettings({ ...editingSettings, enabled: checked })}
+                  data-testid="switch-program-enabled"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-program-name">Program Name</Label>
+              <Input
+                id="edit-program-name"
+                value={editingSettings.programName}
+                onChange={(e) => setEditingSettings({ ...editingSettings, programName: e.target.value })}
+                placeholder="EatOut Rewards"
+                data-testid="input-program-name"
+              />
+              <p className="text-xs text-muted-foreground">
+                Display name for your loyalty program
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-program-description">Program Description</Label>
+              <Input
+                id="edit-program-description"
+                value={editingSettings.programDescription}
+                onChange={(e) => setEditingSettings({ ...editingSettings, programDescription: e.target.value })}
+                placeholder="Earn points with every purchase"
+                data-testid="input-program-description"
+              />
+              <p className="text-xs text-muted-foreground">
+                Brief description shown to customers
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-welcome-bonus">Welcome Bonus (points)</Label>
+              <Input
+                id="edit-welcome-bonus"
+                type="number"
+                value={settingsInputs.welcomeBonus}
+                onChange={(e) => setSettingsInputs({ ...settingsInputs, welcomeBonus: e.target.value })}
+                placeholder="100"
+                min="0"
+                data-testid="input-welcome-bonus"
+              />
+              <p className="text-xs text-muted-foreground">
+                Bonus points for new members when they join
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="edit-auto-enroll">Auto-Enroll New Customers</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Automatically add new customers to the program
+                  </p>
+                </div>
+                <Switch
+                  id="edit-auto-enroll"
+                  checked={editingSettings.autoEnroll}
+                  onCheckedChange={(checked) => setEditingSettings({ ...editingSettings, autoEnroll: checked })}
+                  data-testid="switch-auto-enroll"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={handleCancelSettingsEdit}
+              data-testid="button-cancel-settings-edit"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveSettingsEdit}
+              data-testid="button-save-settings-edit"
             >
               Save Changes
             </Button>
