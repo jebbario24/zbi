@@ -12,7 +12,12 @@ import {
   MapPin,
   Palette,
   CreditCard,
-  Building2
+  Building2,
+  Megaphone,
+  Truck,
+  FileText,
+  MessageSquare,
+  DollarSign
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -33,7 +38,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
 import { useNewOrders } from "@/hooks/useNewOrders";
 
-const ownerMenuItems = [
+// Core sections
+const coreItems = [
   {
     titleKey: "navigation.dashboard",
     url: "/dashboard",
@@ -44,11 +50,33 @@ const ownerMenuItems = [
     url: "/orders",
     icon: ShoppingCart,
   },
+];
+
+// Menu & Catalog section
+const menuItems = [
   {
     titleKey: "navigation.menu",
     url: "/menu",
     icon: UtensilsCrossed,
   },
+  {
+    titleKey: "navigation.inventory",
+    url: "/inventory",
+    icon: Package,
+  },
+];
+
+// Marketing section
+const marketingItems = [
+  {
+    titleKey: "Marketing",
+    url: "/marketing",
+    icon: Megaphone,
+  },
+];
+
+// Operations section
+const operationsItems = [
   {
     titleKey: "navigation.reservations",
     url: "/reservations",
@@ -65,20 +93,47 @@ const ownerMenuItems = [
     icon: Users,
   },
   {
-    titleKey: "navigation.inventory",
-    url: "/inventory",
-    icon: Package,
+    titleKey: "Drivers",
+    url: "/drivers",
+    icon: Truck,
   },
   {
     titleKey: "navigation.deliveryZones",
     url: "/delivery-zones",
     icon: MapPin,
   },
+];
+
+// Reports & Payments section
+const reportsItems = [
   {
     titleKey: "navigation.analytics",
     url: "/analytics",
     icon: BarChart3,
   },
+  {
+    titleKey: "Reports",
+    url: "/reports",
+    icon: FileText,
+  },
+  {
+    titleKey: "Payouts",
+    url: "/payouts",
+    icon: DollarSign,
+  },
+];
+
+// Customer section
+const customerItems = [
+  {
+    titleKey: "Inbox",
+    url: "/inbox",
+    icon: MessageSquare,
+  },
+];
+
+// Store section
+const storeItems = [
   {
     titleKey: "navigation.onlineStore",
     url: "/online-store",
@@ -106,8 +161,40 @@ export function AppSidebar() {
   const { newOrdersCount } = useNewOrders();
   
   const isAdmin = user?.role === 'admin';
-  const menuItems = isAdmin ? adminMenuItems : ownerMenuItems;
   const homeUrl = isAdmin ? "/admin" : "/dashboard";
+
+  const renderMenuGroup = (items: typeof coreItems, label?: string) => (
+    <SidebarGroup>
+      {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => (
+            <SidebarMenuItem key={item.url}>
+              <SidebarMenuButton 
+                asChild
+                isActive={location === item.url || location.startsWith(item.url + '/')}
+                data-testid={`link-${item.titleKey.includes('.') ? item.titleKey.split('.').pop() : item.titleKey.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                <Link href={item.url}>
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.titleKey.includes('.') ? t(item.titleKey) : item.titleKey}</span>
+                  {item.url === '/orders' && newOrdersCount > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="ml-auto h-5 w-5 flex items-center justify-center p-0 rounded-full text-xs"
+                      data-testid="badge-new-orders"
+                    >
+                      {newOrdersCount}
+                    </Badge>
+                  )}
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
 
   return (
     <Sidebar>
@@ -123,38 +210,19 @@ export function AppSidebar() {
       </SidebarHeader>
       
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>
-            {isAdmin ? t('navigation.platformManagement') : t('navigation.restaurantManagement')}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton 
-                    asChild
-                    isActive={location === item.url}
-                    data-testid={`link-${item.titleKey.includes('.') ? item.titleKey.split('.').pop() : item.titleKey.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.titleKey.includes('.') ? t(item.titleKey) : item.titleKey}</span>
-                      {item.url === '/orders' && newOrdersCount > 0 && (
-                        <Badge 
-                          variant="destructive" 
-                          className="ml-auto h-5 w-5 flex items-center justify-center p-0 rounded-full text-xs"
-                          data-testid="badge-new-orders"
-                        >
-                          {newOrdersCount}
-                        </Badge>
-                      )}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {isAdmin ? (
+          renderMenuGroup(adminMenuItems, t('navigation.platformManagement'))
+        ) : (
+          <>
+            {renderMenuGroup(coreItems)}
+            {renderMenuGroup(menuItems, "Menu & Catalog")}
+            {renderMenuGroup(marketingItems, "Marketing")}
+            {renderMenuGroup(operationsItems, "Operations")}
+            {renderMenuGroup(reportsItems, "Reports & Finance")}
+            {renderMenuGroup(customerItems, "Customer")}
+            {renderMenuGroup(storeItems, "Online Store")}
+          </>
+        )}
 
         {!isAdmin && (
           <SidebarGroup>

@@ -32,6 +32,19 @@ import Billing from "@/pages/Billing";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminRestaurants from "@/pages/AdminRestaurants";
 import NotFound from "@/pages/not-found";
+import Marketing from "@/pages/marketing/Marketing";
+import Promos from "@/pages/marketing/Promos";
+import Campaigns from "@/pages/marketing/Campaigns";
+import Loyalty from "@/pages/marketing/Loyalty";
+import Boosts from "@/pages/marketing/Boosts";
+import Upsells from "@/pages/marketing/Upsells";
+import Messages from "@/pages/marketing/Messages";
+import Social from "@/pages/marketing/Social";
+import Bundles from "@/pages/marketing/Bundles";
+import Drivers from "@/pages/Drivers";
+import Reports from "@/pages/Reports";
+import Inbox from "@/pages/Inbox";
+import Payouts from "@/pages/Payouts";
 
 function PublicRouter() {
   return (
@@ -79,6 +92,19 @@ function AuthenticatedRouter() {
       <Route path="/online-store" component={OnlineStore} />
       <Route path="/settings" component={Settings} />
       <Route path="/pos" component={POS} />
+      <Route path="/marketing" component={Marketing} />
+      <Route path="/marketing/promos" component={Promos} />
+      <Route path="/marketing/campaigns" component={Campaigns} />
+      <Route path="/marketing/loyalty" component={Loyalty} />
+      <Route path="/marketing/boosts" component={Boosts} />
+      <Route path="/marketing/upsells" component={Upsells} />
+      <Route path="/marketing/messages" component={Messages} />
+      <Route path="/marketing/social" component={Social} />
+      <Route path="/marketing/bundles" component={Bundles} />
+      <Route path="/drivers" component={Drivers} />
+      <Route path="/reports" component={Reports} />
+      <Route path="/inbox" component={Inbox} />
+      <Route path="/payouts" component={Payouts} />
       <Route component={NotFound} />
     </Switch>
   );
