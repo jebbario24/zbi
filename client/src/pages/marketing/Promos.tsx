@@ -134,7 +134,7 @@ export default function Promos() {
   // Update promo mutation
   const updatePromoMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return await apiRequest(`/api/promos/${id}`, 'PATCH', data);
+      return await apiRequest(`/api/promos/${id}`, 'PUT', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/promos'] });
