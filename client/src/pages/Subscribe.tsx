@@ -125,53 +125,103 @@ export default function Subscribe() {
     );
   }
 
-  // Show sign-in prompt for unauthenticated users
+  // Show plan selection for unauthenticated users
   if (!isAuthenticated) {
+    const features = [
+      "Complete restaurant management platform",
+      "Online ordering with custom domain",
+      "Payment processing (Stripe, PayPal, Apple Pay, Google Pay)",
+      "Real-time analytics and reports",
+      "Menu, orders, tables, staff, and inventory management"
+    ];
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-background flex items-center justify-center p-6">
-        <Card className="max-w-2xl w-full">
-          <CardHeader className="text-center space-y-4">
-            <CardTitle className="text-3xl font-display">Subscribe to EatOut</CardTitle>
-            <CardDescription className="text-lg">
-              Sign in to start your 7-day free trial and unlock all features
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="bg-primary/10 p-6 rounded-lg space-y-4">
-              <p className="text-2xl font-bold text-primary">$79/month</p>
-              <p className="text-sm text-muted-foreground">7-day free trial included</p>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                "Complete restaurant management platform",
-                "Online ordering with custom domain",
-                "Payment processing (Stripe, PayPal, Apple Pay, Google Pay)",
-                "Real-time analytics and reports",
-                "Menu, orders, tables, staff, and inventory management"
-              ].map((feature, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <p className="text-sm">{feature}</p>
-                </div>
-              ))}
-            </div>
-
-            <Button 
-              size="lg" 
-              className="w-full"
-              onClick={() => window.location.href = '/login'}
-              data-testid="button-signin-to-subscribe"
-            >
-              <LogIn className="mr-2 h-5 w-5" />
-              Sign In to Subscribe
-            </Button>
-
-            <p className="text-sm text-center text-muted-foreground">
-              New to EatOut? Signing in will create your account automatically.
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-background p-6">
+        <div className="max-w-6xl mx-auto space-y-6 py-12">
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-display font-bold">Subscribe to EatOut</h1>
+            <p className="text-lg text-muted-foreground">
+              Choose your plan and sign in to get started
             </p>
-          </CardContent>
-        </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto mt-12">
+            {/* Plan 1: With Trial */}
+            <Card className="relative border-2 border-primary">
+              <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
+                Recommended
+              </Badge>
+              <CardHeader>
+                <CardTitle className="text-2xl">Standard Plan</CardTitle>
+                <CardDescription className="text-lg">For Restaurants</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="bg-primary/10 p-6 rounded-lg space-y-2">
+                  <p className="text-3xl font-bold text-primary">7-day free trial</p>
+                  <p className="text-2xl font-semibold">$79/month</p>
+                  <p className="text-sm text-muted-foreground">after trial period</p>
+                </div>
+
+                <div className="space-y-3">
+                  {features.map((feature, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <p className="text-sm">{feature}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={() => window.location.href = '/login'}
+                  data-testid="button-select-plan-trial"
+                >
+                  <LogIn className="mr-2 h-5 w-5" />
+                  Sign In to Choose
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Plan 2: Immediate */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl">Immediate Access Plan</CardTitle>
+                <CardDescription className="text-lg">For Restaurants</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="bg-primary/10 p-6 rounded-lg space-y-2">
+                  <p className="text-3xl font-bold text-primary">$79/month</p>
+                  <p className="text-sm text-muted-foreground">Start immediately - No trial</p>
+                </div>
+
+                <div className="space-y-3">
+                  {features.map((feature, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <p className="text-sm">{feature}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  variant="outline"
+                  onClick={() => window.location.href = '/login'}
+                  data-testid="button-select-plan-immediate"
+                >
+                  <LogIn className="mr-2 h-5 w-5" />
+                  Sign In to Choose
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <p className="text-sm text-center text-muted-foreground mt-8">
+            New to EatOut? Signing in will create your account automatically.
+          </p>
+        </div>
       </div>
     );
   }
