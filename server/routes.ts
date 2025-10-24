@@ -476,7 +476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })(req, res, next);
   });
 
-  // Google OAuth routes
+  // Google OAuth routes (Restaurant Owners)
   app.get('/api/auth/google',
     passport.authenticate('google', { scope: ['profile', 'email'] })
   );
@@ -486,6 +486,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     (req, res) => {
       // Successful authentication, redirect to dashboard
       res.redirect('/dashboard');
+    }
+  );
+
+  // Google OAuth routes (Drivers)
+  app.get('/api/auth/google/driver',
+    passport.authenticate('google-driver', { scope: ['profile', 'email'] })
+  );
+
+  app.get('/api/auth/google/driver/callback',
+    passport.authenticate('google-driver', { failureRedirect: '/driver/login?error=auth_failed' }),
+    (req, res) => {
+      // Successful authentication, redirect to driver dashboard
+      res.redirect('/driver/dashboard');
     }
   );
 

@@ -59,9 +59,10 @@ passport.use(
   )
 );
 
-// Google OAuth Strategy
+// Google OAuth Strategy (Restaurant Owners)
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(
+    'google',
     new GoogleStrategy(
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
@@ -130,6 +131,84 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           return done(null, user);
         } catch (error) {
           return done(error as Error);
+        }
+      }
+    )
+  );
+
+  // Google OAuth Strategy (Drivers)
+  passport.use(
+    'google-driver',
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: '/api/auth/google/driver/callback',
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          const email = profile.emails?.[0]?.value;
+          if (!email) {
+            return done(null, false, { message: 'No email provided by Google' });
+          }
+
+          // Check if user exists with this Google ID
+          let user = await db.query.users.findFirst({
+            where: eq(users.googleId, profile.id),
+          });
+
+          if (!user) {
+            // Check if user exists with this email
+            user = await db.query.users.findFirst({
+              where: eq(users.email, email.toLowerCase()),
+            });
+
+            if (user) {
+              // Verify user has driver role before linking
+              if (user.role !== 'driver') {
+                return done(null, false, { message: 'This account is not registered as a driver. Please apply at /driver-signup first.' });
+              }
+
+              // Link Google account to existing driver user
+              await db
+                .update(users)
+                .set({
+                  googleId: profile.id,
+                  profileImageUrl: profile.photos?.[0]?.value || null,
+                })
+                .where(eq(users.id, user.id));
+              
+              user.googleId = profile.id;
+              user.profileImageUrl = profile.photos?.[0]?.value || null;
+            }
+          }
+
+          if (!user) {
+            // Create new driver user
+            const [newUser] = await db
+              .insert(users)
+              .values({
+                email: email.toLowerCase(),
+                googleId: profile.id,
+                firstName: profile.name?.givenName || null,
+                lastName: profile.name?.familyName || null,
+                profileImageUrl: profile.photos?.[0]?.value || null,
+                role: 'driver',
+              })
+              .returning();
+
+            user = newUser;
+          }
+
+          // Double-check user has driver role
+          if (user.role !== 'driver') {
+            return done(null, false, { message: 'This account is not registered as a driver. Please apply at /driver-signup first.' });
+          }
+
+          return done(null, user);
+        } catch (error) {
+          console.error('Driver OAuth error:', error);
+          return done(null, false, { message: 'Authentication failed. Please try again.' });
         }
       }
     )

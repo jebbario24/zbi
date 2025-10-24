@@ -576,6 +576,28 @@ export default function DriverSignup() {
                     <p className="text-xs text-muted-foreground text-center mt-4">
                       By submitting this form, you agree to our terms and conditions
                     </p>
+                    
+                    <div className="relative mt-6">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-card px-2 text-muted-foreground">
+                          Already have an account?
+                        </span>
+                      </div>
+                    </div>
+
+                    <Link href="/driver/login">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full mt-2"
+                        data-testid="button-driver-login-link"
+                      >
+                        Sign in as driver
+                      </Button>
+                    </Link>
                   </div>
                 </form>
               </Form>
