@@ -1032,90 +1032,19 @@ export default function OnlineStore() {
         </CardContent>
       </Card>
 
-      {/* Payout Configuration Section */}
+      {/* Payout Preferences Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Bank Account & Payout Settings</CardTitle>
-          <CardDescription>Configure where you want to receive your earnings (daily or weekly payouts)</CardDescription>
+          <CardTitle>Payout Preferences</CardTitle>
+          <CardDescription>Choose how frequently you want to receive your earnings</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="account-holder">Account Holder Name</Label>
-              <Input
-                id="account-holder"
-                value={payoutSettings.accountHolderName}
-                onChange={(e) => setPayoutSettings(prev => ({ ...prev, accountHolderName: e.target.value }))}
-                placeholder="John Doe"
-                data-testid="input-account-holder"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bank-name">Bank Name</Label>
-              <Input
-                id="bank-name"
-                value={payoutSettings.bankName}
-                onChange={(e) => setPayoutSettings(prev => ({ ...prev, bankName: e.target.value }))}
-                placeholder="Bank of America"
-                data-testid="input-bank-name"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="account-number">Account Number</Label>
-              <Input
-                id="account-number"
-                value={payoutSettings.accountNumber}
-                onChange={(e) => setPayoutSettings(prev => ({ ...prev, accountNumber: e.target.value }))}
-                placeholder="1234567890"
-                data-testid="input-account-number"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="routing-number">Routing Number (US Only)</Label>
-              <Input
-                id="routing-number"
-                value={payoutSettings.routingNumber}
-                onChange={(e) => setPayoutSettings(prev => ({ ...prev, routingNumber: e.target.value }))}
-                placeholder="021000021"
-                data-testid="input-routing-number"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="iban">IBAN (International)</Label>
-              <Input
-                id="iban"
-                value={payoutSettings.iban}
-                onChange={(e) => setPayoutSettings(prev => ({ ...prev, iban: e.target.value }))}
-                placeholder="GB82 WEST 1234 5698 7654 32"
-                data-testid="input-iban"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="swift-code">SWIFT/BIC Code</Label>
-              <Input
-                id="swift-code"
-                value={payoutSettings.swiftCode}
-                onChange={(e) => setPayoutSettings(prev => ({ ...prev, swiftCode: e.target.value }))}
-                placeholder="BOFAUS3N"
-                data-testid="input-swift-code"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bank-country">Bank Country</Label>
-            <Input
-              id="bank-country"
-              value={payoutSettings.country}
-              onChange={(e) => setPayoutSettings(prev => ({ ...prev, country: e.target.value }))}
-              placeholder="United States"
-              data-testid="input-bank-country"
-            />
+          <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+            <p className="text-sm font-medium">Bank Account Connection</p>
+            <p className="text-sm text-muted-foreground">
+              Connect your bank account securely through Stripe in the <strong>Settings</strong> page. 
+              Your bank details are never stored on our platform - Stripe handles all verification and payouts directly to your bank.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -1140,18 +1069,18 @@ export default function OnlineStore() {
             </div>
             <p className="text-sm text-muted-foreground">
               {payoutSettings.payoutSchedule === "daily" 
-                ? "You'll receive payouts every day" 
-                : "You'll receive payouts every Monday"}
+                ? "You'll receive payouts every day (minimum $10)" 
+                : "You'll receive payouts every Monday (minimum $10)"}
             </p>
           </div>
 
           <Button 
-            onClick={() => payoutSettingsMutation.mutate(payoutSettings)}
+            onClick={() => payoutSettingsMutation.mutate({ payoutSchedule: payoutSettings.payoutSchedule })}
             disabled={payoutSettingsMutation.isPending}
             data-testid="button-save-payout-settings"
           >
             <Save className="mr-2 h-4 w-4" />
-            Save Bank Account
+            Save Payout Schedule
           </Button>
         </CardContent>
       </Card>
