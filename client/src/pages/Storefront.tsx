@@ -1632,29 +1632,29 @@ export default function Storefront() {
                           {/* Marketing Badges: Scarcity & Social Proof */}
                           <div className="mt-3 space-y-2">
                             {/* Scarcity Notice Badge */}
-                            {item.marketingTactics?.enableScarcityNotice && 
+                            {(item.marketingTactics as any)?.enableScarcityNotice && 
                              item.stockCount !== null && 
                              item.stockCount !== undefined && 
-                             item.stockCount <= (item.marketingTactics?.scarcityThreshold || 5) && (
+                             item.stockCount <= ((item.marketingTactics as any)?.scarcityThreshold || 5) && (
                               <Badge 
                                 className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800"
                                 data-testid={`badge-scarcity-${item.id}`}
                               >
                                 <AlertCircle className="h-3 w-3 mr-1" />
-                                {item.marketingTactics?.scarcityMessage?.replace('X', item.stockCount.toString()) || 
+                                {(item.marketingTactics as any)?.scarcityMessage?.replace('X', item.stockCount.toString()) || 
                                  `Only ${item.stockCount} left in stock!`}
                               </Badge>
                             )}
 
                             {/* Social Proof Badge */}
-                            {item.marketingTactics?.enableSocialProof && (
+                            {(item.marketingTactics as any)?.enableSocialProof && (
                               <Badge 
                                 className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
                                 data-testid={`badge-social-proof-${item.id}`}
                               >
                                 <Users className="h-3 w-3 mr-1" />
-                                {item.marketingTactics?.socialProofMessage?.replace('X', (item.marketingTactics?.socialProofCount || 0).toString()) || 
-                                 `${item.marketingTactics?.socialProofCount || 0} people ordered this`}
+                                {(item.marketingTactics as any)?.socialProofMessage?.replace('X', ((item.marketingTactics as any)?.socialProofCount || 0).toString()) || 
+                                 `${(item.marketingTactics as any)?.socialProofCount || 0} people ordered this`}
                               </Badge>
                             )}
                           </div>
@@ -1786,29 +1786,29 @@ export default function Storefront() {
                     {/* Marketing Badges: Scarcity & Social Proof */}
                     <div className="mt-3 space-y-2">
                       {/* Scarcity Notice Badge */}
-                      {item.marketingTactics?.enableScarcityNotice && 
+                      {(item.marketingTactics as any)?.enableScarcityNotice && 
                        item.stockCount !== null && 
                        item.stockCount !== undefined && 
-                       item.stockCount <= (item.marketingTactics?.scarcityThreshold || 5) && (
+                       item.stockCount <= ((item.marketingTactics as any)?.scarcityThreshold || 5) && (
                         <Badge 
                           className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800"
                           data-testid={`badge-scarcity-${item.id}`}
                         >
                           <AlertCircle className="h-3 w-3 mr-1" />
-                          {item.marketingTactics?.scarcityMessage?.replace('X', item.stockCount.toString()) || 
+                          {(item.marketingTactics as any)?.scarcityMessage?.replace('X', item.stockCount.toString()) || 
                            `Only ${item.stockCount} left in stock!`}
                         </Badge>
                       )}
 
                       {/* Social Proof Badge */}
-                      {item.marketingTactics?.enableSocialProof && (
+                      {(item.marketingTactics as any)?.enableSocialProof && (
                         <Badge 
                           className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
                           data-testid={`badge-social-proof-${item.id}`}
                         >
                           <Users className="h-3 w-3 mr-1" />
-                          {item.marketingTactics?.socialProofMessage?.replace('X', (item.marketingTactics?.socialProofCount || 0).toString()) || 
-                           `${item.marketingTactics?.socialProofCount || 0} people ordered this`}
+                          {(item.marketingTactics as any)?.socialProofMessage?.replace('X', ((item.marketingTactics as any)?.socialProofCount || 0).toString()) || 
+                           `${(item.marketingTactics as any)?.socialProofCount || 0} people ordered this`}
                         </Badge>
                       )}
                     </div>
