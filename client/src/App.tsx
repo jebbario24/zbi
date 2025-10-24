@@ -34,6 +34,8 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import AdminRestaurants from "@/pages/AdminRestaurants";
 import AdminDrivers from "@/pages/AdminDrivers";
 import AdminSubscriptions from "@/pages/AdminSubscriptions";
+import AdminSettings from "@/pages/AdminSettings";
+import AdminFinancials from "@/pages/AdminFinancials";
 import NotFound from "@/pages/not-found";
 import Marketing from "@/pages/marketing/Marketing";
 import Promos from "@/pages/marketing/Promos";
@@ -79,6 +81,8 @@ function AuthenticatedRouter() {
         <Route path="/admin/restaurants" component={AdminRestaurants} />
         <Route path="/admin/drivers" component={AdminDrivers} />
         <Route path="/admin/subscriptions" component={AdminSubscriptions} />
+        <Route path="/admin/financials" component={AdminFinancials} />
+        <Route path="/admin/settings" component={AdminSettings} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>

@@ -4207,6 +4207,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get financial dashboard data
+  app.get('/api/admin/financials', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const summary = await storage.getFinancialSummary();
+      const restaurantBreakdown = await storage.getRestaurantFinancialBreakdown();
+      const recentPayouts = await storage.getRecentPayoutRuns(20);
+
+      res.json({
+        totalRevenue: summary.totalRevenue,
+        totalCommissions: summary.totalCommissions,
+        totalPayouts: summary.totalPayouts,
+        pendingPayouts: summary.pendingPayouts,
+        restaurantBreakdown,
+        recentPayouts,
+      });
+    } catch (error) {
+      console.error("Error fetching financial data:", error);
+      res.status(500).json({ message: "Failed to fetch financial data" });
+    }
+  });
+
   // Admin: Get all drivers
   app.get('/api/admin/drivers', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
@@ -4337,6 +4358,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error revoking manual access:", error);
       res.status(500).json({ message: "Failed to revoke manual access" });
+    }
+  });
+
+  // Admin: Get all platform settings
+  app.get('/api/admin/settings', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const settings = await storage.getPlatformSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching platform settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  // Admin: Update platform setting
+  app.patch('/api/admin/settings/:key', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+      
+      if (value === undefined || value === null) {
+        return res.status(400).json({ message: "Value is required" });
+      }
+      
+      const updated = await storage.updatePlatformSetting(key, String(value), req.user.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating platform setting:", error);
+      res.status(500).json({ message: "Failed to update setting" });
     }
   });
 

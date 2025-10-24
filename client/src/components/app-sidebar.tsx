@@ -173,6 +173,16 @@ const adminMenuItems = [
     url: "/admin/subscriptions",
     icon: CreditCard,
   },
+  {
+    titleKey: "Financials",
+    url: "/admin/financials",
+    icon: DollarSign,
+  },
+  {
+    titleKey: "Platform Settings",
+    url: "/admin/settings",
+    icon: Settings,
+  },
 ];
 
 export function AppSidebar({ side }: { side?: "left" | "right" }) {

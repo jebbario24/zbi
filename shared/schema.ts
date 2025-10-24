@@ -133,6 +133,20 @@ export const restaurants = pgTable("restaurants", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Platform Settings - Admin-controlled global settings
+export const platformSettings = pgTable("platform_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value").notNull(),
+  valueType: varchar("value_type", { length: 50 }).notNull().default('string'), // string, number, boolean, json
+  description: text("description"),
+  category: varchar("category", { length: 100 }).default('general'), // general, billing, features, limits
+  isEditable: boolean("is_editable").notNull().default(true),
+  updatedBy: varchar("updated_by"), // Admin user ID who last updated
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Menus - Menu grouping (Breakfast, Lunch, Dinner, etc.)
 export const menus = pgTable("menus", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

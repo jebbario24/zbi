@@ -1,6 +1,7 @@
 import {
   users,
   restaurants,
+  platformSettings,
   menuCategories,
   menuItems,
   tables,
@@ -167,6 +168,16 @@ export interface IStorage {
   getAllRestaurants(): Promise<(Restaurant & { owner: User })[]>;
   getAllUsers(): Promise<User[]>;
   updateUserRole(userId: string, role: string): Promise<User>;
+  
+  // Platform Settings operations
+  getPlatformSettings(): Promise<any[]>;
+  getPlatformSetting(key: string): Promise<any | undefined>;
+  updatePlatformSetting(key: string, value: string, updatedBy: string): Promise<any>;
+  
+  // Admin Financial Dashboard operations
+  getFinancialSummary(): Promise<{ totalRevenue: string; totalCommissions: string; totalPayouts: string; pendingPayouts: string }>;
+  getRestaurantFinancialBreakdown(): Promise<Array<{ restaurantId: string; restaurantName: string; totalOrders: number; totalRevenue: string; commissionEarned: string; lastPayoutDate: Date | null }>>;
+  getRecentPayoutRuns(limit: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -597,6 +608,32 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ role, updatedAt: new Date() })
       .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  // Platform Settings operations
+  async getPlatformSettings(): Promise<any[]> {
+    const settings = await db
+      .select()
+      .from(platformSettings)
+      .orderBy(asc(platformSettings.category), asc(platformSettings.key));
+    return settings;
+  }
+
+  async getPlatformSetting(key: string): Promise<any | undefined> {
+    const [setting] = await db
+      .select()
+      .from(platformSettings)
+      .where(eq(platformSettings.key, key));
+    return setting;
+  }
+
+  async updatePlatformSetting(key: string, value: string, updatedBy: string): Promise<any> {
+    const [updated] = await db
+      .update(platformSettings)
+      .set({ value, updatedBy, updatedAt: new Date() })
+      .where(eq(platformSettings.key, key))
       .returning();
     return updated;
   }
@@ -1124,6 +1161,111 @@ export class DatabaseStorage implements IStorage {
       .update(bundlesTable)
       .set({ sales: sql`${bundlesTable.sales} + ${quantity}` })
       .where(eq(bundlesTable.id, id));
+  }
+
+  // Admin Financial Dashboard operations
+  async getFinancialSummary(): Promise<{ totalRevenue: string; totalCommissions: string; totalPayouts: string; pendingPayouts: string }> {
+    const COMMISSION_RATE = 0.02;
+
+    const [revenueResult] = await db
+      .select({
+        totalRevenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+      })
+      .from(orders)
+      .where(eq(orders.paymentStatus, 'paid'));
+
+    const totalRevenue = parseFloat(revenueResult?.totalRevenue || '0');
+    const totalCommissions = (totalRevenue * COMMISSION_RATE).toFixed(2);
+
+    // Sum restaurant payout amounts (not platform fee) for paid payouts
+    const [payoutsResult] = await db
+      .select({
+        totalPayouts: sql<string>`COALESCE(SUM(${earningsLedger.restaurantPayout}), 0)`,
+      })
+      .from(earningsLedger)
+      .where(eq(earningsLedger.restaurantPayoutStatus, 'paid'));
+
+    // Sum restaurant payout amounts (not platform fee) for pending payouts
+    const [pendingResult] = await db
+      .select({
+        pendingPayouts: sql<string>`COALESCE(SUM(${earningsLedger.restaurantPayout}), 0)`,
+      })
+      .from(earningsLedger)
+      .where(eq(earningsLedger.restaurantPayoutStatus, 'pending'));
+
+    return {
+      totalRevenue: totalRevenue.toFixed(2),
+      totalCommissions,
+      totalPayouts: payoutsResult?.totalPayouts || '0',
+      pendingPayouts: pendingResult?.pendingPayouts || '0',
+    };
+  }
+
+  async getRestaurantFinancialBreakdown(): Promise<Array<{ restaurantId: string; restaurantName: string; totalOrders: number; totalRevenue: string; commissionEarned: string; lastPayoutDate: Date | null }>> {
+    const COMMISSION_RATE = 0.02;
+
+    const breakdown = await db
+      .select({
+        restaurantId: restaurants.id,
+        restaurantName: restaurants.name,
+        totalOrders: sql<number>`COUNT(DISTINCT ${orders.id})::int`,
+        totalRevenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+      })
+      .from(restaurants)
+      .leftJoin(orders, and(
+        eq(orders.restaurantId, restaurants.id),
+        eq(orders.paymentStatus, 'paid')
+      ))
+      .groupBy(restaurants.id, restaurants.name);
+
+    const result = await Promise.all(
+      breakdown.map(async (item) => {
+        const revenue = parseFloat(item.totalRevenue);
+        const commission = (revenue * COMMISSION_RATE).toFixed(2);
+
+        const [lastPayout] = await db
+          .select({ completedAt: payoutRuns.completedAt })
+          .from(payoutRuns)
+          .where(and(
+            eq(payoutRuns.restaurantId, item.restaurantId),
+            eq(payoutRuns.status, 'completed')
+          ))
+          .orderBy(desc(payoutRuns.completedAt))
+          .limit(1);
+
+        return {
+          restaurantId: item.restaurantId,
+          restaurantName: item.restaurantName,
+          totalOrders: item.totalOrders,
+          totalRevenue: revenue.toFixed(2),
+          commissionEarned: commission,
+          lastPayoutDate: lastPayout?.completedAt || null,
+        };
+      })
+    );
+
+    return result;
+  }
+
+  async getRecentPayoutRuns(limit: number): Promise<any[]> {
+    const runs = await db
+      .select({
+        id: payoutRuns.id,
+        restaurantId: payoutRuns.restaurantId,
+        restaurantName: restaurants.name,
+        totalAmount: payoutRuns.totalAmount,
+        status: payoutRuns.status,
+        payoutTransactionId: payoutRuns.payoutTransactionId,
+        scheduledFor: payoutRuns.scheduledFor,
+        completedAt: payoutRuns.completedAt,
+        createdAt: payoutRuns.createdAt,
+      })
+      .from(payoutRuns)
+      .leftJoin(restaurants, eq(payoutRuns.restaurantId, restaurants.id))
+      .orderBy(desc(payoutRuns.createdAt))
+      .limit(limit);
+
+    return runs;
   }
 }
 
