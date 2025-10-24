@@ -46,6 +46,18 @@ Preferred communication style: Simple, everyday language.
 - **Global Delivery:** Expanded delivery zones to include 209 countries and territories.
 - **Storefront Boosts Integration:** Active boosted items from the admin dashboard are prominently displayed on the storefront with a "Featured" badge.
 - **Storefront Promo Codes Integration:** Active promo codes are displayed on the storefront via an "Active Promos Banner" with copy-to-clipboard functionality.
+- **Driver Delivery Portal:** Comprehensive web-based Progressive Web App (PWA) for delivery drivers featuring driver application system, order management, delivery tracking, and earnings calculation. Platform-wide driver pool serves all restaurants with real-time synchronization between driver actions and restaurant dashboards.
+
+### Driver Portal Architecture
+- **Driver Application System:** Public-facing driver signup page at `/driver-signup` with comprehensive application form collecting personal info, driver's license, vehicle details, emergency contacts, and bank account information for payouts. ID proof and insurance documents stored securely in private object storage.
+- **Application Review Workflow:** Platform admin reviews pending applications (`/api/driver/applications/pending`) with ability to approve or reject applications. Only approved drivers can access the driver portal and accept deliveries.
+- **Driver Authentication:** Drivers with approved applications can log in and access their dashboard. Session-based authentication verifies driver status and role.
+- **Order Assignment:** Restaurant owners assign available drivers to delivery orders via dropdown in Orders page. Assignment creates real-time connection between driver and order, visible in both restaurant and driver interfaces.
+- **Delivery Tracking:** Drivers update order status (picked up, on the way, delivered) with timestamps automatically synced to restaurant dashboard. Optional GPS location tracking stores driver position history in order record for restaurant visibility.
+- **Earnings System:** Driver earnings automatically calculated from delivery fees (100% of delivery fee goes to driver). Integrated with existing Stripe Connect payout infrastructure for automated weekly/daily payouts.
+- **Real-time Synchronization:** All driver actions (status updates, location tracking, order acceptance) instantly reflect in restaurant owner dashboard through shared database queries. No polling required - updates happen on next data fetch.
+- **Progressive Web App (PWA):** Driver portal installable as app on mobile devices with offline support, push notifications for new delivery assignments, and access to phone features (GPS, camera for proof of delivery).
+- **Security & Authorization:** Driver tracking endpoint verifies driver is assigned to order before allowing updates. Restaurant owner endpoints verify restaurant ownership before driver assignment. Server-side validation on all driver application submissions.
 
 ### System Design Choices
 - **Database:** Neon Serverless PostgreSQL with Drizzle ORM.

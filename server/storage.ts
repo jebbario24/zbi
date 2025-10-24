@@ -146,6 +146,16 @@ export interface IStorage {
   // Driver operations
   getAllDrivers(): Promise<DriverProfile[]>;
   getDriver(id: string): Promise<DriverProfile | undefined>;
+  getDriverByUserId(userId: string): Promise<DriverProfile | undefined>;
+  getDriverByEmail(email: string): Promise<DriverProfile | undefined>;
+  createDriverApplication(application: Partial<DriverProfile>): Promise<DriverProfile>;
+  updateDriverProfile(id: string, data: Partial<DriverProfile>): Promise<DriverProfile>;
+  getPendingDriverApplications(): Promise<DriverProfile[]>;
+  approveDriverApplication(driverId: string, approvedBy: string): Promise<DriverProfile>;
+  rejectDriverApplication(driverId: string, reason: string): Promise<DriverProfile>;
+  getDriverOrders(driverId: string): Promise<Order[]>;
+  updateOrderDeliveryTracking(orderId: string, data: { pickupTime?: Date; deliveryTime?: Date; driverLocation?: any }): Promise<Order>;
+  assignDriverToOrder(orderId: string, driverId: string): Promise<Order>;
   updateDriverAvailability(id: string, isAvailable: boolean): Promise<DriverProfile>;
   getDriverAssignments(): Promise<(Order & { driver?: DriverProfile })[]>;
   getDriverPerformance(): Promise<{ driverId: string; driver: DriverProfile; deliveries: number; earnings: string; rating: string }[]>;
@@ -769,6 +779,131 @@ export class DatabaseStorage implements IStorage {
       earnings: p.earnings,
       rating: '4.8' // Placeholder - would need a ratings table
     }));
+  }
+
+  async getDriverByUserId(userId: string): Promise<DriverProfile | undefined> {
+    const [driver] = await db.select().from(driverProfiles).where(eq(driverProfiles.userId, userId));
+    return driver;
+  }
+
+  async getDriverByEmail(email: string): Promise<DriverProfile | undefined> {
+    const [driver] = await db.select().from(driverProfiles).where(eq(driverProfiles.email, email));
+    return driver;
+  }
+
+  async createDriverApplication(application: Partial<DriverProfile>): Promise<DriverProfile> {
+    const [created] = await db
+      .insert(driverProfiles)
+      .values({
+        ...application,
+        applicationStatus: 'pending',
+        isActive: false,
+        isAvailable: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any)
+      .returning();
+    return created;
+  }
+
+  async updateDriverProfile(id: string, data: Partial<DriverProfile>): Promise<DriverProfile> {
+    const [updated] = await db
+      .update(driverProfiles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(driverProfiles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getPendingDriverApplications(): Promise<DriverProfile[]> {
+    const pending = await db
+      .select()
+      .from(driverProfiles)
+      .where(eq(driverProfiles.applicationStatus, 'pending'))
+      .orderBy(driverProfiles.createdAt);
+    return pending;
+  }
+
+  async approveDriverApplication(driverId: string, approvedBy: string): Promise<DriverProfile> {
+    const [approved] = await db
+      .update(driverProfiles)
+      .set({
+        applicationStatus: 'approved',
+        approvedAt: new Date(),
+        approvedBy,
+        isActive: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(driverProfiles.id, driverId))
+      .returning();
+    return approved;
+  }
+
+  async rejectDriverApplication(driverId: string, reason: string): Promise<DriverProfile> {
+    const [rejected] = await db
+      .update(driverProfiles)
+      .set({
+        applicationStatus: 'rejected',
+        rejectionReason: reason,
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(driverProfiles.id, driverId))
+      .returning();
+    return rejected;
+  }
+
+  async getDriverOrders(driverId: string): Promise<Order[]> {
+    const driverOrders = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.assignedDriverId, driverId))
+      .orderBy(desc(orders.createdAt));
+    return driverOrders;
+  }
+
+  async updateOrderDeliveryTracking(
+    orderId: string,
+    data: { pickupTime?: Date; deliveryTime?: Date; driverLocation?: any }
+  ): Promise<Order> {
+    const updateData: any = { updatedAt: new Date() };
+    
+    if (data.pickupTime) {
+      updateData.pickupTime = data.pickupTime;
+      updateData.status = 'preparing'; // Update status when picked up
+    }
+    
+    if (data.deliveryTime) {
+      updateData.deliveryTime = data.deliveryTime;
+      updateData.status = 'completed'; // Update status when delivered
+    }
+    
+    if (data.driverLocation) {
+      // Append to location history
+      updateData.driverLocationHistory = sql`
+        COALESCE(${orders.driverLocationHistory}, '[]'::jsonb) || ${JSON.stringify([data.driverLocation])}::jsonb
+      `;
+    }
+
+    const [updated] = await db
+      .update(orders)
+      .set(updateData)
+      .where(eq(orders.id, orderId))
+      .returning();
+    return updated;
+  }
+
+  async assignDriverToOrder(orderId: string, driverId: string): Promise<Order> {
+    const [updated] = await db
+      .update(orders)
+      .set({
+        assignedDriverId: driverId,
+        driverAcceptedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+    return updated;
   }
 
   // Customer Reviews

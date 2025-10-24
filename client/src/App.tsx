@@ -46,6 +46,7 @@ import Drivers from "@/pages/Drivers";
 import Reports from "@/pages/Reports";
 import Inbox from "@/pages/Inbox";
 import Payouts from "@/pages/Payouts";
+import DriverSignup from "@/pages/DriverSignup";
 
 function PublicRouter() {
   return (
@@ -54,6 +55,7 @@ function PublicRouter() {
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/subscribe" component={Subscribe} />
+      <Route path="/driver-signup" component={DriverSignup} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -2039,6 +2039,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Driver Application Routes
+  app.post('/api/driver/apply', async (req: any, res) => {
+    try {
+      // Server-side validation using the driver profile insert schema
+      const applicationData = req.body;
+      
+      // Validate required fields
+      if (!applicationData.firstName || !applicationData.lastName || !applicationData.email || !applicationData.phone) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Check if driver already applied with this email
+      const existing = await storage.getDriverByEmail(applicationData.email);
+      if (existing) {
+        return res.status(400).json({ message: "Application already exists with this email" });
+      }
+      
+      const application = await storage.createDriverApplication(applicationData);
+      res.status(201).json(application);
+    } catch (error) {
+      console.error("Error submitting driver application:", error);
+      res.status(500).json({ message: "Failed to submit application" });
+    }
+  });
+
+  app.get('/api/driver/applications/pending', isAuthenticated, async (req: any, res) => {
+    try {
+      // Only admins can view pending applications
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const pending = await storage.getPendingDriverApplications();
+      res.json(pending);
+    } catch (error) {
+      console.error("Error fetching pending applications:", error);
+      res.status(500).json({ message: "Failed to fetch pending applications" });
+    }
+  });
+
+  app.post('/api/driver/applications/:id/approve', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const approved = await storage.approveDriverApplication(req.params.id, req.user.id);
+      res.json(approved);
+    } catch (error) {
+      console.error("Error approving driver application:", error);
+      res.status(500).json({ message: "Failed to approve application" });
+    }
+  });
+
+  app.post('/api/driver/applications/:id/reject', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { reason } = req.body;
+      const rejected = await storage.rejectDriverApplication(req.params.id, reason || "Application rejected");
+      res.json(rejected);
+    } catch (error) {
+      console.error("Error rejecting driver application:", error);
+      res.status(500).json({ message: "Failed to reject application" });
+    }
+  });
+
+  // Driver Order Routes
+  app.get('/api/driver/my-orders', isAuthenticated, async (req: any, res) => {
+    try {
+      // Get driver profile for authenticated user
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+      
+      if (driver.applicationStatus !== 'approved') {
+        return res.status(403).json({ message: "Driver account not approved" });
+      }
+      
+      const orders = await storage.getDriverOrders(driver.id);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching driver orders:", error);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  app.put('/api/driver/orders/:id/tracking', isAuthenticated, async (req: any, res) => {
+    try {
+      const orderId = req.params.id;
+      const { pickupTime, deliveryTime, location } = req.body;
+      
+      // Get order and verify driver is assigned to it
+      const orderData = await storage.getOrderWithItems(orderId);
+      if (!orderData) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Get driver profile for authenticated user
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(403).json({ message: "Driver profile not found" });
+      }
+      
+      // Verify this driver is assigned to the order
+      if (orderData.order.assignedDriverId !== driver.id) {
+        return res.status(403).json({ message: "You are not assigned to this order" });
+      }
+      
+      const trackingData: any = {};
+      if (pickupTime) trackingData.pickupTime = new Date(pickupTime);
+      if (deliveryTime) trackingData.deliveryTime = new Date(deliveryTime);
+      if (location) trackingData.driverLocation = location;
+      
+      const updated = await storage.updateOrderDeliveryTracking(orderId, trackingData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating delivery tracking:", error);
+      res.status(500).json({ message: "Failed to update delivery tracking" });
+    }
+  });
+
+  app.post('/api/orders/:id/assign-driver', isAuthenticated, async (req: any, res) => {
+    try {
+      const { driverId } = req.body;
+      const orderId = req.params.id;
+      
+      // Verify user is restaurant owner or admin
+      const order = await storage.getOrderWithItems(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      const restaurant = await storage.getRestaurant(order.order.restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      if (req.user.role !== 'admin' && restaurant.ownerId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const updated = await storage.assignDriverToOrder(orderId, driverId);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error assigning driver to order:", error);
+      res.status(500).json({ message: "Failed to assign driver" });
+    }
+  });
+
   // Calculate delivery fee based on customer address
   app.get('/api/storefront/delivery-fee/:restaurantId', async (req: any, res) => {
     try {

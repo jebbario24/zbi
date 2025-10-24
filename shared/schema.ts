@@ -251,6 +251,12 @@ export const orders = pgTable("orders", {
   driverShare: decimal("driver_share", { precision: 10, scale: 2 }),
   platformFee: decimal("platform_fee", { precision: 10, scale: 2 }),
   assignedDriverId: varchar("assigned_driver_id").references(() => driverProfiles.id, { onDelete: 'set null' }),
+  // Delivery Tracking
+  driverAcceptedAt: timestamp("driver_accepted_at"),
+  pickupTime: timestamp("pickup_time"),
+  deliveryTime: timestamp("delivery_time"),
+  estimatedDeliveryTime: timestamp("estimated_delivery_time"),
+  driverLocationHistory: jsonb("driver_location_history"), // Array of {lat, lng, timestamp}
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -346,14 +352,48 @@ export const restaurantPayoutAccounts = pgTable("restaurant_payout_accounts", {
 export const driverProfiles = pgTable("driver_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").unique().references(() => users.id, { onDelete: 'cascade' }),
+  // Personal Information
   firstName: varchar("first_name", { length: 255 }).notNull(),
   lastName: varchar("last_name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 50 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),
+  dateOfBirth: varchar("date_of_birth", { length: 20 }),
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  country: varchar("country", { length: 100 }),
+  postalCode: varchar("postal_code", { length: 20 }),
+  // Emergency Contact
+  emergencyContactName: varchar("emergency_contact_name", { length: 255 }),
+  emergencyContactPhone: varchar("emergency_contact_phone", { length: 50 }),
+  // Driver License & Verification
+  licenseNumber: varchar("license_number", { length: 100 }),
+  licenseExpiry: varchar("license_expiry", { length: 20 }),
+  idProofUrl: text("id_proof_url"), // Stored in private object storage
+  idProofType: varchar("id_proof_type", { length: 50 }), // driver_license, national_id, passport
+  // Vehicle Information
   vehicleType: varchar("vehicle_type", { length: 50 }),
+  vehicleMake: varchar("vehicle_make", { length: 100 }),
+  vehicleModel: varchar("vehicle_model", { length: 100 }),
+  vehicleYear: varchar("vehicle_year", { length: 10 }),
   vehiclePlate: varchar("vehicle_plate", { length: 50 }),
+  vehicleColor: varchar("vehicle_color", { length: 50 }),
+  vehicleInsuranceUrl: text("vehicle_insurance_url"), // Stored in private object storage
+  insuranceExpiry: varchar("insurance_expiry", { length: 20 }),
+  // Bank Account (for payouts)
+  bankAccountHolderName: varchar("bank_account_holder_name", { length: 255 }),
+  bankName: varchar("bank_name", { length: 255 }),
+  bankAccountNumber: varchar("bank_account_number", { length: 100 }),
+  bankRoutingNumber: varchar("bank_routing_number", { length: 50 }),
+  // Application & Approval
+  applicationStatus: varchar("application_status", { length: 50 }).notNull().default('pending'), // pending, approved, rejected
+  approvedAt: timestamp("approved_at"),
+  approvedBy: varchar("approved_by"), // Admin user ID who approved
+  rejectionReason: text("rejection_reason"),
+  // Location Tracking
   currentLat: decimal("current_lat", { precision: 10, scale: 7 }),
   currentLng: decimal("current_lng", { precision: 10, scale: 7 }),
+  lastLocationUpdate: timestamp("last_location_update"),
+  // Status
   isActive: boolean("is_active").notNull().default(true),
   isAvailable: boolean("is_available").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
