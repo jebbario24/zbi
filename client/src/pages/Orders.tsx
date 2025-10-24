@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Plus, Eye, Clock, CheckCircle, XCircle, ChefHat } from "lucide-react";
+import { Plus, Eye, Clock, CheckCircle, XCircle, ChefHat, Printer } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -146,6 +146,241 @@ export default function Orders() {
     }
   };
 
+  const handlePrintTicket = async (order: Order) => {
+    // HTML escape function to prevent XSS
+    const escapeHtml = (unsafe: string | null | undefined): string => {
+      if (!unsafe) return '';
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+
+    // Fetch full order details
+    try {
+      const response = await fetch(`/api/orders/${order.id}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch order details");
+      const orderData: OrderWithItems = await response.json();
+
+      // Create print window
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      // Generate printable order ticket HTML
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Order Ticket - ${escapeHtml(orderData.order.orderNumber)}</title>
+            <style>
+              @media print {
+                @page { 
+                  margin: 0.5cm; 
+                  size: 10cm 15cm;
+                }
+                body { margin: 0; }
+                .no-print { display: none; }
+              }
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+              body {
+                font-family: 'Courier New', monospace;
+                padding: 10px;
+                background: white;
+                max-width: 10cm;
+                margin: 0 auto;
+              }
+              .ticket {
+                border: 2px dashed #000;
+                padding: 15px;
+                background: white;
+              }
+              .header {
+                text-align: center;
+                border-bottom: 2px solid #000;
+                padding-bottom: 10px;
+                margin-bottom: 10px;
+              }
+              .order-number {
+                font-size: 28px;
+                font-weight: bold;
+                margin: 5px 0;
+              }
+              .section {
+                margin: 10px 0;
+                padding: 8px 0;
+                border-bottom: 1px dashed #000;
+              }
+              .section:last-child {
+                border-bottom: none;
+              }
+              .label {
+                font-weight: bold;
+                font-size: 11px;
+                text-transform: uppercase;
+              }
+              .value {
+                font-size: 13px;
+                margin-top: 2px;
+              }
+              .items {
+                margin: 10px 0;
+              }
+              .item {
+                margin: 5px 0;
+                display: flex;
+                justify-content: space-between;
+              }
+              .item-name {
+                flex: 1;
+                font-weight: bold;
+              }
+              .item-qty {
+                margin: 0 10px;
+              }
+              .item-note {
+                font-size: 11px;
+                font-style: italic;
+                margin-left: 10px;
+              }
+              .total {
+                font-size: 18px;
+                font-weight: bold;
+                text-align: right;
+                margin-top: 10px;
+              }
+              .footer {
+                text-align: center;
+                margin-top: 15px;
+                font-size: 11px;
+              }
+              .print-btn {
+                margin: 20px auto;
+                display: block;
+                padding: 10px 20px;
+                background: #000;
+                color: white;
+                border: none;
+                cursor: pointer;
+                font-size: 14px;
+              }
+            </style>
+          </head>
+          <body>
+            <button class="print-btn no-print" onclick="window.print()">Print Ticket</button>
+            
+            <div class="ticket">
+              <div class="header">
+                <div class="order-number">#${escapeHtml(orderData.order.orderNumber)}</div>
+                <div style="margin-top: 5px; font-size: 12px;">${escapeHtml(new Date(orderData.order.createdAt!).toLocaleString())}</div>
+              </div>
+
+              <div class="section">
+                <div class="label">Order Type</div>
+                <div class="value" style="text-transform: uppercase;">${escapeHtml(orderData.order.orderType)}</div>
+              </div>
+
+              <div class="section">
+                <div class="label">Customer</div>
+                <div class="value">${escapeHtml(orderData.order.customerName) || 'Guest'}</div>
+                ${orderData.order.customerPhone ? `<div class="value">${escapeHtml(orderData.order.customerPhone)}</div>` : ''}
+              </div>
+
+              ${orderData.order.shippingAddress ? `
+              <div class="section">
+                <div class="label">Delivery Address</div>
+                <div class="value">${escapeHtml(orderData.order.shippingAddress)}</div>
+              </div>
+              ` : ''}
+
+              <div class="section">
+                <div class="label">Items</div>
+                <div class="items">
+                  ${orderData.items.map(item => {
+                    const itemName = escapeHtml(
+                      item.menuItem?.name || item.bundle?.name || 'Unknown'
+                    );
+                    return `
+                    <div class="item">
+                      <span class="item-name">${itemName}</span>
+                      <span class="item-qty">x${escapeHtml(String(item.quantity))}</span>
+                      <span>$${escapeHtml(String(item.subtotal))}</span>
+                    </div>
+                    ${item.selectedOptions ? 
+                      (item.selectedOptions as any[]).map((group: any) => 
+                        `<div class="item-note">${escapeHtml(group.optionGroupLabel)}: ${group.choices.map((c: any) => escapeHtml(c.label)).join(', ')}</div>`
+                      ).join('') 
+                      : ''}
+                    ${item.notes ? `<div class="item-note">Note: ${escapeHtml(item.notes)}</div>` : ''}
+                  `}).join('')}
+                </div>
+              </div>
+
+              ${orderData.order.notes ? `
+              <div class="section">
+                <div class="label">Special Instructions</div>
+                <div class="value">${escapeHtml(orderData.order.notes)}</div>
+              </div>
+              ` : ''}
+
+              <div class="section">
+                <div style="display: flex; justify-content: space-between; margin: 3px 0;">
+                  <span>Subtotal:</span>
+                  <span>$${escapeHtml(String(orderData.order.subtotal))}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin: 3px 0;">
+                  <span>Tax:</span>
+                  <span>$${escapeHtml(String(orderData.order.tax))}</span>
+                </div>
+                <div class="total">
+                  <span>TOTAL: $${escapeHtml(String(orderData.order.total))}</span>
+                </div>
+              </div>
+
+              ${orderData.order.paymentMethod ? `
+              <div class="section">
+                <div class="label">Payment Method</div>
+                <div class="value" style="text-transform: uppercase;">${escapeHtml(orderData.order.paymentMethod)}</div>
+              </div>
+              ` : ''}
+
+              <div class="footer">
+                <div>━━━━━━━━━━━━━━━━━━━━</div>
+                <div style="margin-top: 5px;">Thank you for your order!</div>
+              </div>
+            </div>
+
+            <script>
+              // Auto print after page loads
+              setTimeout(() => window.print(), 500);
+            </script>
+          </body>
+        </html>
+      `;
+
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+
+      toast({
+        title: "Print Ready",
+        description: "Order ticket is ready to print",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load order details for printing",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredOrders = orders?.filter(order => {
     const typeMatch = orderTypeFilter === "all" || order.orderType === orderTypeFilter;
     const statusMatch = statusFilter === "all" || order.status === statusFilter;
@@ -258,6 +493,14 @@ export default function Orders() {
                               data-testid={`button-view-order-${order.id}`}
                             >
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handlePrintTicket(order)}
+                              data-testid={`button-print-ticket-${order.id}`}
+                            >
+                              <Printer className="h-4 w-4" />
                             </Button>
                             {nextStatus && order.status !== 'completed' && order.status !== 'cancelled' && (
                               <Button 
