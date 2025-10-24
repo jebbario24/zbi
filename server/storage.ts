@@ -141,6 +141,7 @@ export interface IStorage {
   createPayoutRun(restaurantId: string, amount: number, payoutProvider: string, scheduledFor: Date): Promise<any>;
   updatePayoutRunStatus(payoutRunId: string, status: string, payoutTransactionId?: string, failureReason?: string): Promise<any>;
   markLedgerEntriesAsPaid(payoutRunId: string, ledgerEntryIds: string[]): Promise<void>;
+  completePayoutTransaction(payoutRunId: string, ledgerEntryIds: string[], payoutTransactionId: string): Promise<void>;
   
   // Driver operations
   getAllDrivers(): Promise<DriverProfile[]>;
@@ -660,6 +661,38 @@ export class DatabaseStorage implements IStorage {
 
   async markLedgerEntriesAsPaid(payoutRunId: string, ledgerEntryIds: string[]): Promise<void> {
     await db.transaction(async (tx) => {
+      for (const ledgerEntryId of ledgerEntryIds) {
+        await tx
+          .insert(payoutRunLedgerEntries)
+          .values({
+            payoutRunId,
+            ledgerEntryId,
+          });
+        
+        await tx
+          .update(earningsLedger)
+          .set({
+            restaurantPayoutStatus: 'paid',
+            restaurantPaidAt: new Date(),
+          })
+          .where(eq(earningsLedger.id, ledgerEntryId));
+      }
+    });
+  }
+
+  async completePayoutTransaction(payoutRunId: string, ledgerEntryIds: string[], payoutTransactionId: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Update payout run status
+      await tx
+        .update(payoutRuns)
+        .set({
+          status: 'completed',
+          payoutTransactionId,
+          completedAt: new Date(),
+        })
+        .where(eq(payoutRuns.id, payoutRunId));
+
+      // Mark ledger entries as paid and link to payout run
       for (const ledgerEntryId of ledgerEntryIds) {
         await tx
           .insert(payoutRunLedgerEntries)

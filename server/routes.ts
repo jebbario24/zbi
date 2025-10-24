@@ -3051,11 +3051,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         });
 
-        // Update payout run with Stripe transfer ID
-        await storage.updatePayoutRunStatus(payoutRun.id, 'completed', transfer.id);
-
-        // Mark ledger entries as paid
-        await storage.markLedgerEntriesAsPaid(payoutRun.id, ledgerEntryIds);
+        // Complete payout transaction (atomic operation)
+        await storage.completePayoutTransaction(payoutRun.id, ledgerEntryIds, transfer.id);
 
         res.json({
           success: true,
@@ -3204,8 +3201,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               },
             });
 
-            await storage.updatePayoutRunStatus(payoutRun.id, 'completed', transfer.id);
-            await storage.markLedgerEntriesAsPaid(payoutRun.id, ledgerEntryIds);
+            // Complete payout transaction (atomic operation)
+            await storage.completePayoutTransaction(payoutRun.id, ledgerEntryIds, transfer.id);
 
             results.processed++;
             results.totalAmount += amountInDollars;
