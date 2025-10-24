@@ -39,11 +39,8 @@ import { LivePurchaseNotifications } from "@/components/marketing/LivePurchaseNo
 import { PixelScripts, trackViewContent, trackAddToCart, trackInitiateCheckout, trackPurchase } from "@/components/PixelScripts";
 import { BundlesSection } from "@/components/marketing/storefront/BundlesSection";
 import { ActivePromosBanner } from "@/components/marketing/storefront/ActivePromosBanner";
-import { LoyaltyWidget } from "@/components/marketing/storefront/LoyaltyWidget";
 import { ReferralCTA } from "@/components/marketing/storefront/ReferralCTA";
 import { BoostedItemsBadge } from "@/components/marketing/storefront/BoostedItemsBadge";
-import { LoyaltyBanner } from "@/components/marketing/storefront/LoyaltyBanner";
-import { LoyaltyModal } from "@/components/marketing/storefront/LoyaltyModal";
 
 interface CartItem {
   menuItem?: MenuItem;
@@ -170,25 +167,11 @@ export default function Storefront() {
   const [upsellModalOpen, setUpsellModalOpen] = useState(false);
   const [upsellSuggestedItem, setUpsellSuggestedItem] = useState<MenuItem | null>(null);
 
-  // Loyalty modal state
-  const [loyaltyModalOpen, setLoyaltyModalOpen] = useState(false);
-
 
   const mockPromos = [
     { id: '1', code: 'WELCOME10', type: 'percentage', value: 10, isActive: true },
     { id: '2', code: 'FREESHIP', type: 'free_delivery', value: 0, isActive: true },
   ];
-
-  const mockLoyalty = {
-    pointsBalance: 450,
-    currentTier: 'Gold',
-    pointsToNextTier: 50,
-    rewardCatalog: [
-      { name: 'Free Appetizer', pointsCost: 200, available: true },
-      { name: 'Free Dessert', pointsCost: 150, available: true },
-      { name: '$10 Off', pointsCost: 500, available: false },
-    ],
-  };
 
   const mockReferral = {
     referralLink: `${window.location.origin}/store/${slug}?ref=USER123`,
@@ -299,34 +282,6 @@ export default function Storefront() {
     queryFn: async () => {
       const endpoint = slug ? `/api/storefront/${slug}/bundles` : `/api/storefront/${restaurant?.slug}/bundles`;
       const response = await fetch(endpoint);
-      return response.json();
-    },
-  });
-
-  // Fetch loyalty program settings
-  const { data: loyaltyProgram } = useQuery<any>({
-    queryKey: ["/api/storefront/loyalty-program", restaurant?.slug],
-    enabled: !!restaurant,
-    queryFn: async () => {
-      const endpoint = slug ? `/api/storefront/${slug}/loyalty-program` : `/api/storefront/${restaurant?.slug}/loyalty-program`;
-      const response = await fetch(endpoint);
-      if (!response.ok) return null;
-      return response.json();
-    },
-  });
-
-  // Fetch or create customer loyalty account when customer info is available
-  const { data: loyaltyAccount, refetch: refetchLoyaltyAccount } = useQuery<any>({
-    queryKey: ["/api/storefront/loyalty-account", restaurant?.slug, customerEmail, customerPhone],
-    enabled: !!restaurant && !!(customerEmail || customerPhone) && !!loyaltyProgram?.enabled,
-    queryFn: async () => {
-      const endpoint = slug ? `/api/storefront/${slug}/loyalty-account` : `/api/storefront/${restaurant?.slug}/loyalty-account`;
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerEmail, customerPhone }),
-      });
-      if (!response.ok) return null;
       return response.json();
     },
   });
@@ -1474,18 +1429,6 @@ export default function Storefront() {
         {/* Marketing: Active Promos Banner */}
         <ActivePromosBanner promos={mockPromos} />
 
-        {/* Marketing: Loyalty Banner */}
-        {loyaltyProgram?.enabled && loyaltyAccount?.enrolled && (
-          <div className="mb-6">
-            <LoyaltyBanner
-              points={loyaltyAccount.points}
-              tier={loyaltyAccount.tier}
-              programName={loyaltyProgram.programName}
-              onClick={() => setLoyaltyModalOpen(true)}
-            />
-          </div>
-        )}
-
         {/* Marketing: Bundles & Combos Section */}
         <BundlesSection bundles={bundles} onAddToCart={(bundle) => {
           const existingBundle = cart.find(item => item.bundle?.id === bundle.id);
@@ -2202,24 +2145,6 @@ export default function Storefront() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Loyalty Program Modal */}
-      {loyaltyProgram && loyaltyAccount && (
-        <LoyaltyModal
-          open={loyaltyModalOpen}
-          onOpenChange={setLoyaltyModalOpen}
-          programName={loyaltyProgram.programName}
-          programDescription={loyaltyProgram.programDescription}
-          points={loyaltyAccount.points || 0}
-          lifetimePoints={loyaltyAccount.lifetimePoints || 0}
-          currentTier={loyaltyAccount.tier}
-          tiers={loyaltyProgram.tiers || []}
-          pointsPerDollar={loyaltyProgram.pointsPerDollar}
-          redemptionValue={loyaltyProgram.redemptionValue}
-          minimumRedemption={loyaltyProgram.minimumRedemption}
-          formatPrice={formatPrice}
-        />
-      )}
     </div>
   );
 }
