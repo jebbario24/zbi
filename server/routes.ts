@@ -881,6 +881,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (data.customDomain === '') data.customDomain = null;
       if (data.subdomain === '') data.subdomain = null;
       
+      // Generate unique slug if conflict exists
+      let slug = data.slug;
+      let counter = 1;
+      while (await storage.getRestaurantBySlug(slug)) {
+        slug = `${data.slug}-${counter}`;
+        counter++;
+      }
+      data.slug = slug;
+      
       const restaurant = await storage.createRestaurant(data);
       res.json(restaurant);
     } catch (error) {

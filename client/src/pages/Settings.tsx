@@ -180,7 +180,11 @@ export default function Settings() {
         setTimeout(() => window.location.href = "/login", 500);
         return;
       }
-      toast({ title: "Failed to save settings", variant: "destructive" });
+      toast({ 
+        title: "Failed to save settings", 
+        description: error.message || "Please check your information and try again.",
+        variant: "destructive" 
+      });
     },
   });
 
