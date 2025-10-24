@@ -395,43 +395,26 @@ export default function Orders() {
   };
 
   // Bulk operations mutations
-  const bulkConfirmMutation = useMutation({
-    mutationFn: async ({ orderIds, ordersToConfirm }: { orderIds: string[], ordersToConfirm: Order[] }) => {
-      // Only confirm orders that are in "pending" status
-      const pendingOrders = ordersToConfirm.filter(o => o.status === 'pending');
-      if (pendingOrders.length === 0) {
-        throw new Error('no_pending_orders');
-      }
+  const bulkStatusChangeMutation = useMutation({
+    mutationFn: async ({ orderIds, newStatus }: { orderIds: string[], newStatus: string }) => {
       return await Promise.all(
-        pendingOrders.map(o => apiRequest(`/api/orders/${o.id}/status`, "PATCH", { status: "confirmed" }))
+        orderIds.map(id => apiRequest(`/api/orders/${id}/status`, "PATCH", { status: newStatus }))
       );
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setSelectedOrders(new Set());
-      const confirmedCount = variables.ordersToConfirm.filter(o => o.status === 'pending').length;
-      const skippedCount = variables.orderIds.length - confirmedCount;
       toast({
-        title: "Orders Confirmed",
-        description: skippedCount > 0 
-          ? `Confirmed ${confirmedCount} order(s). ${skippedCount} order(s) skipped (not in pending status)`
-          : `Successfully confirmed ${confirmedCount} order(s)`,
+        title: "Status Updated",
+        description: `Successfully updated ${variables.orderIds.length} order(s) to ${statusLabels[variables.newStatus]}`,
       });
     },
-    onError: (error: any) => {
-      if (error.message === 'no_pending_orders') {
-        toast({
-          title: "No Orders to Confirm",
-          description: "Selected orders are not in pending status",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to confirm orders",
-          variant: "destructive",
-        });
-      }
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update order status",
+        variant: "destructive",
+      });
     },
   });
 
@@ -479,10 +462,9 @@ export default function Orders() {
   };
 
   // Bulk action handlers
-  const handleBulkConfirm = () => {
+  const handleBulkStatusChange = (newStatus: string) => {
     const orderIds = Array.from(selectedOrders);
-    const ordersToConfirm = orders?.filter(o => orderIds.includes(o.id)) || [];
-    bulkConfirmMutation.mutate({ orderIds, ordersToConfirm });
+    bulkStatusChangeMutation.mutate({ orderIds, newStatus });
   };
 
   const handleBulkDelete = () => {
@@ -558,6 +540,7 @@ export default function Orders() {
                   <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="dine-in">Dine-in</SelectItem>
                   <SelectItem value="takeout">Takeout</SelectItem>
+                  <SelectItem value="pickup">Pickup</SelectItem>
                   <SelectItem value="online">Online</SelectItem>
                 </SelectContent>
               </Select>
@@ -581,42 +564,104 @@ export default function Orders() {
         <CardContent>
           {/* Bulk Actions Toolbar */}
           {selectedOrders.size > 0 && (
-            <div className="mb-4 p-4 bg-muted/50 rounded-lg flex items-center justify-between gap-4 flex-wrap">
+            <div className="mb-4 p-4 bg-muted/50 rounded-lg space-y-3">
               <div className="flex items-center gap-2">
                 <span className="font-semibold" data-testid="text-selected-count">
                   {selectedOrders.size} order(s) selected
                 </span>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button 
-                  variant="default" 
-                  size="sm"
-                  onClick={handleBulkConfirm}
-                  disabled={bulkConfirmMutation.isPending}
-                  data-testid="button-bulk-confirm"
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Confirm All
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleBulkPrint}
-                  data-testid="button-bulk-print"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Print All
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={handleBulkDelete}
-                  disabled={bulkDeleteMutation.isPending}
-                  data-testid="button-bulk-delete"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete All
-                </Button>
+              
+              {/* Status Change Buttons */}
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Change Status:</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleBulkStatusChange('pending')}
+                    disabled={bulkStatusChangeMutation.isPending}
+                    data-testid="button-bulk-status-pending"
+                  >
+                    <Clock className="mr-2 h-4 w-4" />
+                    Pending
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleBulkStatusChange('confirmed')}
+                    disabled={bulkStatusChangeMutation.isPending}
+                    data-testid="button-bulk-status-confirmed"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Confirmed
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleBulkStatusChange('preparing')}
+                    disabled={bulkStatusChangeMutation.isPending}
+                    data-testid="button-bulk-status-preparing"
+                  >
+                    <ChefHat className="mr-2 h-4 w-4" />
+                    Preparing
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleBulkStatusChange('ready')}
+                    disabled={bulkStatusChangeMutation.isPending}
+                    data-testid="button-bulk-status-ready"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Ready
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleBulkStatusChange('completed')}
+                    disabled={bulkStatusChangeMutation.isPending}
+                    data-testid="button-bulk-status-completed"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Completed
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleBulkStatusChange('cancelled')}
+                    disabled={bulkStatusChangeMutation.isPending}
+                    data-testid="button-bulk-status-cancelled"
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Cancelled
+                  </Button>
+                </div>
+              </div>
+
+              {/* Other Actions */}
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Other Actions:</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleBulkPrint}
+                    data-testid="button-bulk-print"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Print All
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleteMutation.isPending}
+                    data-testid="button-bulk-delete"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete All
+                  </Button>
+                </div>
               </div>
             </div>
           )}
