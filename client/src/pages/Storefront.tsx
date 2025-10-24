@@ -1363,17 +1363,47 @@ export default function Storefront() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="-mt-16 md:-mt-20 mb-6">
             <div className="flex items-end gap-4">
-              {restaurant.logoUrl ? (
-                <img 
-                  src={restaurant.logoUrl} 
-                  alt={restaurant.name}
-                  className="h-24 w-24 md:h-32 md:w-32 rounded-full object-cover bg-background border-4 border-background shadow-xl"
-                />
-              ) : (
-                <div className="h-24 w-24 md:h-32 md:w-32 rounded-full bg-background border-4 border-background shadow-xl flex items-center justify-center">
-                  <Store className="h-12 w-12 md:h-16 md:w-16 text-muted-foreground" />
-                </div>
-              )}
+              <div className="flex flex-col items-center gap-2">
+                {/* Star rating above logo */}
+                {reviews.length > 0 && (
+                  <div className="flex items-center gap-1 bg-background/95 backdrop-blur px-3 py-1.5 rounded-full shadow-lg" data-testid="rating-above-logo">
+                    <Star className="h-4 w-4 fill-primary text-primary" />
+                    <span className="text-sm font-semibold">
+                      {(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">({reviews.length})</span>
+                  </div>
+                )}
+                
+                {/* Logo */}
+                {restaurant.logoUrl ? (
+                  <img 
+                    src={restaurant.logoUrl} 
+                    alt={restaurant.name}
+                    className="h-24 w-24 md:h-32 md:w-32 rounded-full object-cover bg-background border-4 border-background shadow-xl"
+                  />
+                ) : (
+                  <div className="h-24 w-24 md:h-32 md:w-32 rounded-full bg-background border-4 border-background shadow-xl flex items-center justify-center">
+                    <Store className="h-12 w-12 md:h-16 md:w-16 text-muted-foreground" />
+                  </div>
+                )}
+                
+                {/* Star rating below logo */}
+                {reviews.length > 0 && (
+                  <div className="flex items-center gap-0.5" data-testid="rating-below-logo">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-4 w-4 ${
+                          i < Math.round(reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length)
+                            ? "fill-primary text-primary"
+                            : "text-muted-foreground"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
               
               <div className="pb-2 flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
