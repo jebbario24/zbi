@@ -273,6 +273,49 @@ export class DatabaseStorage implements IStorage {
     await db.delete(restaurants).where(eq(restaurants.id, id));
   }
 
+  async deleteRestaurantCompletely(id: string): Promise<void> {
+    // Delete all associated data in correct order (respecting foreign keys)
+    // Delete order items first, then orders
+    const restaurantOrders = await db.select().from(orders).where(eq(orders.restaurantId, id));
+    const orderIds = restaurantOrders.map(o => o.id);
+    
+    if (orderIds.length > 0) {
+      await db.delete(orderItems).where(sql`${orderItems.orderId} IN ${orderIds}`);
+      await db.delete(orders).where(eq(orders.restaurantId, id));
+    }
+    
+    // Delete menu items and categories
+    await db.delete(menuItems).where(eq(menuItems.restaurantId, id));
+    await db.delete(menuCategories).where(eq(menuCategories.restaurantId, id));
+    
+    // Delete staff, inventory, delivery zones
+    await db.delete(staff).where(eq(staff.restaurantId, id));
+    await db.delete(inventory).where(eq(inventory.restaurantId, id));
+    await db.delete(deliveryZones).where(eq(deliveryZones.restaurantId, id));
+    
+    // Delete customer reviews
+    await db.delete(customerReviews).where(eq(customerReviews.restaurantId, id));
+    
+    // Delete inbox messages
+    await db.delete(inboxMessages).where(eq(inboxMessages.restaurantId, id));
+    
+    // Delete promo rules and bundles
+    await db.delete(promoRules).where(eq(promoRules.restaurantId, id));
+    await db.delete(bundlesTable).where(eq(bundlesTable.restaurantId, id));
+    await db.delete(upsellRulesTable).where(eq(upsellRulesTable.restaurantId, id));
+    
+    // Delete payout-related data
+    await db.delete(earningsLedger).where(eq(earningsLedger.restaurantId, id));
+    await db.delete(restaurantPayoutAccounts).where(eq(restaurantPayoutAccounts.restaurantId, id));
+    
+    // Delete tables and reservations
+    await db.delete(reservations).where(eq(reservations.restaurantId, id));
+    await db.delete(tables).where(eq(tables.restaurantId, id));
+    
+    // Finally delete the restaurant itself
+    await db.delete(restaurants).where(eq(restaurants.id, id));
+  }
+
   async getMenuCategories(restaurantId: string): Promise<MenuCategory[]> {
     return await db.select().from(menuCategories).where(eq(menuCategories.restaurantId, restaurantId));
   }
@@ -1180,7 +1223,7 @@ export class DatabaseStorage implements IStorage {
     // Sum restaurant payout amounts (not platform fee) for paid payouts
     const [payoutsResult] = await db
       .select({
-        totalPayouts: sql<string>`COALESCE(SUM(${earningsLedger.restaurantPayout}), 0)`,
+        totalPayouts: sql<string>`COALESCE(SUM(${earningsLedger.restaurantShare}), 0)`,
       })
       .from(earningsLedger)
       .where(eq(earningsLedger.restaurantPayoutStatus, 'paid'));
@@ -1188,7 +1231,7 @@ export class DatabaseStorage implements IStorage {
     // Sum restaurant payout amounts (not platform fee) for pending payouts
     const [pendingResult] = await db
       .select({
-        pendingPayouts: sql<string>`COALESCE(SUM(${earningsLedger.restaurantPayout}), 0)`,
+        pendingPayouts: sql<string>`COALESCE(SUM(${earningsLedger.restaurantShare}), 0)`,
       })
       .from(earningsLedger)
       .where(eq(earningsLedger.restaurantPayoutStatus, 'pending'));

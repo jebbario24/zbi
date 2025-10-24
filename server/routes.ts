@@ -4361,6 +4361,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Cancel restaurant subscription
+  app.post('/api/admin/restaurants/:id/cancel-subscription', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const updated = await storage.updateRestaurant(id, {
+        subscriptionStatus: 'cancelled',
+        subscriptionEndsAt: new Date(), // End immediately
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error cancelling subscription:", error);
+      res.status(500).json({ message: "Failed to cancel subscription" });
+    }
+  });
+
+  // Admin: Extend restaurant trial
+  app.post('/api/admin/restaurants/:id/extend-trial', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { days } = req.body;
+      
+      if (!days || days < 1) {
+        return res.status(400).json({ message: "Days must be at least 1" });
+      }
+      
+      const restaurant = await storage.getRestaurant(id);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Calculate new trial end date
+      const currentTrialEnd = restaurant.trialEndsAt ? new Date(restaurant.trialEndsAt) : new Date();
+      const newTrialEnd = new Date(currentTrialEnd);
+      newTrialEnd.setDate(newTrialEnd.getDate() + parseInt(days));
+      
+      const updated = await storage.updateRestaurant(id, {
+        trialEndsAt: newTrialEnd,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error extending trial:", error);
+      res.status(500).json({ message: "Failed to extend trial" });
+    }
+  });
+
+  // Admin: Delete restaurant and all associated data
+  app.delete('/api/admin/restaurants/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Delete all associated data
+      await storage.deleteRestaurantCompletely(id);
+      
+      res.json({ message: "Restaurant deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting restaurant:", error);
+      res.status(500).json({ message: "Failed to delete restaurant" });
+    }
+  });
+
   // Admin: Get all platform settings
   app.get('/api/admin/settings', isAuthenticated, isAdmin, async (req: any, res) => {
     try {

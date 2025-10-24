@@ -26,7 +26,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Clock, DollarSign, Key, AlertTriangle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { CheckCircle, XCircle, Clock, DollarSign, Key, AlertTriangle, MoreVertical, Ban, Trash2, CalendarPlus } from "lucide-react";
 
 interface Restaurant {
   id: string;
@@ -48,7 +55,11 @@ export default function AdminSubscriptions() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [showGrantDialog, setShowGrantDialog] = useState(false);
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showExtendDialog, setShowExtendDialog] = useState(false);
   const [accessNotes, setAccessNotes] = useState("");
+  const [extendDays, setExtendDays] = useState("7");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: restaurants = [], isLoading } = useQuery<Restaurant[]>({
@@ -124,6 +135,74 @@ export default function AdminSubscriptions() {
     if (!selectedRestaurant) return;
     revokeAccessMutation.mutate(selectedRestaurant.id);
   };
+
+  const cancelSubscriptionMutation = useMutation({
+    mutationFn: async (restaurantId: string) => {
+      return await apiRequest(`/api/admin/restaurants/${restaurantId}/cancel-subscription`, 'POST');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/subscriptions'] });
+      toast({
+        title: "Subscription Cancelled",
+        description: "The restaurant's subscription has been cancelled.",
+      });
+      setShowCancelDialog(false);
+      setSelectedRestaurant(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to cancel subscription.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteRestaurantMutation = useMutation({
+    mutationFn: async (restaurantId: string) => {
+      return await apiRequest(`/api/admin/restaurants/${restaurantId}`, 'DELETE');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/restaurants'] });
+      toast({
+        title: "Restaurant Deleted",
+        description: "The restaurant and all its data has been permanently deleted.",
+      });
+      setShowDeleteDialog(false);
+      setSelectedRestaurant(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete restaurant.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const extendTrialMutation = useMutation({
+    mutationFn: async ({ restaurantId, days }: { restaurantId: string; days: number }) => {
+      return await apiRequest(`/api/admin/restaurants/${restaurantId}/extend-trial`, 'POST', { days });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/subscriptions'] });
+      toast({
+        title: "Trial Extended",
+        description: `Trial period has been extended by ${extendDays} days.`,
+      });
+      setShowExtendDialog(false);
+      setSelectedRestaurant(null);
+      setExtendDays("7");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to extend trial.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const getStatusBadge = (restaurant: Restaurant) => {
     if (restaurant.manuallyGrantedAccess) {
@@ -340,6 +419,53 @@ export default function AdminSubscriptions() {
                     Grant Manual Access
                   </Button>
                 )}
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" data-testid="button-more-actions">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setSelectedRestaurant(restaurant);
+                        setShowExtendDialog(true);
+                      }}
+                      data-testid="action-extend-trial"
+                    >
+                      <CalendarPlus className="w-4 h-4 mr-2" />
+                      Extend Trial
+                    </DropdownMenuItem>
+                    
+                    {restaurant.subscriptionStatus === 'active' && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSelectedRestaurant(restaurant);
+                          setShowCancelDialog(true);
+                        }}
+                        data-testid="action-cancel-subscription"
+                      >
+                        <Ban className="w-4 h-4 mr-2" />
+                        Cancel Subscription
+                      </DropdownMenuItem>
+                    )}
+
+                    <DropdownMenuSeparator />
+                    
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setSelectedRestaurant(restaurant);
+                        setShowDeleteDialog(true);
+                      }}
+                      className="text-destructive focus:text-destructive"
+                      data-testid="action-delete-restaurant"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Restaurant
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </CardContent>
           </Card>
@@ -415,6 +541,125 @@ export default function AdminSubscriptions() {
               data-testid="button-confirm-revoke"
             >
               Revoke Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Extend Trial Dialog */}
+      <Dialog open={showExtendDialog} onOpenChange={setShowExtendDialog}>
+        <DialogContent data-testid="dialog-extend-trial">
+          <DialogHeader>
+            <DialogTitle>Extend Trial Period</DialogTitle>
+            <DialogDescription>
+              Extend the trial period for <strong>{selectedRestaurant?.name}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="extend-days">Number of Days</Label>
+            <Input
+              id="extend-days"
+              type="number"
+              min="1"
+              value={extendDays}
+              onChange={(e) => setExtendDays(e.target.value)}
+              data-testid="input-extend-days"
+            />
+            <p className="text-xs text-muted-foreground">
+              This will add the specified number of days to their current trial period.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowExtendDialog(false)}
+              data-testid="button-cancel-extend"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!selectedRestaurant) return;
+                const days = parseInt(extendDays);
+                if (isNaN(days) || days < 1) {
+                  toast({
+                    title: "Invalid Input",
+                    description: "Please enter a valid number of days (minimum 1)",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                extendTrialMutation.mutate({ 
+                  restaurantId: selectedRestaurant.id, 
+                  days 
+                });
+              }}
+              disabled={extendTrialMutation.isPending}
+              data-testid="button-confirm-extend"
+            >
+              Extend Trial
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Subscription Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent data-testid="dialog-cancel-subscription">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will cancel the active subscription for <strong>{selectedRestaurant?.name}</strong>.
+              They will retain access until their current billing period ends, after which they will
+              need to resubscribe or you can grant manual access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-cancel">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!selectedRestaurant) return;
+                cancelSubscriptionMutation.mutate(selectedRestaurant.id);
+              }}
+              disabled={cancelSubscriptionMutation.isPending}
+              data-testid="button-confirm-cancel"
+            >
+              Cancel Subscription
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Restaurant Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent data-testid="dialog-delete-restaurant">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Restaurant?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="text-destructive font-semibold">Warning: This action cannot be undone!</span>
+              <br /><br />
+              This will permanently delete <strong>{selectedRestaurant?.name}</strong> and all associated data including:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>All menu items and categories</li>
+                <li>All orders and order history</li>
+                <li>All customer reviews and ratings</li>
+                <li>All settings and customizations</li>
+                <li>Financial records and payout information</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!selectedRestaurant) return;
+                deleteRestaurantMutation.mutate(selectedRestaurant.id);
+              }}
+              disabled={deleteRestaurantMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
