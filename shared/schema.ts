@@ -525,6 +525,10 @@ export const promoRules = pgTable("promo_rules", {
   scope: varchar("scope", { length: 50 }).notNull(), // 'order', 'item', 'category'
   targetItemIds: jsonb("target_item_ids"), // For item/category scoped promos
   conditions: jsonb("conditions"), // {minOrderAmount, maxDiscount, applicableDays, timeRanges}
+  buyItemId: varchar("buy_item_id"), // For BOGO: item customer needs to buy
+  getItemId: varchar("get_item_id"), // For BOGO: item customer gets free
+  buyQuantity: integer("buy_quantity").default(1), // For BOGO: quantity required
+  getQuantity: integer("get_quantity").default(1), // For BOGO: quantity free
   autoApply: boolean("auto_apply").notNull().default(false),
   redemptionLimit: integer("redemption_limit"), // Total redemptions allowed
   perCustomerLimit: integer("per_customer_limit").default(1),
