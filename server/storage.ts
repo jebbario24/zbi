@@ -137,6 +137,9 @@ export interface IStorage {
   getEarningsLedger(restaurantId: string): Promise<any[]>;
   getPayoutRuns(restaurantId: string): Promise<any[]>;
   getPendingEarnings(restaurantId: string): Promise<{ total: string; count: number }>;
+  createPayoutRun(restaurantId: string, amount: number, payoutProvider: string, scheduledFor: Date): Promise<any>;
+  updatePayoutRunStatus(payoutRunId: string, status: string, payoutTransactionId?: string, failureReason?: string): Promise<any>;
+  markLedgerEntriesAsPaid(payoutRunId: string, ledgerEntryIds: string[]): Promise<void>;
   
   // Driver operations
   getAllDrivers(): Promise<DriverProfile[]>;
@@ -619,6 +622,60 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return pending[0] || { total: '0', count: 0 };
+  }
+
+  async createPayoutRun(restaurantId: string, amount: number, payoutProvider: string, scheduledFor: Date): Promise<any> {
+    const [payoutRun] = await db
+      .insert(payoutRuns)
+      .values({
+        restaurantId,
+        totalAmount: amount.toString(),
+        payoutProvider,
+        scheduledFor,
+        status: 'pending',
+      })
+      .returning();
+    return payoutRun;
+  }
+
+  async updatePayoutRunStatus(payoutRunId: string, status: string, payoutTransactionId?: string, failureReason?: string): Promise<any> {
+    const updateData: any = { 
+      status,
+      ...(payoutTransactionId && { payoutTransactionId }),
+      ...(failureReason && { failureReason }),
+    };
+    
+    if (status === 'completed') {
+      updateData.completedAt = new Date();
+    }
+    
+    const [updated] = await db
+      .update(payoutRuns)
+      .set(updateData)
+      .where(eq(payoutRuns.id, payoutRunId))
+      .returning();
+    return updated;
+  }
+
+  async markLedgerEntriesAsPaid(payoutRunId: string, ledgerEntryIds: string[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      for (const ledgerEntryId of ledgerEntryIds) {
+        await tx
+          .insert(payoutRunLedgerEntries)
+          .values({
+            payoutRunId,
+            ledgerEntryId,
+          });
+        
+        await tx
+          .update(earningsLedger)
+          .set({
+            restaurantPayoutStatus: 'paid',
+            restaurantPaidAt: new Date(),
+          })
+          .where(eq(earningsLedger.id, ledgerEntryId));
+      }
+    });
   }
 
   // Driver operations

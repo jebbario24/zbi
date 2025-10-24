@@ -2812,6 +2812,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get pending earnings for restaurant
+  app.get("/api/restaurant/payouts/pending", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const pendingEarnings = await storage.getPendingEarnings(restaurant.id);
+      const payoutAccount = await storage.getPayoutAccount(restaurant.id);
+
+      res.json({
+        pendingAmount: pendingEarnings.total,
+        orderCount: pendingEarnings.count,
+        hasPayoutAccount: !!payoutAccount,
+        payoutSchedule: payoutAccount?.payoutSchedule || 'weekly',
+      });
+    } catch (error) {
+      console.error("Error fetching pending earnings:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get payout history for restaurant
+  app.get("/api/restaurant/payouts/history", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      const payoutHistory = await storage.getPayoutRuns(restaurant.id);
+      res.json(payoutHistory);
+    } catch (error) {
+      console.error("Error fetching payout history:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Process payout for restaurant (manual trigger or automated)
+  app.post("/api/restaurant/payouts/process", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe payout processing is not configured" });
+      }
+
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      // Get payout account details
+      const payoutAccount = await storage.getPayoutAccount(restaurant.id);
+      if (!payoutAccount) {
+        return res.status(400).json({ error: "No payout account configured. Please add bank details first." });
+      }
+
+      // Get pending earnings
+      const pendingEarnings = await storage.getPendingEarnings(restaurant.id);
+      const amountInDollars = parseFloat(pendingEarnings.total);
+
+      if (amountInDollars <= 0) {
+        return res.status(400).json({ error: "No pending earnings to process" });
+      }
+
+      // Minimum payout amount (e.g., $10)
+      if (amountInDollars < 10) {
+        return res.status(400).json({ error: "Minimum payout amount is $10" });
+      }
+
+      // Get pending ledger entries to mark as paid
+      const ledgerEntries = await storage.getEarningsLedger(restaurant.id);
+      const pendingEntries = ledgerEntries.filter((entry: any) => entry.restaurantPayoutStatus === 'pending');
+      const ledgerEntryIds = pendingEntries.map((entry: any) => entry.id);
+
+      // Create payout run record
+      const payoutRun = await storage.createPayoutRun(
+        restaurant.id,
+        amountInDollars,
+        'stripe',
+        new Date()
+      );
+
+      try {
+        // Create Stripe payout
+        const amountInCents = Math.round(amountInDollars * 100);
+        
+        // Determine payout method based on account details
+        let payoutMethod: any;
+        
+        if (payoutAccount.routingNumber && payoutAccount.accountNumber) {
+          // US bank account (ACH)
+          payoutMethod = await stripe.accounts.createExternalAccount(
+            'self',
+            {
+              external_account: {
+                object: 'bank_account',
+                country: payoutAccount.country || 'US',
+                currency: 'usd',
+                account_holder_name: payoutAccount.accountHolderName || '',
+                account_holder_type: 'company',
+                routing_number: payoutAccount.routingNumber,
+                account_number: payoutAccount.accountNumber,
+              },
+            }
+          );
+        } else if (payoutAccount.iban) {
+          // International bank account (SEPA/IBAN)
+          payoutMethod = await stripe.accounts.createExternalAccount(
+            'self',
+            {
+              external_account: {
+                object: 'bank_account',
+                country: payoutAccount.country || 'US',
+                currency: 'usd',
+                account_holder_name: payoutAccount.accountHolderName || '',
+                account_holder_type: 'company',
+                account_number: payoutAccount.iban,
+              },
+            }
+          );
+        } else {
+          throw new Error('Invalid bank account details');
+        }
+
+        // Create the actual payout
+        const payout = await stripe.payouts.create({
+          amount: amountInCents,
+          currency: 'usd',
+          destination: payoutMethod.id,
+          description: `Payout for ${restaurant.name}`,
+          metadata: {
+            restaurantId: restaurant.id,
+            payoutRunId: payoutRun.id,
+          },
+        });
+
+        // Update payout run with Stripe payout ID
+        await storage.updatePayoutRunStatus(payoutRun.id, 'completed', payout.id);
+
+        // Mark ledger entries as paid
+        await storage.markLedgerEntriesAsPaid(payoutRun.id, ledgerEntryIds);
+
+        res.json({
+          success: true,
+          payoutId: payout.id,
+          amount: amountInDollars,
+          status: payout.status,
+        });
+
+      } catch (stripeError: any) {
+        console.error('Stripe payout error:', stripeError);
+        
+        // Update payout run as failed
+        await storage.updatePayoutRunStatus(
+          payoutRun.id,
+          'failed',
+          undefined,
+          stripeError.message
+        );
+
+        res.status(500).json({
+          error: 'Failed to process payout',
+          message: stripeError.message,
+        });
+      }
+
+    } catch (error) {
+      console.error("Error processing payout:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.put("/api/menu-item/:id/image", isAuthenticated, async (req: any, res) => {
     const userId = req.user.id;
     const { id } = req.params;
