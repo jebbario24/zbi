@@ -502,6 +502,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Driver email/password authentication
+  const driverSignupSchema = z.object({
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+  });
+
+  app.post('/api/driver/signup', async (req, res) => {
+    try {
+      const validatedData = driverSignupSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(validatedData.email.toLowerCase());
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      // Hash password
+      const hashedPassword = await hashPassword(validatedData.password);
+
+      // Create driver user
+      const newUser = await storage.createUser({
+        email: validatedData.email.toLowerCase(),
+        password: hashedPassword,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        role: 'driver',
+        profileComplete: false,
+        adminApproved: false,
+      });
+
+      // Auto-login the user
+      req.login(newUser, (err) => {
+        if (err) {
+          console.error("Session login error:", err);
+          return res.status(500).json({ message: "Account created but failed to login" });
+        }
+        
+        const { password, ...userWithoutPassword } = newUser;
+        res.status(201).json(userWithoutPassword);
+      });
+    } catch (error: any) {
+      console.error("Driver signup error:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to create account" });
+    }
+  });
+
+  const driverLoginSchema = z.object({
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(1, "Password is required"),
+  });
+
+  app.post('/api/driver/login', async (req, res) => {
+    try {
+      const validatedData = driverLoginSchema.parse(req.body);
+      
+      // Get user by email
+      const user = await storage.getUserByEmail(validatedData.email.toLowerCase());
+      if (!user || !user.password) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Verify user is a driver
+      if (user.role !== 'driver') {
+        return res.status(403).json({ message: "This account is not registered as a driver" });
+      }
+
+      // Verify password
+      const { verifyPassword } = await import('./auth');
+      const isValidPassword = await verifyPassword(validatedData.password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Login the user
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Session login error:", err);
+          return res.status(500).json({ message: "Failed to establish session" });
+        }
+        
+        const { password, ...userWithoutPassword } = user;
+        res.json(userWithoutPassword);
+      });
+    } catch (error: any) {
+      console.error("Driver login error:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
   // Get current user
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     const { password, ...userWithoutPassword } = req.user;
@@ -2121,6 +2218,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to check and update profile completion
+  async function updateProfileCompletion(userId: string) {
+    const user = await storage.getUser(userId);
+    if (!user) return false;
+
+    const isComplete = !!(
+      user.phone &&
+      user.dateOfBirth &&
+      user.address &&
+      user.city &&
+      user.country &&
+      user.postalCode &&
+      user.emergencyContactName &&
+      user.emergencyContactPhone &&
+      user.vehicleType &&
+      user.vehicleMake &&
+      user.vehicleModel &&
+      user.vehicleYear &&
+      user.vehiclePlate &&
+      user.vehicleColor &&
+      user.licenseNumber &&
+      user.licenseExpiry &&
+      user.idProofUrl &&
+      user.insuranceUrl &&
+      user.stripeAccountId
+    );
+
+    if (user.profileComplete !== isComplete) {
+      await storage.updateUser(userId, { profileComplete: isComplete });
+    }
+
+    return isComplete;
+  }
+
   // Driver Profile
   app.get('/api/driver/profile', isAuthenticated, async (req: any, res) => {
     try {
@@ -2132,6 +2263,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching driver profile:", error);
       res.status(500).json({ message: "Failed to fetch driver profile" });
+    }
+  });
+
+  // Update driver personal info
+  const personalInfoSchema = z.object({
+    phone: z.string().min(10, "Phone number is required"),
+    dateOfBirth: z.string().min(1, "Date of birth is required"),
+    address: z.string().min(1, "Address is required"),
+    city: z.string().min(1, "City is required"),
+    country: z.string().min(1, "Country is required"),
+    postalCode: z.string().min(1, "Postal code is required"),
+    emergencyContactName: z.string().min(1, "Emergency contact name is required"),
+    emergencyContactPhone: z.string().min(10, "Emergency contact phone is required"),
+  });
+
+  app.patch('/api/driver/personal-info', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can update their profile" });
+      }
+
+      const validatedData = personalInfoSchema.parse(req.body);
+      
+      const updated = await storage.updateUser(req.user.id, validatedData);
+      
+      // Recalculate and update profile completion
+      await updateProfileCompletion(req.user.id);
+      
+      const { password, ...userWithoutPassword } = updated;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      console.error("Error updating personal info:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to update personal info" });
+    }
+  });
+
+  // Update driver vehicle info
+  const vehicleInfoSchema = z.object({
+    vehicleType: z.enum(["car", "motorcycle", "bicycle", "scooter"]),
+    vehicleMake: z.string().min(1, "Vehicle make is required"),
+    vehicleModel: z.string().min(1, "Vehicle model is required"),
+    vehicleYear: z.string().min(4, "Vehicle year is required"),
+    vehiclePlate: z.string().min(1, "License plate is required"),
+    vehicleColor: z.string().min(1, "Vehicle color is required"),
+    licenseNumber: z.string().min(1, "Driver's license number is required"),
+    licenseExpiry: z.string().min(1, "License expiry date is required"),
+  });
+
+  app.patch('/api/driver/vehicle-info', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can update their profile" });
+      }
+
+      const validatedData = vehicleInfoSchema.parse(req.body);
+      
+      const updated = await storage.updateUser(req.user.id, validatedData);
+      
+      // Recalculate and update profile completion
+      await updateProfileCompletion(req.user.id);
+      
+      const { password, ...userWithoutPassword } = updated;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      console.error("Error updating vehicle info:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to update vehicle info" });
+    }
+  });
+
+  // Update driver documents
+  const documentsSchema = z.object({
+    idProofUrl: z.string().url("Invalid ID proof URL").optional(),
+    insuranceUrl: z.string().url("Invalid insurance URL").optional(),
+  });
+
+  app.patch('/api/driver/documents', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can update their profile" });
+      }
+
+      const validatedData = documentsSchema.parse(req.body);
+      
+      const updated = await storage.updateUser(req.user.id, validatedData);
+      
+      // Recalculate and update profile completion
+      await updateProfileCompletion(req.user.id);
+      
+      const { password, ...userWithoutPassword } = updated;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      console.error("Error updating documents:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to update documents" });
+    }
+  });
+
+  // Check profile completion and update status
+  app.get('/api/driver/check-completion', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can check their profile" });
+      }
+
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Check if all required fields are filled
+      const isComplete = !!(
+        user.phone &&
+        user.dateOfBirth &&
+        user.address &&
+        user.city &&
+        user.country &&
+        user.postalCode &&
+        user.emergencyContactName &&
+        user.emergencyContactPhone &&
+        user.vehicleType &&
+        user.vehicleMake &&
+        user.vehicleModel &&
+        user.vehicleYear &&
+        user.vehiclePlate &&
+        user.vehicleColor &&
+        user.licenseNumber &&
+        user.licenseExpiry &&
+        user.idProofUrl &&
+        user.insuranceUrl &&
+        user.stripeAccountId // Must have connected bank account
+      );
+
+      // Update profile completion status if changed
+      if (user.profileComplete !== isComplete) {
+        await storage.updateUser(req.user.id, { profileComplete: isComplete });
+      }
+
+      res.json({ 
+        profileComplete: isComplete,
+        adminApproved: user.adminApproved || false,
+      });
+    } catch (error) {
+      console.error("Error checking profile completion:", error);
+      res.status(500).json({ message: "Failed to check profile completion" });
     }
   });
 

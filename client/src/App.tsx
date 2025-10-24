@@ -49,6 +49,7 @@ import Payouts from "@/pages/Payouts";
 import DriverSignup from "@/pages/DriverSignup";
 import DriverDashboard from "@/pages/DriverDashboard";
 import DriverLogin from "@/pages/DriverLogin";
+import DriverSettings from "@/pages/DriverSettings";
 
 function PublicRouter() {
   return (
@@ -86,6 +87,7 @@ function AuthenticatedRouter() {
       <Switch>
         <Route path="/" component={DriverDashboard} />
         <Route path="/driver/dashboard" component={DriverDashboard} />
+        <Route path="/driver/settings" component={DriverSettings} />
         <Route component={NotFound} />
       </Switch>
     );

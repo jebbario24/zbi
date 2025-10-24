@@ -1,108 +1,87 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { FcGoogle } from "react-icons/fc";
+import { Truck, DollarSign, Clock, MapPin, Car, CheckCircle2, AlertCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Car, Clock, DollarSign, MapPin, CheckCircle, Upload } from "lucide-react";
-import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
-const driverApplicationSchema = z.object({
+const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().min(10, "Valid phone number is required"),
-  dateOfBirth: z.string().min(1, "Date of birth is required"),
-  address: z.string().min(1, "Address is required"),
-  city: z.string().min(1, "City is required"),
-  country: z.string().min(1, "Country is required"),
-  postalCode: z.string().min(1, "Postal code is required"),
-  emergencyContactName: z.string().min(1, "Emergency contact name is required"),
-  emergencyContactPhone: z.string().min(10, "Emergency contact phone is required"),
-  licenseNumber: z.string().min(1, "Driver's license number is required"),
-  licenseExpiry: z.string().min(1, "License expiry date is required"),
-  vehicleType: z.enum(["car", "motorcycle", "bicycle", "scooter"]),
-  vehicleMake: z.string().min(1, "Vehicle make is required"),
-  vehicleModel: z.string().min(1, "Vehicle model is required"),
-  vehicleYear: z.string().min(4, "Vehicle year is required"),
-  vehiclePlate: z.string().min(1, "License plate is required"),
-  vehicleColor: z.string().min(1, "Vehicle color is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
-type DriverApplicationForm = z.infer<typeof driverApplicationSchema>;
+type SignupForm = z.infer<typeof signupSchema>;
 
 export default function DriverSignup() {
+  const { user, refetch } = useAuth();
+  const [, setLocation] = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [applicationSubmitted, setApplicationSubmitted] = useState(false);
-  const [idProofFile, setIdProofFile] = useState<File | null>(null);
-  const [insuranceFile, setInsuranceFile] = useState<File | null>(null);
   const { toast } = useToast();
 
-  const form = useForm<DriverApplicationForm>({
-    resolver: zodResolver(driverApplicationSchema),
+  const form = useForm<SignupForm>({
+    resolver: zodResolver(signupSchema),
     defaultValues: {
       firstName: "",
       lastName: "",
       email: "",
-      phone: "",
-      dateOfBirth: "",
-      address: "",
-      city: "",
-      country: "",
-      postalCode: "",
-      emergencyContactName: "",
-      emergencyContactPhone: "",
-      licenseNumber: "",
-      licenseExpiry: "",
-      vehicleType: "car",
-      vehicleMake: "",
-      vehicleModel: "",
-      vehicleYear: "",
-      vehiclePlate: "",
-      vehicleColor: "",
+      password: "",
+      confirmPassword: "",
     },
   });
 
-  const onSubmit = async (data: DriverApplicationForm) => {
-    console.log("Form submission started", data);
-    console.log("Form errors:", form.formState.errors);
-    
-    // Temporarily make ID proof optional for testing
-    // if (!idProofFile) {
-    //   toast({
-    //     title: "ID Proof Required",
-    //     description: "Please upload your ID proof document",
-    //     variant: "destructive",
-    //   });
-    //   return;
-    // }
+  // Redirect if already logged in as driver
+  if (user?.role === 'driver') {
+    setLocation('/driver/dashboard');
+    return null;
+  } else if (user) {
+    // Logged in but not a driver
+    setLocation('/');
+    return null;
+  }
 
+  const onSubmit = async (data: SignupForm) => {
     setIsSubmitting(true);
-
     try {
-      console.log("Sending API request to /api/driver/apply");
-      // In a real implementation, you would upload files to object storage here
-      // For now, we'll just submit the form data
-      
-      const response = await apiRequest("/api/driver/apply", "POST", data);
-      console.log("API response received:", response);
-      
-      setApplicationSubmitted(true);
-      toast({
-        title: "Application Submitted!",
-        description: "We'll review your application and get back to you within 48 hours.",
+      const response = await apiRequest("/api/driver/signup", "POST", {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
       });
-    } catch (error: any) {
-      console.error("Form submission error:", error);
+
+      const newUser = await response.json();
+      
+      // Refetch user to update auth state
+      await refetch();
+      
       toast({
-        title: "Submission Failed",
-        description: error.message || "Failed to submit application. Please try again.",
+        title: "Account Created!",
+        description: "Welcome! Complete your profile to start delivering.",
+      });
+      
+      // Redirect to dashboard
+      setLocation('/driver/dashboard');
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      toast({
+        title: "Signup Failed",
+        description: error.message || "Failed to create account. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -110,35 +89,9 @@ export default function DriverSignup() {
     }
   };
 
-  if (applicationSubmitted) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-6 w-6 text-primary" />
-            </div>
-            <CardTitle className="text-2xl">Application Submitted!</CardTitle>
-            <CardDescription>
-              Thank you for applying to become a delivery driver. We'll review your application and contact you within 48 hours.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground text-center">
-              You'll receive an email confirmation shortly. Check your email at <strong>{form.getValues("email")}</strong>
-            </p>
-            <div className="pt-4 text-center">
-              <Link href="/">
-                <Button variant="outline" data-testid="button-back-home">
-                  Back to Home
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const handleGoogleSignup = () => {
+    window.location.href = "/api/auth/google/driver";
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -151,14 +104,6 @@ export default function DriverSignup() {
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Join our delivery team and enjoy flexible hours, great pay, and the freedom to be your own boss
           </p>
-          <div className="flex flex-wrap justify-center gap-4 mb-8">
-            <Button size="lg" asChild data-testid="button-apply-now">
-              <a href="#application-form">Apply Now</a>
-            </Button>
-            <Button size="lg" variant="outline" asChild data-testid="button-driver-login">
-              <Link href="/driver/login">Driver Login</Link>
-            </Button>
-          </div>
         </div>
       </section>
 
@@ -218,88 +163,59 @@ export default function DriverSignup() {
         </div>
       </section>
 
-      {/* Application Form Section */}
-      <section id="application-form" className="py-16 px-4">
-        <div className="max-w-4xl mx-auto">
+      {/* Signup Form Section */}
+      <section id="signup-form" className="py-16 px-4">
+        <div className="max-w-md mx-auto">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Driver Application</CardTitle>
-              <CardDescription>
-                Fill out the form below to apply. We'll review and get back to you within 48 hours.
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Truck className="h-8 w-8 text-primary" />
+              </div>
+              <CardTitle className="text-2xl text-center">Create Driver Account</CardTitle>
+              <CardDescription className="text-center">
+                Sign up to start earning. Complete your profile later.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              {/* Google OAuth Button */}
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full"
+                onClick={handleGoogleSignup}
+                data-testid="button-google-signup"
+              >
+                <FcGoogle className="mr-2 h-5 w-5" />
+                Continue with Google
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or sign up with email
+                  </span>
+                </div>
+              </div>
+
+              {/* Email/Password Form */}
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  {/* Personal Information */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Personal Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="firstName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>First Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="John" {...field} data-testid="input-first-name" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="lastName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Last Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Doe" {...field} data-testid="input-last-name" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" placeholder="john.doe@email.com" {...field} data-testid="input-email" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="+1 (555) 123-4567" {...field} data-testid="input-phone" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="dateOfBirth"
+                      name="firstName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Date of Birth</FormLabel>
+                          <FormLabel>First Name</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} data-testid="input-dob" />
+                            <Input 
+                              {...field} 
+                              placeholder="John"
+                              data-testid="input-first-name"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -308,312 +224,117 @@ export default function DriverSignup() {
 
                     <FormField
                       control={form.control}
-                      name="address"
+                      name="lastName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Street Address</FormLabel>
+                          <FormLabel>Last Name</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="123 Main St, Apt 4B" {...field} data-testid="input-address" />
+                            <Input 
+                              {...field} 
+                              placeholder="Doe"
+                              data-testid="input-last-name"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="city"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>City</FormLabel>
-                            <FormControl>
-                              <Input placeholder="New York" {...field} data-testid="input-city" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="country"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Country</FormLabel>
-                            <FormControl>
-                              <Input placeholder="United States" {...field} data-testid="input-country" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="postalCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Postal Code</FormLabel>
-                            <FormControl>
-                              <Input placeholder="10001" {...field} data-testid="input-postal" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
                   </div>
 
-                  {/* Emergency Contact */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Emergency Contact</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="emergencyContactName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Contact Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Jane Doe" {...field} data-testid="input-emergency-name" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="emergencyContactPhone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Contact Phone</FormLabel>
-                            <FormControl>
-                              <Input placeholder="+1 (555) 987-6543" {...field} data-testid="input-emergency-phone" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="email"
+                            placeholder="john@example.com"
+                            data-testid="input-email"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  {/* Driver License Information */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Driver's License</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="licenseNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>License Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="D1234567" {...field} data-testid="input-license-number" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="licenseExpiry"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>License Expiry Date</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} data-testid="input-license-expiry" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="password"
+                            placeholder="••••••••"
+                            data-testid="input-password"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    {/* ID Proof Upload */}
-                    <div className="space-y-2">
-                      <FormLabel>ID Proof (Driver's License / National ID)</FormLabel>
-                      <div className="border-2 border-dashed border-border rounded-md p-6 text-center">
-                        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <Input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={(e) => setIdProofFile(e.target.files?.[0] || null)}
-                          className="cursor-pointer"
-                          data-testid="input-id-proof"
-                        />
-                        {idProofFile && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Selected: {idProofFile.name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="password"
+                            placeholder="••••••••"
+                            data-testid="input-confirm-password"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  {/* Vehicle Information */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Vehicle Information</h3>
-                    <FormField
-                      control={form.control}
-                      name="vehicleType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Vehicle Type</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-vehicle-type">
-                                <SelectValue placeholder="Select vehicle type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="car">Car</SelectItem>
-                              <SelectItem value="motorcycle">Motorcycle</SelectItem>
-                              <SelectItem value="bicycle">Bicycle</SelectItem>
-                              <SelectItem value="scooter">Scooter</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="vehicleMake"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Make</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Toyota" {...field} data-testid="input-vehicle-make" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="vehicleModel"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Model</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Camry" {...field} data-testid="input-vehicle-model" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="vehicleYear"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Year</FormLabel>
-                            <FormControl>
-                              <Input placeholder="2020" {...field} data-testid="input-vehicle-year" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="vehiclePlate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>License Plate</FormLabel>
-                            <FormControl>
-                              <Input placeholder="ABC 1234" {...field} data-testid="input-vehicle-plate" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="vehicleColor"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Color</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Silver" {...field} data-testid="input-vehicle-color" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Payout Information Notice */}
-                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                    <div className="flex gap-3">
-                      <DollarSign className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="font-semibold mb-1">Bank Account & Payouts</h4>
-                        <p className="text-sm text-muted-foreground">
-                          After your application is approved, you'll securely connect your bank account through Stripe to receive payouts. 
-                          Stripe supports 40+ countries and handles all tax forms and compliance automatically.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Submit Button */}
-                  <div className="pt-6">
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="w-full"
-                      disabled={isSubmitting}
-                      data-testid="button-submit-application"
-                    >
-                      {isSubmitting ? "Submitting..." : "Submit Application"}
-                    </Button>
-                    <p className="text-xs text-muted-foreground text-center mt-4">
-                      By submitting this form, you agree to our terms and conditions
-                    </p>
-                    
-                    <div className="relative mt-6">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-card px-2 text-muted-foreground">
-                          Already have an account?
-                        </span>
-                      </div>
-                    </div>
-
-                    <Link href="/driver/login">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full mt-2"
-                        data-testid="button-driver-login-link"
-                      >
-                        Sign in as driver
-                      </Button>
-                    </Link>
-                  </div>
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full"
+                    disabled={isSubmitting}
+                    data-testid="button-signup"
+                  >
+                    {isSubmitting ? "Creating Account..." : "Create Account"}
+                  </Button>
                 </form>
               </Form>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Already have an account?
+                  </span>
+                </div>
+              </div>
+
+              <Link href="/driver/login">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  data-testid="button-login-link"
+                >
+                  Sign in as driver
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-card py-8 px-4 border-t">
-        <div className="max-w-6xl mx-auto text-center">
-          <p className="text-muted-foreground">
-            © 2025 EatOut. All rights reserved.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
