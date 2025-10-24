@@ -177,6 +177,172 @@ const requireActiveSubscription = async (req: any, res: any, next: any) => {
   next();
 };
 
+// Service function for processing scheduled payouts (called by cron and admin endpoint)
+export async function processScheduledPayouts(storage: any, stripe: any) {
+  const results = {
+    processed: 0,
+    failed: 0,
+    skipped: 0,
+    totalAmount: 0,
+    details: [] as any[],
+  };
+
+  if (!stripe) {
+    console.error('[Payout] Stripe is not configured');
+    return results;
+  }
+
+  try {
+    // Get all restaurants
+    const allRestaurants = await storage.getAllRestaurants();
+
+    for (const restaurantData of allRestaurants) {
+      const restaurant = restaurantData;
+      
+      try {
+        // Skip if no Stripe Connect account
+        if (!restaurant.stripeAccountId) {
+          results.skipped++;
+          continue;
+        }
+
+        // Verify Connect account is fully onboarded
+        const connectedAccount = await stripe.accounts.retrieve(restaurant.stripeAccountId);
+        if (!connectedAccount.payouts_enabled) {
+          results.skipped++;
+          continue;
+        }
+
+        // Get payout account for schedule preference
+        const payoutAccount = await storage.getPayoutAccount(restaurant.id);
+        
+        // Check if payout is due based on schedule
+        const lastPayout = await storage.getPayoutRuns(restaurant.id);
+        const mostRecentPayout = lastPayout[0];
+        
+        const now = new Date();
+        let shouldProcess = false;
+
+        if (!mostRecentPayout) {
+          shouldProcess = true; // First payout
+        } else {
+          const lastPayoutDate = new Date(mostRecentPayout.createdAt);
+          const daysSinceLastPayout = (now.getTime() - lastPayoutDate.getTime()) / (1000 * 60 * 60 * 24);
+
+          const schedule = payoutAccount?.payoutSchedule || 'weekly';
+          if (schedule === 'daily' && daysSinceLastPayout >= 1) {
+            shouldProcess = true;
+          } else if (schedule === 'weekly' && daysSinceLastPayout >= 7) {
+            shouldProcess = true;
+          }
+        }
+
+        if (!shouldProcess) {
+          results.skipped++;
+          continue;
+        }
+
+        // Get pending earnings
+        const pendingEarnings = await storage.getPendingEarnings(restaurant.id);
+        const amountInDollars = parseFloat(pendingEarnings.total);
+
+        // Skip if below minimum payout threshold
+        if (amountInDollars < 10) {
+          results.skipped++;
+          continue;
+        }
+
+        // Get pending ledger entries
+        const ledgerEntries = await storage.getEarningsLedger(restaurant.id);
+        const pendingEntries = ledgerEntries.filter((entry: any) => entry.restaurantPayoutStatus === 'pending');
+        const ledgerEntryIds = pendingEntries.map((entry: any) => entry.id);
+
+        if (ledgerEntryIds.length === 0) {
+          results.skipped++;
+          continue;
+        }
+
+        // Create payout run
+        const payoutRun = await storage.createPayoutRun(
+          restaurant.id,
+          amountInDollars,
+          'stripe',
+          new Date()
+        );
+
+        try {
+          const amountInCents = Math.round(amountInDollars * 100);
+
+          // Create Stripe Transfer to connected account (proper Connect flow)
+          const transfer = await stripe.transfers.create({
+            amount: amountInCents,
+            currency: 'usd',
+            destination: restaurant.stripeAccountId,
+            description: `Scheduled payout for ${restaurant.name}`,
+            metadata: {
+              restaurantId: restaurant.id,
+              payoutRunId: payoutRun.id,
+              restaurantName: restaurant.name,
+              automated: 'true',
+            },
+          });
+
+          // Complete payout transaction (atomic operation)
+          await storage.completePayoutTransaction(payoutRun.id, ledgerEntryIds, transfer.id);
+
+          results.processed++;
+          results.totalAmount += amountInDollars;
+          results.details.push({
+            restaurantId: restaurant.id,
+            restaurantName: restaurant.name,
+            amount: amountInDollars,
+            status: 'success',
+            transferId: transfer.id,
+          });
+
+          console.log(`[Payout] Success: ${restaurant.name} - $${amountInDollars} (${transfer.id})`);
+
+        } catch (stripeError: any) {
+          console.error(`[Payout] Stripe transfer error for restaurant ${restaurant.id}:`, stripeError);
+          
+          await storage.updatePayoutRunStatus(
+            payoutRun.id,
+            'failed',
+            undefined,
+            stripeError.message
+          );
+
+          results.failed++;
+          results.details.push({
+            restaurantId: restaurant.id,
+            restaurantName: restaurant.name,
+            amount: amountInDollars,
+            status: 'failed',
+            error: stripeError.message,
+          });
+        }
+
+      } catch (error: any) {
+        console.error(`[Payout] Error processing payout for restaurant ${restaurant.id}:`, error);
+        results.failed++;
+        results.details.push({
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+          status: 'failed',
+          error: error.message,
+        });
+      }
+    }
+
+    console.log(`[Payout] Batch complete - Processed: ${results.processed}, Failed: ${results.failed}, Skipped: ${results.skipped}, Total: $${results.totalAmount}`);
+    return results;
+
+  } catch (error) {
+    console.error("[Payout] Error processing scheduled payouts:", error);
+    return results;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Trust proxy for secure cookies behind Replit proxy
   app.set("trust proxy", 1);
@@ -3099,152 +3265,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ error: "Stripe payout processing is not configured" });
       }
 
-      const results = {
-        processed: 0,
-        failed: 0,
-        skipped: 0,
-        totalAmount: 0,
-        details: [] as any[],
-      };
-
-      // Get all restaurants
-      const allRestaurants = await storage.getAllRestaurants();
-
-      for (const restaurantData of allRestaurants) {
-        const restaurant = restaurantData;
-        
-        try {
-          // Skip if no Stripe Connect account
-          if (!restaurant.stripeAccountId) {
-            results.skipped++;
-            continue;
-          }
-
-          // Verify Connect account is fully onboarded
-          const connectedAccount = await stripe.accounts.retrieve(restaurant.stripeAccountId);
-          if (!connectedAccount.payouts_enabled) {
-            results.skipped++;
-            continue;
-          }
-
-          // Get payout account for schedule preference
-          const payoutAccount = await storage.getPayoutAccount(restaurant.id);
-          
-          // Check if payout is due based on schedule
-          const lastPayout = await storage.getPayoutRuns(restaurant.id);
-          const mostRecentPayout = lastPayout[0];
-          
-          const now = new Date();
-          let shouldProcess = false;
-
-          if (!mostRecentPayout) {
-            shouldProcess = true; // First payout
-          } else {
-            const lastPayoutDate = new Date(mostRecentPayout.createdAt);
-            const daysSinceLastPayout = (now.getTime() - lastPayoutDate.getTime()) / (1000 * 60 * 60 * 24);
-
-            const schedule = payoutAccount?.payoutSchedule || 'weekly';
-            if (schedule === 'daily' && daysSinceLastPayout >= 1) {
-              shouldProcess = true;
-            } else if (schedule === 'weekly' && daysSinceLastPayout >= 7) {
-              shouldProcess = true;
-            }
-          }
-
-          if (!shouldProcess) {
-            results.skipped++;
-            continue;
-          }
-
-          // Get pending earnings
-          const pendingEarnings = await storage.getPendingEarnings(restaurant.id);
-          const amountInDollars = parseFloat(pendingEarnings.total);
-
-          // Skip if below minimum payout threshold
-          if (amountInDollars < 10) {
-            results.skipped++;
-            continue;
-          }
-
-          // Get pending ledger entries
-          const ledgerEntries = await storage.getEarningsLedger(restaurant.id);
-          const pendingEntries = ledgerEntries.filter((entry: any) => entry.restaurantPayoutStatus === 'pending');
-          const ledgerEntryIds = pendingEntries.map((entry: any) => entry.id);
-
-          if (ledgerEntryIds.length === 0) {
-            results.skipped++;
-            continue;
-          }
-
-          // Create payout run
-          const payoutRun = await storage.createPayoutRun(
-            restaurant.id,
-            amountInDollars,
-            'stripe',
-            new Date()
-          );
-
-          try {
-            const amountInCents = Math.round(amountInDollars * 100);
-
-            // Create Stripe Transfer to connected account (proper Connect flow)
-            const transfer = await stripe.transfers.create({
-              amount: amountInCents,
-              currency: 'usd',
-              destination: restaurant.stripeAccountId,
-              description: `Scheduled payout for ${restaurant.name}`,
-              metadata: {
-                restaurantId: restaurant.id,
-                payoutRunId: payoutRun.id,
-                restaurantName: restaurant.name,
-                automated: 'true',
-              },
-            });
-
-            // Complete payout transaction (atomic operation)
-            await storage.completePayoutTransaction(payoutRun.id, ledgerEntryIds, transfer.id);
-
-            results.processed++;
-            results.totalAmount += amountInDollars;
-            results.details.push({
-              restaurantId: restaurant.id,
-              restaurantName: restaurant.name,
-              amount: amountInDollars,
-              status: 'success',
-              transferId: transfer.id,
-            });
-
-          } catch (stripeError: any) {
-            console.error(`Stripe transfer error for restaurant ${restaurant.id}:`, stripeError);
-            
-            await storage.updatePayoutRunStatus(
-              payoutRun.id,
-              'failed',
-              undefined,
-              stripeError.message
-            );
-
-            results.failed++;
-            results.details.push({
-              restaurantId: restaurant.id,
-              restaurantName: restaurant.name,
-              amount: amountInDollars,
-              status: 'failed',
-              error: stripeError.message,
-            });
-          }
-
-        } catch (error: any) {
-          console.error(`Error processing payout for restaurant ${restaurant.id}:`, error);
-          results.failed++;
-          results.details.push({
-            restaurantId: restaurant.id,
-            restaurantName: restaurant.name,
-            status: 'failed',
-            error: error.message,
-          });
-        }
-      }
+      // Call the shared service function
+      const results = await processScheduledPayouts(storage, stripe);
 
       res.json({
         success: true,

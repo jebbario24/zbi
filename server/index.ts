@@ -1,7 +1,16 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, processScheduledPayouts } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { storage } from "./storage";
+import Stripe from "stripe";
 import cron from "node-cron";
+
+// Initialize Stripe for cron payout processing
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-09-30.clover",
+    })
+  : null;
 
 const app = express();
 app.use(express.json());
@@ -72,18 +81,11 @@ app.use((req, res, next) => {
     // Setup automated payout scheduler (runs daily at 2 AM)
     cron.schedule('0 2 * * *', async () => {
       try {
-        log('Running automated payout processor...');
-        const response = await fetch(`http://localhost:${port}/api/admin/payouts/process-scheduled`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({}),
-        });
-        const result = await response.json();
-        log(`Automated payouts completed: ${JSON.stringify(result.summary)}`);
+        log('[Payout] Running automated payout processor...');
+        const results = await processScheduledPayouts(storage, stripe);
+        log(`[Payout] Automated payouts completed: Processed: ${results.processed}, Failed: ${results.failed}, Skipped: ${results.skipped}, Total: $${results.totalAmount}`);
       } catch (error) {
-        log(`Automated payout processor error: ${error}`);
+        log(`[Payout] Automated payout processor error: ${error}`);
       }
     }, {
       scheduled: true,
