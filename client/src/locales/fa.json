@@ -64,6 +64,7 @@
     "frequentlyBoughtTogether": "Frequently Bought Together",
     "addBundleToCart": "Add Bundle to Cart",
     "orderSuccess": "Order placed successfully! Pay cash on delivery.",
+    "orderSuccessPickup": "سفارش با موفقیت ثبت شد! هنگام تحویل پرداخت کنید.",
     "orderError": "Failed to place order",
     "categories": "Categories",
     "allCategories": "All Categories",
@@ -71,6 +72,7 @@
     "outOfStock": "Out of Stock",
     "available": "Available",
     "open": "Open",
-    "closed": "Closed"
+    "closed": "Closed",
+    "payOnPickup": "هنگام دریافت سفارش پرداخت خواهید کرد"
   }
 }
