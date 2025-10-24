@@ -521,6 +521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.user.id;
+      const { planType } = req.body; // 'withTrial' or 'immediate'
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -613,15 +614,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priceId = price.id;
       }
 
-      // Create subscription ($79/month)
-      const subscription = await stripe.subscriptions.create({
+      // Create subscription with or without trial based on plan type
+      const subscriptionParams: any = {
         customer: customerId,
         items: [{ price: priceId }],
         payment_behavior: 'default_incomplete',
         payment_settings: { save_default_payment_method: 'on_subscription' },
         expand: ['latest_invoice.payment_intent'],
-        metadata: { plan: 'eatout-monthly' },
-      });
+        metadata: { 
+          plan: planType === 'withTrial' ? 'eatout-monthly-trial' : 'eatout-monthly-immediate'
+        },
+      };
+
+      // Add trial period only for 'withTrial' plan
+      if (planType === 'withTrial') {
+        subscriptionParams.trial_period_days = 7;
+      }
+
+      const subscription = await stripe.subscriptions.create(subscriptionParams);
 
       // Update user with subscription ID
       // Note: subscriptionEndsAt will be set later when subscription becomes active

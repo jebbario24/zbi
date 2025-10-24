@@ -16,7 +16,9 @@ if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
 }
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-const SubscribeForm = () => {
+type PlanType = 'withTrial' | 'immediate';
+
+const SubscribeForm = ({ selectedPlan }: { selectedPlan: PlanType }) => {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
@@ -48,6 +50,8 @@ const SubscribeForm = () => {
     }
   };
 
+  const planLabel = selectedPlan === 'withTrial' ? '7-day free trial - $79/month' : '$79/month - Start Immediately';
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement />
@@ -58,7 +62,7 @@ const SubscribeForm = () => {
         disabled={!stripe || isProcessing}
         data-testid="button-subscribe"
       >
-        {isProcessing ? "Processing..." : "Subscribe Now - $79/month"}
+        {isProcessing ? "Processing..." : `Subscribe Now - ${planLabel}`}
       </Button>
     </form>
   );
@@ -69,6 +73,7 @@ export default function Subscribe() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [clientSecret, setClientSecret] = useState("");
   const [initError, setInitError] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
 
   const { data: subscriptionStatus, isLoading: statusLoading } = useQuery<{
     isSubscriptionActive?: boolean;
@@ -79,7 +84,7 @@ export default function Subscribe() {
     enabled: isAuthenticated, // Only fetch if authenticated
   });
 
-  const initializeSubscription = async () => {
+  const initializeSubscription = async (planType: PlanType) => {
     if (!subscriptionStatus) return;
 
     if (subscriptionStatus?.isSubscriptionActive) {
@@ -90,7 +95,7 @@ export default function Subscribe() {
 
     try {
       setInitError(false);
-      const res = await apiRequest("/api/create-subscription", "POST", {});
+      const res = await apiRequest("/api/create-subscription", "POST", { planType });
       const data = await res.json();
       if (data.clientSecret) {
         setClientSecret(data.clientSecret);
@@ -105,12 +110,10 @@ export default function Subscribe() {
     }
   };
 
-  useEffect(() => {
-    // Only run once when subscriptionStatus is loaded and we don't have client secret or error
-    if (!subscriptionStatus || clientSecret || initError) return;
-    initializeSubscription();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subscriptionStatus, clientSecret, initError]);
+  const handlePlanSelect = (planType: PlanType) => {
+    setSelectedPlan(planType);
+    initializeSubscription(planType);
+  };
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -223,19 +226,27 @@ export default function Subscribe() {
     );
   }
 
+  const features = [
+    "Complete restaurant management platform",
+    "Online ordering with custom domain",
+    "Payment processing (Stripe, PayPal, Apple Pay, Google Pay)",
+    "Real-time analytics and reports",
+    "Menu, orders, tables, staff, and inventory management"
+  ];
+
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-display font-bold">Subscribe to EatOut</h1>
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      <div className="text-center">
+        <h1 className="text-3xl font-display font-bold">Choose Your Plan</h1>
         <p className="text-muted-foreground mt-2">
           {subscriptionStatus?.isTrialActive 
             ? `You have ${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} left in your trial. Subscribe now to ensure uninterrupted service.`
-            : "Your trial has ended. Subscribe to continue using EatOut"}
+            : "Select a plan to continue using EatOut"}
         </p>
       </div>
 
       {subscriptionStatus?.isTrialActive && (
-        <div className="bg-primary/10 p-4 rounded-lg flex items-center gap-2">
+        <div className="bg-primary/10 p-4 rounded-lg flex items-center gap-2 max-w-2xl mx-auto">
           <Calendar className="w-5 h-5 text-primary" />
           <div>
             <p className="font-medium text-primary">Trial Active</p>
@@ -244,65 +255,159 @@ export default function Subscribe() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
-              Payment Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <SubscribeForm />
-            </Elements>
-          </CardContent>
-        </Card>
+      {!selectedPlan && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          {/* Plan 1: With Trial */}
+          <Card className="relative border-2 border-primary">
+            <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
+              Recommended
+            </Badge>
+            <CardHeader>
+              <CardTitle className="text-2xl">Standard Plan</CardTitle>
+              <CardDescription className="text-lg">For Restaurants</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-primary/10 p-6 rounded-lg space-y-2">
+                <p className="text-3xl font-bold text-primary">7-day free trial</p>
+                <p className="text-2xl font-semibold">$79/month</p>
+                <p className="text-sm text-muted-foreground">after trial period</p>
+              </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>What's Included</CardTitle>
-            <CardDescription>Everything you need to run your restaurant</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-primary/10 p-4 rounded-lg">
-              <p className="text-3xl font-bold text-primary">$79</p>
-              <p className="text-sm text-muted-foreground">per month, billed monthly</p>
-            </div>
+              <div className="space-y-3">
+                {features.map((feature, index) => (
+                  <div key={index} className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                    <p className="text-sm">{feature}</p>
+                  </div>
+                ))}
+              </div>
 
-            <div className="space-y-3">
-              <div className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-primary mt-0.5" />
-                <div>
-                  <p className="font-medium">Complete Restaurant Management</p>
-                  <p className="text-sm text-muted-foreground">Menu, orders, tables, staff, inventory</p>
-                </div>
+              <Button 
+                className="w-full" 
+                size="lg"
+                onClick={() => handlePlanSelect('withTrial')}
+                data-testid="button-select-plan-trial"
+              >
+                Choose Plan
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Plan 2: Immediate */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl">Immediate Access Plan</CardTitle>
+              <CardDescription className="text-lg">For Restaurants</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-primary/10 p-6 rounded-lg space-y-2">
+                <p className="text-3xl font-bold text-primary">$79/month</p>
+                <p className="text-sm text-muted-foreground">Start immediately - No trial</p>
               </div>
-              <div className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-primary mt-0.5" />
-                <div>
-                  <p className="font-medium">Online Ordering</p>
-                  <p className="text-sm text-muted-foreground">Accept orders via custom domain</p>
-                </div>
+
+              <div className="space-y-3">
+                {features.map((feature, index) => (
+                  <div key={index} className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                    <p className="text-sm">{feature}</p>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-primary mt-0.5" />
-                <div>
-                  <p className="font-medium">Payment Processing</p>
-                  <p className="text-sm text-muted-foreground">Stripe, PayPal, Google Pay, Apple Pay</p>
+
+              <Button 
+                className="w-full" 
+                size="lg"
+                variant="outline"
+                onClick={() => handlePlanSelect('immediate')}
+                data-testid="button-select-plan-immediate"
+              >
+                Choose Plan
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {selectedPlan && clientSecret && (
+        <div className="space-y-6 max-w-4xl mx-auto">
+          <div className="bg-muted p-4 rounded-lg">
+            <p className="font-medium">
+              Selected Plan: {selectedPlan === 'withTrial' ? 'Standard Plan (7-day free trial - $79/month)' : 'Immediate Access Plan ($79/month)'}
+            </p>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                setSelectedPlan(null);
+                setClientSecret("");
+              }}
+              className="mt-2"
+            >
+              Change Plan
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Payment Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                  <SubscribeForm selectedPlan={selectedPlan} />
+                </Elements>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>What's Included</CardTitle>
+                <CardDescription>Everything you need to run your restaurant</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-primary/10 p-4 rounded-lg">
+                  <p className="text-3xl font-bold text-primary">$79</p>
+                  <p className="text-sm text-muted-foreground">per month, billed monthly</p>
                 </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-primary mt-0.5" />
-                <div>
-                  <p className="font-medium">Analytics & Reports</p>
-                  <p className="text-sm text-muted-foreground">Track sales and performance</p>
+
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium">Complete Restaurant Management</p>
+                      <p className="text-sm text-muted-foreground">Menu, orders, tables, staff, inventory</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium">Online Ordering</p>
+                      <p className="text-sm text-muted-foreground">Accept orders via custom domain</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium">Payment Processing</p>
+                      <p className="text-sm text-muted-foreground">Stripe, PayPal, Google Pay, Apple Pay</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium">Analytics & Reports</p>
+                      <p className="text-sm text-muted-foreground">Track sales and performance</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
