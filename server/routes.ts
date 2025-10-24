@@ -84,7 +84,10 @@ const orderSchema = z.object({
     unitPrice: z.string(),
     selectedOptions: z.any().nullable().optional(),
     notes: z.string().optional(),
-  })),
+  }).refine(
+    (item) => (item.menuItemId && !item.bundleId) || (!item.menuItemId && item.bundleId),
+    { message: "Each order item must have exactly one of menuItemId or bundleId" }
+  )),
   subtotal: z.string(),
   tax: z.string(),
   total: z.string(),
@@ -107,7 +110,10 @@ const onlineOrderSchema = z.object({
     quantity: z.number(),
     unitPrice: z.string(),
     selectedOptions: z.any().nullable().optional(),
-  })),
+  }).refine(
+    (item) => (item.menuItemId && !item.bundleId) || (!item.menuItemId && item.bundleId),
+    { message: "Each order item must have exactly one of menuItemId or bundleId" }
+  )),
   subtotal: z.string(),
   promoCode: z.string().nullable().optional(),
   promoDiscount: z.string().nullable().optional(),

@@ -102,8 +102,8 @@ export interface IStorage {
   // Order operations
   getOrders(restaurantId: string): Promise<Order[]>;
   getRecentOrders(restaurantId: string, limit: number): Promise<Order[]>;
-  getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem?: MenuItem; bundle?: any })[] } | undefined>;
-  getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem?: MenuItem; bundle?: any })[]>;
+  getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem?: MenuItem; bundle?: Bundle })[] } | undefined>;
+  getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem?: MenuItem; bundle?: Bundle })[]>;
   createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order>;
   updateOrderStatus(orderId: string, status: string): Promise<Order>;
   confirmOrderWithPayment(orderId: string, paymentProvider: string, paymentIntentId: string, totalAmount: number, deliveryFee?: number): Promise<Order>;
@@ -355,7 +355,7 @@ export class DatabaseStorage implements IStorage {
     return newOrder;
   }
 
-  async getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem?: MenuItem; bundle?: any })[] } | undefined> {
+  async getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem?: MenuItem; bundle?: Bundle })[] } | undefined> {
     const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
     if (!order) return undefined;
     
@@ -376,7 +376,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem?: MenuItem; bundle?: any })[]> {
+  async getAllOrderItems(restaurantId: string): Promise<(OrderItem & { menuItem?: MenuItem; bundle?: Bundle })[]> {
     const items = await db
       .select()
       .from(orderItems)

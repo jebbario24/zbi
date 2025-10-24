@@ -627,8 +627,11 @@ export const bundles = pgTable("bundles", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   imageUrl: text("image_url"),
+  items: text().array(), // Array of item names for display
   bundlePrice: decimal("bundle_price", { precision: 10, scale: 2 }).notNull(),
+  regularPrice: decimal("regular_price", { precision: 10, scale: 2 }), // Regular price before discount
   originalPrice: decimal("original_price", { precision: 10, scale: 2 }), // Sum of individual items
+  sales: integer("sales").default(0), // Number of times this bundle has been sold
   limitPerOrder: integer("limit_per_order").default(1),
   displayPriority: integer("display_priority").default(0),
   isActive: boolean("is_active").notNull().default(true),

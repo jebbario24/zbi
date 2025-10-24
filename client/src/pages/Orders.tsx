@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Order, OrderItem, MenuItem } from "@shared/schema";
+import type { Order, OrderItem, MenuItem, Bundle } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ const statusLabels: Record<string, string> = {
 
 type OrderWithItems = {
   order: Order;
-  items: (OrderItem & { menuItem?: MenuItem; bundle?: any })[];
+  items: (OrderItem & { menuItem?: MenuItem; bundle?: Bundle })[];
 };
 
 export default function Orders() {
@@ -375,9 +375,11 @@ export default function Orders() {
                               <p className="font-medium">{item.bundle.name}</p>
                               <Badge variant="default" className="text-xs">Bundle</Badge>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {item.bundle.items.join(' • ')}
-                            </p>
+                            {item.bundle.items && item.bundle.items.length > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {item.bundle.items.join(' • ')}
+                              </p>
+                            )}
                           </>
                         ) : (
                           <p className="font-medium text-muted-foreground">Unknown item</p>
