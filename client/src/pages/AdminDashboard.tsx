@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Store, Users, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DollarSign, Store, Users, TrendingUp, CreditCard, MessageSquare, ArrowRight, Clock, CheckCircle } from "lucide-react";
+import { Link } from "wouter";
 
 interface AdminAnalytics {
   totalRestaurants: number;
@@ -15,6 +17,30 @@ export default function AdminDashboard() {
   const { data: analytics, isLoading } = useQuery<AdminAnalytics>({
     queryKey: ['/api/admin/analytics'],
   });
+
+  const { data: allPayouts = [] } = useQuery({
+    queryKey: ['/api/admin/payouts'],
+    queryFn: async () => fetch('/api/admin/payouts').then(res => res.json()),
+  });
+
+  const { data: allReviews = [] } = useQuery({
+    queryKey: ['/api/admin/reviews'],
+    queryFn: async () => fetch('/api/admin/reviews').then(res => res.json()),
+  });
+
+  const payoutStats = {
+    total: allPayouts.length,
+    pending: allPayouts.filter((p: any) => p.status === 'pending').length,
+    failed: allPayouts.filter((p: any) => p.status === 'failed').length,
+  };
+
+  const reviewStats = {
+    total: allReviews.length,
+    pending: allReviews.filter((r: any) => !r.isPublished).length,
+    avgRating: allReviews.length > 0
+      ? (allReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / allReviews.length).toFixed(1)
+      : '0.0',
+  };
 
   if (isLoading) {
     return (
@@ -76,6 +102,86 @@ export default function AdminDashboard() {
             </Card>
           );
         })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
+            <div>
+              <CardTitle>Payout Management</CardTitle>
+              <CardDescription>Monitor restaurant payouts across the platform</CardDescription>
+            </div>
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <div className="text-2xl font-bold" data-testid="dashboard-stat-total-payouts">
+                  {payoutStats.total}
+                </div>
+                <p className="text-xs text-muted-foreground">Total Runs</p>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-yellow-600" data-testid="dashboard-stat-pending-payouts">
+                  {payoutStats.pending}
+                </div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />Pending
+                </p>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-red-600" data-testid="dashboard-stat-failed-payouts">
+                  {payoutStats.failed}
+                </div>
+                <p className="text-xs text-muted-foreground">Failed</p>
+              </div>
+            </div>
+            <Link href="/admin/payouts">
+              <Button variant="outline" className="w-full" data-testid="button-view-all-payouts">
+                View All Payouts
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
+            <div>
+              <CardTitle>Content Moderation</CardTitle>
+              <CardDescription>Customer reviews across all restaurants</CardDescription>
+            </div>
+            <MessageSquare className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <div className="text-2xl font-bold" data-testid="dashboard-stat-total-reviews">
+                  {reviewStats.total}
+                </div>
+                <p className="text-xs text-muted-foreground">Total Reviews</p>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-yellow-600" data-testid="dashboard-stat-hidden-reviews">
+                  {reviewStats.pending}
+                </div>
+                <p className="text-xs text-muted-foreground">Hidden</p>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600" data-testid="dashboard-stat-avg-rating">
+                  {reviewStats.avgRating}★
+                </div>
+                <p className="text-xs text-muted-foreground">Avg Rating</p>
+              </div>
+            </div>
+            <Link href="/admin/moderation">
+              <Button variant="outline" className="w-full" data-testid="button-view-all-reviews">
+                View All Reviews
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

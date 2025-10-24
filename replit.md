@@ -3,6 +3,8 @@
 ## Overview
 EatOut is a comprehensive, subscription-based SaaS restaurant management platform designed to empower restaurants with efficient online presence and operational capabilities. It offers commission-free online ordering and operational tools through a multi-tenant architecture, including a professional admin dashboard and customizable customer-facing online storefronts. The platform supports multiple currencies and countries, aiming to provide a robust solution for restaurant management.
 
+**Admin Control System:** Centralized platform administration with real-time synchronization across all restaurants, drivers, subscriptions, payouts, and customer reviews. The admin dashboard provides unified oversight with quick access to all platform operations.
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
@@ -39,6 +41,14 @@ Preferred communication style: Simple, everyday language.
 - **Printable Order Tickets:** "Print Ticket" functionality for printer-friendly order tickets.
 - **Bulk Order Management:** Bulk operations in the Orders page for status changes, printing, and deletion.
 - **Driver Delivery Portal:** A web-based Progressive Web App (PWA) for delivery drivers, including an application system, order management, delivery tracking, and earnings calculation. It features a progressive profile completion system, dual authentication (email/password and Google OAuth), and integration with Stripe Connect for payouts. Orders are only accessible after full profile completion and admin approval.
+- **Comprehensive Admin Controls:** Platform administrators have centralized access to:
+  - **Payout Management:** Monitor, retry, cancel, and manually process payouts across all restaurants with real-time status tracking
+  - **Content Moderation:** Review, publish/hide, respond to, and delete customer reviews from all restaurants
+  - **User Management:** Advanced filtering, search, and account control for all users (owners, drivers, admins)
+  - **Subscription Controls:** Cancel, delete, extend trials, and force renewals for restaurant subscriptions
+  - **Financial Dashboard:** Platform-wide revenue tracking, commission breakdown, and per-restaurant analytics
+  - **Platform Settings:** Configure commission rates, subscription pricing, and contact information
+  - **Synchronized Dashboard:** Real-time stats from all platform operations with quick access links to detailed management pages
 
 ### System Design Choices
 - **Database:** Neon Serverless PostgreSQL with Drizzle ORM.
