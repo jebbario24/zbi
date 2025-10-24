@@ -59,6 +59,8 @@ const itemSchema = z.object({
   imageUrl: z.string().optional(),
   isAvailable: z.boolean().default(true),
   preparationTime: z.string().optional(),
+  // Badges/Tags
+  tags: z.array(z.string()).optional(),
   // Marketing tactics
   upsellItemIds: z.array(z.string()).optional(),
   crossSellItemIds: z.array(z.string()).optional(),
@@ -134,6 +136,7 @@ export default function Menu() {
       imageUrl: "",
       isAvailable: true,
       preparationTime: "",
+      tags: [] as string[],
       upsellItemIds: [] as string[],
       crossSellItemIds: [] as string[],
       downsellItemIds: [] as string[],
@@ -162,6 +165,7 @@ export default function Menu() {
         imageUrl: editingMenuItem.imageUrl || "",
         isAvailable: editingMenuItem.isAvailable,
         preparationTime: editingMenuItem.preparationTime ? String(editingMenuItem.preparationTime) : "",
+        tags: editingMenuItem.tags || [],
         upsellItemIds: editingMenuItem.upsellItemIds || [],
         crossSellItemIds: editingMenuItem.crossSellItemIds || [],
         downsellItemIds: editingMenuItem.downsellItemIds || [],
