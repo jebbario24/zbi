@@ -37,11 +37,46 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role", { length: 20 }).notNull().default('owner'),
+  
+  // Restaurant owner fields
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionStatus: varchar("subscription_status", { length: 50 }).default('trial'),
   trialEndsAt: timestamp("trial_ends_at"),
   subscriptionEndsAt: timestamp("subscription_ends_at"),
+  
+  // Driver profile fields
+  phone: varchar("phone", { length: 50 }),
+  dateOfBirth: varchar("date_of_birth", { length: 10 }), // YYYY-MM-DD format
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  country: varchar("country", { length: 100 }),
+  postalCode: varchar("postal_code", { length: 20 }),
+  emergencyContactName: varchar("emergency_contact_name", { length: 255 }),
+  emergencyContactPhone: varchar("emergency_contact_phone", { length: 50 }),
+  
+  // Driver license info
+  licenseNumber: varchar("license_number", { length: 100 }),
+  licenseExpiry: varchar("license_expiry", { length: 10 }), // YYYY-MM-DD format
+  
+  // Vehicle info
+  vehicleType: varchar("vehicle_type", { length: 50 }), // car, motorcycle, bicycle, scooter
+  vehicleMake: varchar("vehicle_make", { length: 100 }),
+  vehicleModel: varchar("vehicle_model", { length: 100 }),
+  vehicleYear: varchar("vehicle_year", { length: 4 }),
+  vehiclePlate: varchar("vehicle_plate", { length: 50 }),
+  vehicleColor: varchar("vehicle_color", { length: 50 }),
+  
+  // Documents (stored in object storage)
+  idProofUrl: text("id_proof_url"),
+  insuranceUrl: text("insurance_url"),
+  
+  // Driver status tracking
+  profileComplete: boolean("profile_complete").default(false),
+  adminApproved: boolean("admin_approved").default(false),
+  adminApprovedAt: timestamp("admin_approved_at"),
+  approvedBy: varchar("approved_by"), // Admin user ID who approved
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
