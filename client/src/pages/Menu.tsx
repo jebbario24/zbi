@@ -596,6 +596,65 @@ export default function Menu() {
                         </FormItem>
                       )}
                     />
+
+                    {/* Badges/Tags */}
+                    <FormField
+                      control={itemForm.control}
+                      name="tags"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Tag className="h-4 w-4" />
+                            Badges & Tags
+                          </FormLabel>
+                          <FormDescription>
+                            Add badges to highlight special items on your storefront
+                          </FormDescription>
+                          <FormControl>
+                            <div className="flex flex-wrap gap-2" data-testid="input-item-tags">
+                              {['Bestseller', 'New', 'Chef\'s Special', 'Popular', 'Spicy', 'Vegetarian', 'Vegan', 'Gluten-Free', 'Limited Time'].map((tagOption) => {
+                                const isSelected = field.value?.includes(tagOption) || false;
+                                return (
+                                  <div
+                                    key={tagOption}
+                                    onClick={() => {
+                                      const currentTags = field.value || [];
+                                      if (isSelected) {
+                                        field.onChange(currentTags.filter((t: string) => t !== tagOption));
+                                      } else {
+                                        field.onChange([...currentTags, tagOption]);
+                                      }
+                                    }}
+                                    className={`cursor-pointer px-3 py-1.5 rounded-md border transition-colors ${
+                                      isSelected
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background hover-elevate border-border'
+                                    }`}
+                                    data-testid={`tag-option-${tagOption.toLowerCase().replace(/\s+/g, '-')}`}
+                                  >
+                                    <div className="flex items-center gap-1.5">
+                                      <div className={`h-3 w-3 rounded-sm border ${
+                                        isSelected 
+                                          ? 'bg-primary-foreground border-primary-foreground' 
+                                          : 'bg-background border-muted-foreground'
+                                      }`}>
+                                        {isSelected && (
+                                          <svg className="h-full w-full text-primary" fill="currentColor" viewBox="0 0 12 12">
+                                            <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                                          </svg>
+                                        )}
+                                      </div>
+                                      <span className="text-sm font-medium">{tagOption}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
                   <Separator />
