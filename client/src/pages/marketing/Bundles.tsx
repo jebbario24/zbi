@@ -469,7 +469,7 @@ export default function Bundles() {
 
       {/* Edit Bundle Dialog */}
       <Dialog open={editBundleDialogOpen} onOpenChange={setEditBundleDialogOpen}>
-        <DialogContent className="max-w-lg" data-testid="dialog-edit-bundle">
+        <DialogContent className="max-w-2xl" data-testid="dialog-edit-bundle">
           <DialogHeader>
             <DialogTitle>Edit Bundle</DialogTitle>
             <DialogDescription>
@@ -609,7 +609,7 @@ export default function Bundles() {
 
       {/* Create Bundle Dialog */}
       <Dialog open={createBundleDialogOpen} onOpenChange={setCreateBundleDialogOpen}>
-        <DialogContent className="max-w-lg" data-testid="dialog-create-bundle">
+        <DialogContent className="max-w-2xl" data-testid="dialog-create-bundle">
           <DialogHeader>
             <DialogTitle>Create New Bundle</DialogTitle>
             <DialogDescription>
