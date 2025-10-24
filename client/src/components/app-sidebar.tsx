@@ -164,6 +164,11 @@ const adminMenuItems = [
     icon: Building2,
   },
   {
+    titleKey: "User Management",
+    url: "/admin/users",
+    icon: Users,
+  },
+  {
     titleKey: "Driver Applications",
     url: "/admin/drivers",
     icon: Truck,

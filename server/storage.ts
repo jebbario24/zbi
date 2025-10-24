@@ -167,7 +167,11 @@ export interface IStorage {
   // Admin operations
   getAllRestaurants(): Promise<(Restaurant & { owner: User })[]>;
   getAllUsers(): Promise<User[]>;
+  getAllUsersForAdmin(): Promise<any[]>;
+  updateUser(userId: string, data: Partial<UpsertUser>): Promise<User>;
+  deleteUser(userId: string): Promise<void>;
   updateUserRole(userId: string, role: string): Promise<User>;
+  deleteRestaurantCompletely(id: string): Promise<void>;
   
   // Platform Settings operations
   getPlatformSettings(): Promise<any[]>;
@@ -644,6 +648,38 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users);
+  }
+
+  async getAllUsersForAdmin(): Promise<any[]> {
+    // Get all users with their restaurant info (if they're owners)
+    const allUsers = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        lastLogin: users.lastLogin,
+        restaurantId: restaurants.id,
+        restaurantName: restaurants.name,
+      })
+      .from(users)
+      .leftJoin(restaurants, eq(users.id, restaurants.ownerId));
+    
+    return allUsers;
+  }
+
+  async updateUser(userId: string, data: Partial<UpsertUser>): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, userId));
   }
 
   async updateUserRole(userId: string, role: string): Promise<User> {

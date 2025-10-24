@@ -4453,6 +4453,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get all users
+  app.get('/api/admin/users', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsersForAdmin();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Admin: Suspend user
+  app.post('/api/admin/users/:id/suspend', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateUser(id, { isActive: false });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error suspending user:", error);
+      res.status(500).json({ message: "Failed to suspend user" });
+    }
+  });
+
+  // Admin: Activate user
+  app.post('/api/admin/users/:id/activate', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateUser(id, { isActive: true });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error activating user:", error);
+      res.status(500).json({ message: "Failed to activate user" });
+    }
+  });
+
+  // Admin: Delete user
+  app.delete('/api/admin/users/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Prevent deleting yourself
+      if (id === req.user.id) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+      
+      await storage.deleteUser(id);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Admin: Reset user password (send reset email)
+  app.post('/api/admin/users/:id/reset-password', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // In a real app, you'd send a password reset email here
+      // For now, just return success
+      res.json({ message: "Password reset email sent (simulated)" });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
   // Update restaurant pixels
   app.patch('/api/restaurants/:id/pixels', isAuthenticated, async (req: any, res) => {
     try {
