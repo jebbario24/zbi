@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import cron from "node-cron";
 
 const app = express();
 app.use(express.json());
@@ -67,5 +68,28 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Setup automated payout scheduler (runs daily at 2 AM)
+    cron.schedule('0 2 * * *', async () => {
+      try {
+        log('Running automated payout processor...');
+        const response = await fetch(`http://localhost:${port}/api/admin/payouts/process-scheduled`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        });
+        const result = await response.json();
+        log(`Automated payouts completed: ${JSON.stringify(result.summary)}`);
+      } catch (error) {
+        log(`Automated payout processor error: ${error}`);
+      }
+    }, {
+      scheduled: true,
+      timezone: "UTC"
+    });
+    
+    log('Automated payout scheduler initialized (runs daily at 2 AM UTC)');
   });
 })();
