@@ -29,7 +29,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard, Banknote, Star, Mail, Phone, MessageSquare, Send, AlertCircle } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard, Banknote, Star, Mail, Phone, MessageSquare, Send, AlertCircle, Users } from "lucide-react";
 import { SiPaypal, SiApple, SiGoogle } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -1628,6 +1628,36 @@ export default function Storefront() {
                               </Button>
                             )}
                           </div>
+
+                          {/* Marketing Badges: Scarcity & Social Proof */}
+                          <div className="mt-3 space-y-2">
+                            {/* Scarcity Notice Badge */}
+                            {item.marketingTactics?.enableScarcityNotice && 
+                             item.stockCount !== null && 
+                             item.stockCount !== undefined && 
+                             item.stockCount <= (item.marketingTactics?.scarcityThreshold || 5) && (
+                              <Badge 
+                                className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800"
+                                data-testid={`badge-scarcity-${item.id}`}
+                              >
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                {item.marketingTactics?.scarcityMessage?.replace('X', item.stockCount.toString()) || 
+                                 `Only ${item.stockCount} left in stock!`}
+                              </Badge>
+                            )}
+
+                            {/* Social Proof Badge */}
+                            {item.marketingTactics?.enableSocialProof && (
+                              <Badge 
+                                className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                                data-testid={`badge-social-proof-${item.id}`}
+                              >
+                                <Users className="h-3 w-3 mr-1" />
+                                {item.marketingTactics?.socialProofMessage?.replace('X', (item.marketingTactics?.socialProofCount || 0).toString()) || 
+                                 `${item.marketingTactics?.socialProofCount || 0} people ordered this`}
+                              </Badge>
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
 
@@ -1750,6 +1780,36 @@ export default function Storefront() {
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
+                      )}
+                    </div>
+
+                    {/* Marketing Badges: Scarcity & Social Proof */}
+                    <div className="mt-3 space-y-2">
+                      {/* Scarcity Notice Badge */}
+                      {item.marketingTactics?.enableScarcityNotice && 
+                       item.stockCount !== null && 
+                       item.stockCount !== undefined && 
+                       item.stockCount <= (item.marketingTactics?.scarcityThreshold || 5) && (
+                        <Badge 
+                          className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800"
+                          data-testid={`badge-scarcity-${item.id}`}
+                        >
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          {item.marketingTactics?.scarcityMessage?.replace('X', item.stockCount.toString()) || 
+                           `Only ${item.stockCount} left in stock!`}
+                        </Badge>
+                      )}
+
+                      {/* Social Proof Badge */}
+                      {item.marketingTactics?.enableSocialProof && (
+                        <Badge 
+                          className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                          data-testid={`badge-social-proof-${item.id}`}
+                        >
+                          <Users className="h-3 w-3 mr-1" />
+                          {item.marketingTactics?.socialProofMessage?.replace('X', (item.marketingTactics?.socialProofCount || 0).toString()) || 
+                           `${item.marketingTactics?.socialProofCount || 0} people ordered this`}
+                        </Badge>
                       )}
                     </div>
                   </CardContent>
