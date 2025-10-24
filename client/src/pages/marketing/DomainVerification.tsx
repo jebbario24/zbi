@@ -30,7 +30,7 @@ export default function DomainVerification() {
   const [copied, setCopied] = useState(false);
 
   const { data: restaurant, isLoading } = useQuery<Restaurant>({
-    queryKey: ['/api/restaurants/my-restaurant'],
+    queryKey: ['/api/restaurants/me'],
   });
 
   const form = useForm<VerificationFormData>({
@@ -49,7 +49,7 @@ export default function DomainVerification() {
       return apiRequest(`/api/restaurants/${restaurant.id}/domain-verification`, "PATCH", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/restaurants/my-restaurant'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/restaurants/me'] });
       toast({
         title: "Success",
         description: "Domain verification settings updated successfully",
