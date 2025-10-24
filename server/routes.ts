@@ -26,7 +26,7 @@ import {
 } from '@paypal/paypal-server-sdk';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { db } from "./db";
-import { boostSlots } from "@shared/schema";
+import { boostSlots, promoRules } from "@shared/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
 
 // Initialize Stripe only if credentials are available
@@ -2348,7 +2348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const now = new Date();
       
-      // Get active promo codes with all necessary fields
+      // Get active promo codes with all necessary fields including BOGO
       const promos = await db
         .select({
           id: promoRules.id,
@@ -2360,6 +2360,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           expiresAt: promoRules.endsAt,
           redemptionLimit: promoRules.redemptionLimit,
           redemptionCount: promoRules.redemptionCount,
+          buyItemId: promoRules.buyItemId,
+          getItemId: promoRules.getItemId,
+          buyQuantity: promoRules.buyQuantity,
+          getQuantity: promoRules.getQuantity,
         })
         .from(promoRules)
         .where(
@@ -2399,6 +2403,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: promo.description,
           expiresAt: promo.expiresAt,
           isActive: true,
+          buyItemId: promo.buyItemId,
+          getItemId: promo.getItemId,
+          buyQuantity: promo.buyQuantity,
+          getQuantity: promo.getQuantity,
         }));
       
       res.json(activePromos);

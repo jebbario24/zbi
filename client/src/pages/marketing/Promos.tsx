@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Percent, Calendar, Users } from "lucide-react";
+import { Plus, Percent, Calendar, Users, Gift } from "lucide-react";
+
+type MenuItem = {
+  id: string;
+  name: string;
+  price: string;
+};
 
 type Promo = {
   id: string;
@@ -21,6 +28,10 @@ type Promo = {
   maxUses: number | null;
   isActive: boolean;
   expiresAt: string | null;
+  buyItemId?: string | null;
+  getItemId?: string | null;
+  buyQuantity?: number;
+  getQuantity?: number;
 };
 
 export default function Promos() {
@@ -38,6 +49,15 @@ export default function Promos() {
     maxUses: null as number | null,
     isActive: true,
     expiresAt: null as string | null,
+    buyItemId: null as string | null,
+    getItemId: null as string | null,
+    buyQuantity: 1,
+    getQuantity: 1,
+  });
+
+  // Fetch menu items for BOGO selection
+  const { data: menuItems = [] } = useQuery<MenuItem[]>({
+    queryKey: ['/api/menu/items'],
   });
 
   const [promos, setPromos] = useState<Promo[]>([
@@ -71,20 +91,16 @@ export default function Promos() {
       isActive: true,
       expiresAt: null
     },
-    { 
-      id: '4', 
-      code: 'SUMMER25', 
-      type: 'percentage', 
-      value: 25, 
-      redemptions: 12, 
-      maxUses: 200,
-      isActive: false,
-      expiresAt: '2025-08-31'
-    },
   ]);
 
   const totalRedemptions = promos.reduce((sum, p) => sum + p.redemptions, 0);
   const activePromos = promos.filter(p => p.isActive).length;
+
+  const getMenuItemName = (itemId: string | null | undefined) => {
+    if (!itemId) return 'Unknown';
+    const item = menuItems.find(m => m.id === itemId);
+    return item?.name || 'Unknown Item';
+  };
 
   const handleEditClick = (promo: Promo) => {
     setEditingPromo({ ...promo });
@@ -94,11 +110,32 @@ export default function Promos() {
   const handleSaveEdit = () => {
     if (!editingPromo) return;
     
+    // Validation for BOGO
+    if (editingPromo.type === 'buy_x_get_y') {
+      if (!editingPromo.buyItemId || !editingPromo.getItemId) {
+        toast({ 
+          variant: "destructive", 
+          title: "Missing items", 
+          description: "Please select both buy and get items for BOGO promotion" 
+        });
+        return;
+      }
+      if ((editingPromo.buyQuantity || 0) < 1 || (editingPromo.getQuantity || 0) < 1) {
+        toast({ 
+          variant: "destructive", 
+          title: "Invalid quantities", 
+          description: "Quantities must be at least 1" 
+        });
+        return;
+      }
+    }
+    
     setPromos(promos.map(p => 
       p.id === editingPromo.id ? editingPromo : p
     ));
     setEditDialogOpen(false);
     setEditingPromo(null);
+    toast({ title: "Success", description: "Promo updated successfully" });
   };
 
   const handleCancelEdit = () => {
@@ -106,7 +143,6 @@ export default function Promos() {
     setEditingPromo(null);
   };
 
-  // Create Promo handlers
   const handleOpenCreateDialog = () => {
     setNewPromo({
       code: '',
@@ -115,6 +151,10 @@ export default function Promos() {
       maxUses: null,
       isActive: true,
       expiresAt: null,
+      buyItemId: null,
+      getItemId: null,
+      buyQuantity: 1,
+      getQuantity: 1,
     });
     setCreateDialogOpen(true);
   };
@@ -127,13 +167,13 @@ export default function Promos() {
       return;
     }
 
-    // Check if code already exists
     if (promos.some(p => p.code === trimmedCode)) {
       toast({ variant: "destructive", title: "Duplicate code", description: "This promo code already exists" });
       return;
     }
 
-    if (newPromo.type !== 'free_delivery') {
+    // Validation for standard promos
+    if (newPromo.type !== 'free_delivery' && newPromo.type !== 'buy_x_get_y') {
       if (newPromo.value <= 0) {
         toast({ variant: "destructive", title: "Invalid value", description: "Discount value must be greater than 0" });
         return;
@@ -144,15 +184,39 @@ export default function Promos() {
       }
     }
 
+    // Validation for BOGO
+    if (newPromo.type === 'buy_x_get_y') {
+      if (!newPromo.buyItemId || !newPromo.getItemId) {
+        toast({ 
+          variant: "destructive", 
+          title: "Missing items", 
+          description: "Please select both buy and get items for BOGO promotion" 
+        });
+        return;
+      }
+      if (newPromo.buyQuantity < 1 || newPromo.getQuantity < 1) {
+        toast({ 
+          variant: "destructive", 
+          title: "Invalid quantities", 
+          description: "Quantities must be at least 1" 
+        });
+        return;
+      }
+    }
+
     const createdPromo: Promo = {
       id: Date.now().toString(),
       code: trimmedCode,
       type: newPromo.type,
-      value: newPromo.type === 'free_delivery' ? 0 : newPromo.value,
+      value: (newPromo.type === 'free_delivery' || newPromo.type === 'buy_x_get_y') ? 0 : newPromo.value,
       redemptions: 0,
       maxUses: newPromo.maxUses,
       isActive: newPromo.isActive,
       expiresAt: newPromo.expiresAt,
+      buyItemId: newPromo.buyItemId,
+      getItemId: newPromo.getItemId,
+      buyQuantity: newPromo.buyQuantity,
+      getQuantity: newPromo.getQuantity,
     };
 
     setPromos([...promos, createdPromo]);
@@ -164,13 +228,32 @@ export default function Promos() {
     setCreateDialogOpen(false);
   };
 
+  const renderPromoDiscount = (promo: Promo) => {
+    switch (promo.type) {
+      case 'percentage':
+        return `${promo.value}%`;
+      case 'fixed':
+        return `$${promo.value.toFixed(2)}`;
+      case 'free_delivery':
+        return 'Free Delivery';
+      case 'buy_x_get_y':
+        return (
+          <span className="text-xs">
+            Buy {promo.buyQuantity} get {promo.getQuantity} free
+          </span>
+        );
+      default:
+        return '-';
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Smart Promos</h1>
           <p className="text-muted-foreground mt-1">
-            Create auto-discount rules with intelligent conditions
+            Create auto-discount rules including Buy X Get Y Free promotions
           </p>
         </div>
         <Button onClick={handleOpenCreateDialog} data-testid="button-create-promo">
@@ -212,15 +295,15 @@ export default function Promos() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Redemption Rate</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">BOGO Promos</CardTitle>
+            <Gift className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-avg-redemption">
-              {activePromos > 0 ? Math.round(totalRedemptions / promos.length) : 0}
+            <div className="text-2xl font-bold" data-testid="text-bogo-promos">
+              {promos.filter(p => p.type === 'buy_x_get_y').length}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Per promo code
+              Buy X Get Y promotions
             </p>
           </CardContent>
         </Card>
@@ -229,7 +312,7 @@ export default function Promos() {
       <Card>
         <CardHeader>
           <CardTitle>Promo Codes</CardTitle>
-          <CardDescription>Manage your promotional discount codes</CardDescription>
+          <CardDescription>Manage your promotional discount codes and BOGO offers</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -253,11 +336,12 @@ export default function Promos() {
                   </TableCell>
                   <TableCell className="capitalize">{promo.type.replace('_', ' ')}</TableCell>
                   <TableCell>
-                    {promo.type === 'percentage' 
-                      ? `${promo.value}%`
-                      : promo.type === 'fixed'
-                        ? `$${promo.value.toFixed(2)}`
-                        : 'Free Delivery'}
+                    {renderPromoDiscount(promo)}
+                    {promo.type === 'buy_x_get_y' && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {getMenuItemName(promo.buyItemId)} → {getMenuItemName(promo.getItemId)}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">{promo.redemptions}</TableCell>
                   <TableCell className="text-right">
@@ -292,7 +376,7 @@ export default function Promos() {
 
       {/* Edit Promo Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-md" data-testid="dialog-edit-promo">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-promo">
           <DialogHeader>
             <DialogTitle>Edit Promo Code</DialogTitle>
             <DialogDescription>
@@ -326,11 +410,86 @@ export default function Promos() {
                     <SelectItem value="percentage">Percentage Off</SelectItem>
                     <SelectItem value="fixed">Fixed Amount Off</SelectItem>
                     <SelectItem value="free_delivery">Free Delivery</SelectItem>
+                    <SelectItem value="buy_x_get_y">Buy X Get Y Free (BOGO)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {editingPromo.type !== 'free_delivery' && (
+              {editingPromo.type === 'buy_x_get_y' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-buy-item">Buy Item</Label>
+                    <Select 
+                      value={editingPromo.buyItemId || ''}
+                      onValueChange={(value) => setEditingPromo({ ...editingPromo, buyItemId: value })}
+                    >
+                      <SelectTrigger id="edit-buy-item" data-testid="select-edit-buy-item">
+                        <SelectValue placeholder="Select item customer needs to buy" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {menuItems.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} (${Number(item.price).toFixed(2)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-buy-quantity">Buy Quantity</Label>
+                    <Input
+                      id="edit-buy-quantity"
+                      type="number"
+                      min="1"
+                      value={editingPromo.buyQuantity || 1}
+                      onChange={(e) => setEditingPromo({ 
+                        ...editingPromo, 
+                        buyQuantity: parseInt(e.target.value) || 1 
+                      })}
+                      placeholder="1"
+                      data-testid="input-edit-buy-quantity"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-get-item">Get Item (Free)</Label>
+                    <Select 
+                      value={editingPromo.getItemId || ''}
+                      onValueChange={(value) => setEditingPromo({ ...editingPromo, getItemId: value })}
+                    >
+                      <SelectTrigger id="edit-get-item" data-testid="select-edit-get-item">
+                        <SelectValue placeholder="Select item customer gets free" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {menuItems.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} (${Number(item.price).toFixed(2)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-get-quantity">Get Quantity (Free)</Label>
+                    <Input
+                      id="edit-get-quantity"
+                      type="number"
+                      min="1"
+                      value={editingPromo.getQuantity || 1}
+                      onChange={(e) => setEditingPromo({ 
+                        ...editingPromo, 
+                        getQuantity: parseInt(e.target.value) || 1 
+                      })}
+                      placeholder="1"
+                      data-testid="input-edit-get-quantity"
+                    />
+                  </div>
+                </>
+              )}
+
+              {editingPromo.type !== 'free_delivery' && editingPromo.type !== 'buy_x_get_y' && (
                 <div className="space-y-2">
                   <Label htmlFor="edit-value">
                     {editingPromo.type === 'percentage' ? 'Percentage (%)' : 'Amount ($)'}
@@ -405,11 +564,11 @@ export default function Promos() {
 
       {/* Create Promo Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-md" data-testid="dialog-create-promo">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" data-testid="dialog-create-promo">
           <DialogHeader>
             <DialogTitle>Create New Promo Code</DialogTitle>
             <DialogDescription>
-              Set up a new promotional discount code
+              Set up a new promotional discount code or BOGO offer
             </DialogDescription>
           </DialogHeader>
 
@@ -438,11 +597,104 @@ export default function Promos() {
                   <SelectItem value="percentage">Percentage Off</SelectItem>
                   <SelectItem value="fixed">Fixed Amount Off</SelectItem>
                   <SelectItem value="free_delivery">Free Delivery</SelectItem>
+                  <SelectItem value="buy_x_get_y">Buy X Get Y Free (BOGO)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {newPromo.type !== 'free_delivery' && (
+            {newPromo.type === 'buy_x_get_y' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="new-buy-item">Buy Item</Label>
+                  <Select 
+                    value={newPromo.buyItemId || ''}
+                    onValueChange={(value) => setNewPromo({ ...newPromo, buyItemId: value })}
+                  >
+                    <SelectTrigger id="new-buy-item" data-testid="select-new-buy-item">
+                      <SelectValue placeholder="Select item customer needs to buy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {menuItems.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground text-center">
+                          No menu items available
+                        </div>
+                      ) : (
+                        menuItems.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} (${Number(item.price).toFixed(2)})
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-buy-quantity">Buy Quantity</Label>
+                  <Input
+                    id="new-buy-quantity"
+                    type="number"
+                    min="1"
+                    value={newPromo.buyQuantity}
+                    onChange={(e) => setNewPromo({ 
+                      ...newPromo, 
+                      buyQuantity: parseInt(e.target.value) || 1 
+                    })}
+                    placeholder="1"
+                    data-testid="input-new-buy-quantity"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Number of items customer needs to purchase
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-get-item">Get Item (Free)</Label>
+                  <Select 
+                    value={newPromo.getItemId || ''}
+                    onValueChange={(value) => setNewPromo({ ...newPromo, getItemId: value })}
+                  >
+                    <SelectTrigger id="new-get-item" data-testid="select-new-get-item">
+                      <SelectValue placeholder="Select item customer gets free" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {menuItems.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground text-center">
+                          No menu items available
+                        </div>
+                      ) : (
+                        menuItems.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} (${Number(item.price).toFixed(2)})
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-get-quantity">Get Quantity (Free)</Label>
+                  <Input
+                    id="new-get-quantity"
+                    type="number"
+                    min="1"
+                    value={newPromo.getQuantity}
+                    onChange={(e) => setNewPromo({ 
+                      ...newPromo, 
+                      getQuantity: parseInt(e.target.value) || 1 
+                    })}
+                    placeholder="1"
+                    data-testid="input-new-get-quantity"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Number of free items customer receives
+                  </p>
+                </div>
+              </>
+            )}
+
+            {newPromo.type !== 'free_delivery' && newPromo.type !== 'buy_x_get_y' && (
               <div className="space-y-2">
                 <Label htmlFor="new-value">
                   {newPromo.type === 'percentage' ? 'Percentage (%)' : 'Amount ($)'}

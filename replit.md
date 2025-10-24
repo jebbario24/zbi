@@ -1,7 +1,7 @@
 # EatOut Restaurant Management Platform
 
 ## Overview
-EatOut is a comprehensive SaaS restaurant management platform offering commission-free online ordering and restaurant operations. It features a subscription-based, multi-tenant architecture with a professional admin dashboard and a customizable customer-facing online storefront for each restaurant. The platform supports multiple currencies and countries, aiming to empower restaurants with efficient online presence and operational tools.
+EatOut is a comprehensive, subscription-based SaaS restaurant management platform. It offers commission-free online ordering and operational tools for restaurants through a multi-tenant architecture. Key features include a professional admin dashboard, a customizable customer-facing online storefront for each restaurant, and support for multiple currencies and countries. The platform aims to empower restaurants with efficient online presence and operational capabilities.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,55 +9,50 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX Decisions
-- **Design System:** Hybrid approach with Material Design for the admin dashboard and a custom storefront design. Features a custom color palette (brand orange), Inter/Outfit typography, dark mode for admin, and component library path aliases.
-- **Key UI Patterns:** Server-side rendering, authentication-guarded routes, role-based routing (admin vs owner), responsive design, toast notifications, sidebar navigation, and sheet/drawer components.
-- **Cart Payment UI:** Displays 5 distinct payment buttons (Apple Pay, Google Pay, Credit/Debit Card via Stripe; PayPal; Cash on Delivery) based on restaurant settings. All payments processed through platform-owned accounts.
-- **Order Notification System:** Real-time red badge on Orders sidebar for pending orders, audio alerts for new orders, and smart polling.
-- **Opening Hours Synchronization:** Storefront displays real-time "Open"/"Closed" status, automatically updating with owner changes.
-- **Online Store Customization:** Owners can customize branding (logo, cover photo), opening hours, and menu item images.
-- **Menu Item Availability:** Storefront displays "Out of Stock" and "Low Stock" indicators based on `isAvailable` and `stockCount` fields.
+- **Design System:** Hybrid Material Design for admin, custom storefront design with brand orange palette, Inter/Outfit typography, dark mode for admin, and component library path aliases.
+- **Key UI Patterns:** Server-side rendering, authenticated and role-based routes, responsive design, toast notifications, sidebar navigation, and sheet/drawer components.
+- **Cart & Payments:** Displays 5 distinct payment buttons (Apple Pay, Google Pay, Credit/Debit Card via Stripe; PayPal; Cash on Delivery) based on restaurant settings, all processed through platform-owned accounts.
+- **Notifications:** Real-time order notifications with red badge, audio alerts for new orders, and smart polling.
+- **Storefront Customization:** Owners can customize branding (logo, cover photo), opening hours, and menu item images.
+- **Menu Item Display:** Storefront shows "Open"/"Closed" status, "Out of Stock," and "Low Stock" indicators.
 
 ### Technical Implementations
-- **Frontend Stack:** React with TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (Radix UI), Tailwind CSS.
-- **Backend Stack:** Express.js on Node.js with TypeScript.
-- **Authentication:** Session-based authentication using Replit Auth (OpenID Connect/Passport strategy) with httpOnly cookies and PostgreSQL session store. Role-based access control.
-- **Multi-Tenant Architecture:** Single database with `restaurant_id` separation and hostname-based routing for custom domains/subdomains.
+- **Frontend:** React, TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (Radix UI), Tailwind CSS.
+- **Backend:** Express.js on Node.js with TypeScript.
+- **Authentication:** Session-based authentication using Replit Auth (OpenID Connect/Passport) with httpOnly cookies and PostgreSQL session store, supporting role-based access control.
+- **Multi-Tenancy:** Single database with `restaurant_id` separation and hostname-based routing.
 - **Admin Panel:** Dedicated platform admin dashboard for MRR tracking, subscription management, and platform-wide analytics.
-- **Platform-Managed Payments:** Centralized payment model via platform-owned Stripe and PayPal accounts. Platform collects payments, charges a 2% commission, and distributes shares to restaurants and drivers.
-- **Tax Customization:** Per-restaurant configurable tax rates, labels, and inclusion in menu prices.
-- **Subscription & Billing:** $79/month subscription with a 7-day free trial, managed via Stripe webhooks.
-- **Onboarding Flow:** "Get Started Free" and "Login" entry points, automatic 7-day trial.
-- **Multi-Currency & Regional Settings:** Worldwide support for 170+ currencies and 195+ countries using locale-aware price formatting.
-- **Internationalization (i18n):** Full multi-language support using i18next with automatic RTL text. Separate language settings for admin and storefront.
-- **Analytics Dashboard:** Real-time analytics with batched queries, date-based filtering, and key metrics.
-- **Location-Based Delivery Zones:** Zones defined by country/city/neighborhood with delivery fees and optional minimum order. Cart validates delivery addresses.
-- **Pickup/Delivery Order Types:** Restaurants can configure enabled order types. Storefront adapts UI based on availability.
-- **Menu Item Modifiers System:** Customizable options for menu items (e.g., size, toppings) with validation and pricing breakdown.
-- **Marketing Features:** Storefront includes "Frequently Bought Together" upsell, "Countdown Timer," and "Live Purchase Notifications."
-- **Customer Reviews & Ratings:** Storefront displays reviews and ratings; customers can submit reviews, owners can respond.
-- **Customer Contact Form:** Storefront contact form sends messages directly to the restaurant inbox.
-- **Inbox & Reviews Management:** Fully functional admin Inbox page with three tabs: Messages (customer inquiries from storefront contact form with mark-as-read functionality), Reviews (customer reviews with live response capability - responses immediately sync to storefront), and Resolution Log (order issues tracking). All data fetched from database via dedicated API endpoints (`/api/inbox/messages`, `/api/reviews`). Review responses update in real-time on storefront review section.
-- **Pixel Tracking & Analytics:** Restaurant owners configure Meta, TikTok, Google Analytics, and Google Ads pixels. E-commerce events are automatically fired. Domain verification supported.
-- **Promo Code System:** Complete implementation with storefront cart integration (apply/remove codes, discount calculation), validation API routes, and admin edit functionality. Supports percentage discounts, fixed amount discounts, and free delivery promos.
-- **Marketing Suite Complete CRUD Implementation:** All eight admin dashboard marketing pages (Promos, Loyalty, Boosts, Upsells, Messages, Social, Bundles, Campaigns) feature comprehensive CRUD operations with string-based input state for free typing, validation-on-save with toast feedback, and support for all field types including decimal values. **Boosts Page:** Fully functional edit existing boosts and schedule new boosts with time inputs, credits configuration, and active/inactive toggles. **Time Format Design:** All boost times stored in 24-hour format (HH:MM) for HTML5 input compatibility, displayed in user-friendly 12-hour format via formatTime helper. **Upsells Page:** Complete edit existing rules and create new rules with rule name, trigger/suggested items, conversion rate, revenue, and active/inactive toggles. **Messages Page:** Full CRUD operations for message templates with channel selection (email/SMS/push), trigger event configuration, sent count and open rate tracking, and active/inactive status. **Social Page:** Comprehensive edit functionality for all metrics and actions including clickable stat cards (referral stats, QR scans), social channel configuration (shares/clicks/orders, connection status), referral rewards editing, and action handlers for QR generation/download/print and referral link copying. **Bundles Page:** Complete CRUD operations including create new bundles, edit existing bundles, delete with confirmation dialog, dynamic item management, pricing validation (bundle < regular), empty item filtering, and auto-calculated stats. **Campaigns Page:** Full CRUD operations for automated marketing campaigns with create/edit/delete functionality, type selection (welcome/reactivation/birthday/promotional), status management (active/draft), metric tracking (sent/opened/clicked), auto-calculated open and click rates, and comprehensive validation (opened ≤ sent, clicked ≤ opened). All eight marketing pages now production-ready with complete CRUD functionality following consistent patterns.
-- **Marketing Suite Infrastructure:** Production-ready database schema for customer profiles, smart promos, loyalty, bundles, boosts, segmentation, campaigns, and pixels/referrals.
-- **Bundle Ordering System:** Complete end-to-end implementation allowing restaurants to create bundle deals (combo meals) and customers to order them from the storefront. Bundles reference actual menu items, display with gradient background and "Bundle" badge in cart, track sales automatically, and appear in Orders dashboard with full bundle details. Technical implementation: order_items table supports both menuItemId and bundleId (nullable, mutually exclusive via Zod validation), storage layer uses left joins to fetch discriminated union of items vs bundles, proper TypeScript typing throughout with Bundle type, and bundle sales counter auto-increments on order creation.
-- **Smart Upsell System:** Complete end-to-end upsell/cross-sell implementation synchronized between admin and storefront. Admin upsells page features Select dropdowns populated with actual menu items (no text inputs), storing menu item IDs for trigger items and suggested items. Storefront integration: when customers add trigger items to cart, a "Perfect Pairing" modal appears displaying suggested items with images, descriptions, and prices. Modal offers two actions: accept (adds both items) or decline (adds only trigger item). API endpoint `/api/storefront/:slug/upsell-rules` fetches active rules filtered by restaurant and priority. Technical implementation: upsell_rules table stores triggerItemId (FK to menu_items) and suggestionItemIds (JSONB array), addToCart function includes skipUpsell guard to prevent recursive triggers, modal state management integrated with existing cart system, first suggested item displayed from array.
-- **QR Code Generation System:** Complete implementation using qrcode.react library for table ordering. Features real-time QR code preview, high-quality PNG download (1024x1024), and printable table tents functionality. Smart URL detection prioritizes custom domain over subdomain over slug-based URL. Uses error correction level "H" (highest) for maximum durability.
-- **Printable Order Tickets:** "Print Ticket" button in Orders page Actions column generates printer-friendly order tickets optimized for label printing. Displays order number, timestamp, customer info, delivery address, ordered items (including bundle details), special instructions, and payment method. Opens in new window with auto-print dialog. Security: All user-controlled fields (order numbers, customer data, bundle names, menu items, notes, payment methods) are HTML-escaped using escapeHtml helper to prevent XSS attacks.
-- **Bulk Order Management:** Complete bulk operations system in Orders page enabling efficient multi-order handling. Features: checkbox selection for individual orders or select-all functionality, dynamic bulk actions toolbar appearing when orders are selected, comprehensive status management with 6 status buttons (Pending, Confirmed, Preparing, Ready, Completed, Cancelled) allowing managers to change all selected orders to any status, bulk print opens all tickets sequentially with 500ms delay, bulk delete requires confirmation dialog. Order type filter includes pickup option alongside dine-in, takeout, and online. UI organized into "Change Status" and "Other Actions" sections. Provides detailed user feedback with accurate toast notifications.
-- **Global Delivery Coverage:** Expanded delivery zones country selector to 209 countries, adding important territories including Hong Kong, Macao, Puerto Rico, Guam, US Virgin Islands, British Virgin Islands, Cayman Islands, Bermuda, Northern Mariana Islands, Faroe Islands, and Greenland for comprehensive worldwide restaurant delivery support.
-- **Storefront Boosts Integration:** Complete end-to-end synchronization of featured items between admin marketing dashboard and customer-facing storefront. API endpoint `/api/storefront/:slug/boosts` fetches currently active boosts filtered by restaurant, active status, and current time window (startTime/endTime). Storefront displays gradient "Featured" badge (yellow-to-orange with lightning bolt icon) on top-left of boosted menu item images in both category-grouped and filtered views. BoostedItemsBadge component provides visual prominence for items currently being promoted, encouraging customer engagement with featured products.
-- **Storefront Promo Codes Integration:** Complete end-to-end synchronization of promotional discount codes between admin marketing dashboard and customer-facing storefront. API endpoint `/api/storefront/:slug/promos` fetches active promo codes filtered by restaurant, active status, and expiration dates. Storefront displays ActivePromosBanner component showing all available promotional codes with copy-to-clipboard functionality. Customers can view active promos (percentage discounts, fixed amount discounts, free delivery) and easily copy codes to apply during checkout. Supports full promo application workflow with validation, discount calculation, and redemption tracking.
+- **Platform-Managed Payments:** Centralized payment model via platform-owned Stripe and PayPal accounts; platform collects payments, charges a 2% commission, and distributes shares.
+- **Tax & Currency:** Per-restaurant configurable tax rates and multi-currency support for 170+ currencies and 195+ countries.
+- **Subscriptions:** $79/month subscription with a 7-day free trial, managed via Stripe webhooks.
+- **Internationalization (i18n):** Multi-language support using i18next with automatic RTL text for both admin and storefront.
+- **Analytics:** Real-time analytics dashboard with batched queries and date-based filtering.
+- **Delivery Zones:** Location-based delivery zones with fees and minimum order validation.
+- **Order Types:** Configurable pickup/delivery options, adapting storefront UI accordingly.
+- **Menu Modifiers:** Customizable options for menu items with validation and pricing.
+- **Marketing Features:** Storefront includes "Frequently Bought Together," "Countdown Timer," and "Live Purchase Notifications."
+- **Customer Engagement:** Customer reviews and ratings with owner response capability; contact form sending messages to restaurant inbox.
+- **Admin Inbox:** Inbox for customer messages and review management with real-time response updates to the storefront.
+- **Pixel Tracking:** Owners can configure Meta, TikTok, Google Analytics, and Google Ads pixels with automatic e-commerce event firing.
+- **Promo Code System:** Comprehensive system for percentage, fixed amount, free delivery, and Buy X Get Y Free (BOGO) promotions, with admin CRUD and storefront integration.
+- **Marketing Suite:** Full CRUD implementations for all marketing pages: Promos, Loyalty, Boosts, Upsells, Messages, Social, Bundles, and Campaigns. Features include scheduling, tracking, and validation across various marketing tools.
+- **Bundle Ordering:** End-to-end system for creating and ordering bundle deals (combo meals), with proper tracking in orders and sales.
+- **Smart Upsell System:** Admin-configured upsell rules trigger "Perfect Pairing" modals on the storefront, suggesting complementary items.
+- **QR Code Generation:** System for generating printable QR codes for table ordering, with real-time preview and high-quality download.
+- **Printable Order Tickets:** "Print Ticket" functionality for generating printer-friendly order tickets with full order details and XSS protection.
+- **Bulk Order Management:** Bulk operations system in the Orders page for selecting multiple orders, changing status, printing, and deleting.
+- **Global Delivery:** Expanded delivery zones to include 209 countries and territories.
+- **Storefront Boosts Integration:** Active boosted items from the admin dashboard are prominently displayed on the storefront with a "Featured" badge.
+- **Storefront Promo Codes Integration:** Active promo codes are displayed on the storefront via an "Active Promos Banner" with copy-to-clipboard functionality.
 
 ### System Design Choices
 - **Database:** Neon Serverless PostgreSQL with Drizzle ORM.
-- **Schema Design:** Multi-tenant with `restaurant_id` across all tables. Core entities: users, restaurants, menu items, orders, reservations, staff, inventory. Includes detailed payment infrastructure (payout accounts, earnings ledger, payout runs), driver-related tables, and extended order/restaurant/customer tables for specific features (e.g., tax config, order type preference, custom domains).
-- **Enhanced Menu Data Model (UberEats-Style):** Comprehensive 4-table architecture: **Menus** (grouping, scheduling), **Menu Categories** (organization), **Menu Items** (20+ enhanced fields including SKU, pricing, visibility, prep time, allergens, stock, linking), and **Item Options** (modifiers with type, validation, choices). All tables enforce multi-tenant isolation and have comprehensive performance indexes.
+- **Schema Design:** Multi-tenant with `restaurant_id` across all tables. Includes core entities (users, restaurants, menu items, orders), payment infrastructure, driver data, and extended configurations (tax, custom domains).
+- **Menu Data Model:** Enhanced 4-table architecture (Menus, Menu Categories, Menu Items, Item Options) for flexible grouping, scheduling, and detailed item configuration, all with multi-tenant isolation and performance indexes.
 
 ## External Dependencies
 
-- **Payment Processing:** Stripe and PayPal (platform-owned accounts). Uses `@stripe/stripe-js`, `@stripe/react-stripe-js`, Stripe SDK, and `@paypal/paypal-server-sdk`.
+- **Payment Processing:** Stripe and PayPal (platform-owned accounts).
 - **Internationalization:** i18next, react-i18next, i18next-browser-languagedetector.
 - **UI Components:** Radix UI primitives, Lucide React, React Hook Form, CMDK, Embla Carousel.
 - **File Storage:** Replit Object Storage via `@google-cloud/storage`, Uppy for uploads.
