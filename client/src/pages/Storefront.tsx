@@ -331,7 +331,7 @@ export default function Storefront() {
     return getTodayHoursText(restaurant.openingHours as OpeningHours);
   }, [restaurant?.openingHours]);
 
-  const addToCart = (item: MenuItem) => {
+  const addToCart = (item: MenuItem, skipUpsell = false) => {
     // Check if item has options - if yes, open modal for selection
     const itemOptions = (item.options as any) || [];
     if (itemOptions.length > 0) {
@@ -339,6 +339,23 @@ export default function Storefront() {
       setSelectedItemOptions([]);
       setItemModalOpen(true);
       return;
+    }
+    
+    // Check for upsell rules if not skipping
+    if (!skipUpsell && upsellRules.length > 0) {
+      const matchingRule = upsellRules.find((rule: any) => rule.triggerItemId === item.id);
+      if (matchingRule && matchingRule.suggestionItemIds && matchingRule.suggestionItemIds.length > 0) {
+        // Find the first suggested item from menu items
+        const suggestionId = matchingRule.suggestionItemIds[0];
+        const suggestedItem = menuItems.find((mi: MenuItem) => mi.id === suggestionId);
+        if (suggestedItem) {
+          // Store the item to add and show upsell modal
+          setSelectedItem(item);
+          setUpsellSuggestedItem(suggestedItem);
+          setUpsellModalOpen(true);
+          return;
+        }
+      }
     }
     
     // Track AddToCart event
@@ -382,6 +399,30 @@ export default function Storefront() {
     setItemModalOpen(false);
     setSelectedItem(null);
     setSelectedItemOptions([]);
+  };
+
+  const handleUpsellAccept = () => {
+    // Add both the original item and the suggested item to cart
+    if (selectedItem && upsellSuggestedItem) {
+      // Add original item
+      addToCart(selectedItem, true);
+      // Add suggested item
+      addToCart(upsellSuggestedItem, true);
+      toast({ title: "Items added to cart!" });
+    }
+    setUpsellModalOpen(false);
+    setSelectedItem(null);
+    setUpsellSuggestedItem(null);
+  };
+
+  const handleUpsellDecline = () => {
+    // Add only the original item to cart
+    if (selectedItem) {
+      addToCart(selectedItem, true);
+    }
+    setUpsellModalOpen(false);
+    setSelectedItem(null);
+    setUpsellSuggestedItem(null);
   };
 
   const updateQuantity = (index: number, delta: number) => {
@@ -2027,6 +2068,71 @@ export default function Storefront() {
               data-testid="button-add-to-cart-with-options"
             >
               Add to Cart
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upsell Modal */}
+      <Dialog open={upsellModalOpen} onOpenChange={setUpsellModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Perfect Pairing!</DialogTitle>
+          </DialogHeader>
+          
+          {selectedItem && upsellSuggestedItem && (
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Great choice! Customers who ordered <span className="font-semibold text-foreground">{selectedItem.name}</span> also loved:
+              </p>
+              
+              <Card className="border-primary/20">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    {upsellSuggestedItem.imageUrl && (
+                      <img 
+                        src={upsellSuggestedItem.imageUrl} 
+                        alt={upsellSuggestedItem.name}
+                        className="w-20 h-20 rounded-md object-cover"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <h4 className="font-semibold">{upsellSuggestedItem.name}</h4>
+                      {upsellSuggestedItem.description && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {upsellSuggestedItem.description}
+                        </p>
+                      )}
+                      <div className="text-primary font-bold mt-2">
+                        {formatPrice(upsellSuggestedItem.price)}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Star className="h-4 w-4 fill-primary text-primary" />
+                <span>Recommended by other customers</span>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button 
+              variant="outline" 
+              onClick={handleUpsellDecline}
+              className="w-full sm:w-auto"
+              data-testid="button-decline-upsell"
+            >
+              No, thanks
+            </Button>
+            <Button
+              onClick={handleUpsellAccept}
+              className="w-full sm:w-auto"
+              data-testid="button-accept-upsell"
+            >
+              Yes, add both items!
             </Button>
           </DialogFooter>
         </DialogContent>
