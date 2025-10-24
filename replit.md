@@ -23,6 +23,7 @@ Preferred communication style: Simple, everyday language.
 - **Multi-Tenancy:** Single database with `restaurant_id` separation and hostname-based routing.
 - **Admin Panel:** Dedicated platform admin dashboard for MRR tracking, subscription management, and platform-wide analytics.
 - **Platform-Managed Payments:** Centralized payment model via platform-owned Stripe and PayPal accounts; platform collects payments, charges a 2% commission, and distributes shares.
+- **Automated Payout System:** UberEats-style automated payouts where platform Stripe account sends money directly to restaurant bank accounts. Restaurants enter bank details (ACH for US, IBAN for international); system tracks earnings per order in `earningsLedger` table (restaurant share after 2% commission); processes payouts daily/weekly based on restaurant preference via Stripe Payouts API; minimum payout threshold of $10; complete payout history tracking in `payoutRuns` table with transaction IDs and status.
 - **Tax & Currency:** Per-restaurant configurable tax rates and multi-currency support for 170+ currencies and 195+ countries.
 - **Subscriptions:** $79/month subscription with a 7-day free trial, managed via Stripe webhooks.
 - **Internationalization (i18n):** Multi-language support using i18next with automatic RTL text for both admin and storefront.
