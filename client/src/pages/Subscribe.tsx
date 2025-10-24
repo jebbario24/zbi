@@ -203,11 +203,15 @@ export default function Subscribe() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Button 
-              onClick={initializeSubscription} 
+              onClick={() => {
+                setInitError(false);
+                setSelectedPlan(null);
+                setClientSecret("");
+              }}
               className="w-full"
               data-testid="button-retry-subscription"
             >
-              Retry
+              Try Again
             </Button>
           </CardContent>
         </Card>
@@ -215,8 +219,8 @@ export default function Subscribe() {
     );
   }
 
-  // Show loading while fetching client secret
-  if (!clientSecret) {
+  // Show loading only when a plan is selected but client secret is not ready yet
+  if (selectedPlan && !clientSecret) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-center h-96">
