@@ -11,7 +11,7 @@ Preferred communication style: Simple, everyday language.
 ### UI/UX Decisions
 - **Design System:** Hybrid Material Design for admin, custom storefront design with brand orange palette, Inter/Outfit typography, dark mode for admin, and component library path aliases.
 - **Key UI Patterns:** Server-side rendering, authenticated and role-based routes, responsive design, toast notifications, sidebar navigation, and sheet/drawer components.
-- **Cart & Payments:** Displays 5 distinct payment buttons (Apple Pay, Google Pay, Credit/Debit Card via Stripe; PayPal; Cash on Delivery) based on restaurant settings, all processed through platform-owned accounts.
+- **Cart & Payments:** Displays 5 distinct payment buttons (Apple Pay, Google Pay, Credit/Debit Card via Stripe; PayPal; Cash on Delivery) based on restaurant settings, all processed through platform-owned accounts. For pickup orders when no payment methods are configured, shows a "Place Order" button with pay-on-arrival functionality to allow restaurants to accept orders before setting up online payments.
 - **Notifications:** Real-time order notifications with red badge, audio alerts for new orders, and smart polling.
 - **Storefront Customization:** Owners can customize branding (logo, cover photo), opening hours, and menu item images.
 - **Menu Item Display:** Storefront shows "Open"/"Closed" status, "Out of Stock," and "Low Stock" indicators.
