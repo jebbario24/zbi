@@ -904,9 +904,9 @@ export default function Storefront() {
                                   ))}
                                 </div>
                                 <p className="text-sm text-primary font-medium">
-                                  {formatPrice(bundle.bundlePrice.toFixed(2))}
+                                  {formatPrice(Number(bundle.bundlePrice).toFixed(2))}
                                   <span className="text-xs text-muted-foreground ml-1 line-through">
-                                    {formatPrice(bundle.regularPrice.toFixed(2))}
+                                    {formatPrice(Number(bundle.regularPrice).toFixed(2))}
                                   </span>
                                 </p>
                                 <div className="flex items-center gap-2 mt-2">

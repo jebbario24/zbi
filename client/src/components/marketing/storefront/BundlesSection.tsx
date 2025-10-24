@@ -35,8 +35,8 @@ export function BundlesSection({ bundles, onAddToCart }: BundlesSectionProps) {
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {activeBundles.map((bundle) => {
-          const savings = bundle.regularPrice - bundle.bundlePrice;
-          const savingsPercent = Math.round((savings / bundle.regularPrice) * 100);
+          const savings = Number(bundle.regularPrice) - Number(bundle.bundlePrice);
+          const savingsPercent = Math.round((savings / Number(bundle.regularPrice)) * 100);
 
           return (
             <Card key={bundle.id} className="overflow-hidden hover-elevate" data-testid={`bundle-${bundle.id}`}>
@@ -63,9 +63,9 @@ export function BundlesSection({ bundles, onAddToCart }: BundlesSectionProps) {
                 </div>
 
                 <div className="flex items-baseline gap-3">
-                  <div className="text-2xl font-bold">${bundle.bundlePrice.toFixed(2)}</div>
+                  <div className="text-2xl font-bold">${Number(bundle.bundlePrice).toFixed(2)}</div>
                   <div className="text-sm text-muted-foreground line-through">
-                    ${bundle.regularPrice.toFixed(2)}
+                    ${Number(bundle.regularPrice).toFixed(2)}
                   </div>
                 </div>
               </div>

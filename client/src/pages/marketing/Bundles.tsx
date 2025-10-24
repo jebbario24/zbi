@@ -433,14 +433,14 @@ export default function Bundles() {
               <div className="flex items-center justify-between pt-3 border-t">
                 <div>
                   <p className="text-xs text-muted-foreground line-through">
-                    ${bundle.regularPrice.toFixed(2)}
+                    ${Number(bundle.regularPrice).toFixed(2)}
                   </p>
                   <p className="text-xl font-bold text-green-600">
-                    ${bundle.bundlePrice.toFixed(2)}
+                    ${Number(bundle.bundlePrice).toFixed(2)}
                   </p>
                 </div>
                 <Badge variant="outline" className="text-green-600">
-                  Save ${(bundle.regularPrice - bundle.bundlePrice).toFixed(2)}
+                  Save ${(Number(bundle.regularPrice) - Number(bundle.bundlePrice)).toFixed(2)}
                 </Badge>
               </div>
               <div className="flex gap-2">
