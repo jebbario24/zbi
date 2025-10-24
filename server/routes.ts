@@ -3074,9 +3074,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/restaurant/payout-settings", isAuthenticated, async (req: any, res) => {
+  app.get("/api/restaurant/payout-settings", isAuthenticated, async (req: any, res) => {
     const userId = req.user.id;
-    const { accountHolderName, bankName, accountNumber, routingNumber, iban, swiftCode, country, payoutSchedule } = req.body;
 
     try {
       const restaurant = await storage.getRestaurantByOwnerId(userId);
@@ -3084,17 +3083,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Restaurant not found" });
       }
 
-      // Create or update payout account
-      await storage.createOrUpdatePayoutAccount(restaurant.id, {
-        accountHolderName,
-        bankName,
-        accountNumber,
-        routingNumber,
-        iban,
-        swiftCode,
-        country,
-        payoutSchedule: payoutSchedule || "weekly"
-      });
+      const payoutAccount = await storage.getPayoutAccount(restaurant.id);
+      res.json({ payoutSchedule: payoutAccount?.payoutSchedule || "weekly" });
+    } catch (error) {
+      console.error("Error fetching payout settings:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/restaurant/payout-settings", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+    const { payoutSchedule } = req.body;
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      // Update only the payout schedule (bank details are in Stripe Connect)
+      const existingAccount = await storage.getPayoutAccount(restaurant.id);
+      
+      if (existingAccount) {
+        await storage.createOrUpdatePayoutAccount(restaurant.id, {
+          ...existingAccount,
+          payoutSchedule: payoutSchedule || "weekly"
+        });
+      } else {
+        // Create minimal payout account with just schedule
+        await storage.createOrUpdatePayoutAccount(restaurant.id, {
+          accountHolderName: "",
+          bankName: "",
+          accountNumber: "",
+          routingNumber: "",
+          iban: "",
+          swiftCode: "",
+          country: "",
+          payoutSchedule: payoutSchedule || "weekly"
+        });
+      }
       
       res.status(200).json({ success: true });
     } catch (error) {

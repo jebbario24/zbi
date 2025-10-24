@@ -285,14 +285,15 @@ export default function OnlineStore() {
   });
 
   const payoutSettingsMutation = useMutation({
-    mutationFn: async (settings: typeof payoutSettings) => {
-      return apiRequest("/api/restaurant/payout-settings", "PUT", settings);
+    mutationFn: async (data: { payoutSchedule: "daily" | "weekly" }) => {
+      return apiRequest("/api/restaurant/payout-settings", "PUT", data);
     },
     onSuccess: () => {
-      toast({ title: "Payout settings saved successfully!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurant/payout-settings"] });
+      toast({ title: "Payout schedule saved successfully!" });
     },
     onError: () => {
-      toast({ title: "Failed to save payout settings", variant: "destructive" });
+      toast({ title: "Failed to save payout schedule", variant: "destructive" });
     },
   });
 
@@ -462,22 +463,21 @@ export default function OnlineStore() {
     }
   }, [restaurant?.taxRate, restaurant?.taxIncludedInPrice, restaurant?.taxLabel]);
 
-  // Load existing payout settings
+  // Fetch payout schedule
+  const { data: payoutData } = useQuery<{ payoutSchedule: "daily" | "weekly" }>({
+    queryKey: ["/api/restaurant/payout-settings"],
+    enabled: !!restaurant,
+  });
+
+  // Load payout schedule when data is available
   useEffect(() => {
-    if (restaurant?.payoutAccount) {
-      const account = restaurant.payoutAccount as any;
-      setPayoutSettings({
-        accountHolderName: account.accountHolderName || "",
-        bankName: account.bankName || "",
-        accountNumber: account.accountNumber || "",
-        routingNumber: account.routingNumber || "",
-        iban: account.iban || "",
-        swiftCode: account.swiftCode || "",
-        country: account.country || "",
-        payoutSchedule: account.payoutSchedule || "weekly",
-      });
+    if (payoutData) {
+      setPayoutSettings(prev => ({
+        ...prev,
+        payoutSchedule: payoutData.payoutSchedule
+      }));
     }
-  }, [restaurant?.payoutAccount]);
+  }, [payoutData]);
 
   if (isLoading) {
     return (
