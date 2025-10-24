@@ -2277,6 +2277,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/storefront/:slug/upsell-rules', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const upsellRules = await storage.getActiveUpsellRules(restaurant.id);
+      res.json(upsellRules);
+    } catch (error) {
+      console.error("Error fetching upsell rules:", error);
+      res.status(500).json({ message: "Failed to fetch upsell rules" });
+    }
+  });
+
   app.post('/api/storefront/:slug/checkout', async (req, res) => {
     try {
       const restaurant = await storage.getRestaurantBySlug(req.params.slug);

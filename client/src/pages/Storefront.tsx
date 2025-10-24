@@ -164,6 +164,10 @@ export default function Storefront() {
   const [promoCodeError, setPromoCodeError] = useState("");
   const [applyingPromo, setApplyingPromo] = useState(false);
 
+  // Upsell modal state
+  const [upsellModalOpen, setUpsellModalOpen] = useState(false);
+  const [upsellSuggestedItem, setUpsellSuggestedItem] = useState<MenuItem | null>(null);
+
 
   const mockPromos = [
     { id: '1', code: 'WELCOME10', type: 'percentage', value: 10, isActive: true },
@@ -225,6 +229,29 @@ export default function Storefront() {
     queryFn: async () => {
       const endpoint = slug ? `/api/storefront/${slug}/categories` : `/api/storefront/${restaurant?.slug}/categories`;
       const response = await fetch(endpoint);
+      return response.json();
+    },
+  });
+
+  // Fetch menu items for upsell logic
+  const { data: menuItems = [] } = useQuery<MenuItem[]>({
+    queryKey: ["/api/storefront/items", restaurant?.id],
+    enabled: !!restaurant,
+    queryFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/items` : `/api/storefront/${restaurant?.slug}/items`;
+      const response = await fetch(endpoint);
+      return response.json();
+    },
+  });
+
+  // Fetch active upsell rules
+  const { data: upsellRules = [] } = useQuery<any[]>({
+    queryKey: ["/api/storefront/upsell-rules", restaurant?.id],
+    enabled: !!restaurant,
+    queryFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/upsell-rules` : `/api/storefront/${restaurant?.slug}/upsell-rules`;
+      const response = await fetch(endpoint);
+      if (!response.ok) return [];
       return response.json();
     },
   });

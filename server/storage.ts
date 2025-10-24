@@ -18,6 +18,7 @@ import {
   inboxMessages,
   promoRules,
   bundles as bundlesTable,
+  upsellRules as upsellRulesTable,
   type User,
   type UpsertUser,
   type Restaurant,
@@ -47,9 +48,10 @@ import {
   type InsertCustomerReview,
   type InboxMessage,
   type InsertInboxMessage,
+  type Bundle,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, like, sql } from "drizzle-orm";
+import { eq, and, desc, asc, like, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -142,6 +144,9 @@ export interface IStorage {
   updateDriverAvailability(id: string, isAvailable: boolean): Promise<DriverProfile>;
   getDriverAssignments(): Promise<(Order & { driver?: DriverProfile })[]>;
   getDriverPerformance(): Promise<{ driverId: string; driver: DriverProfile; deliveries: number; earnings: string; rating: string }[]>;
+  
+  // Upsell operations
+  getActiveUpsellRules(restaurantId: string): Promise<any[]>;
   
   // Admin operations
   getAllRestaurants(): Promise<(Restaurant & { owner: User })[]>;
@@ -805,6 +810,18 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(bundlesTable.sales));
     return bundles;
+  }
+
+  async getActiveUpsellRules(restaurantId: string): Promise<any[]> {
+    const rules = await db
+      .select()
+      .from(upsellRulesTable)
+      .where(and(
+        eq(upsellRulesTable.restaurantId, restaurantId),
+        eq(upsellRulesTable.isActive, true)
+      ))
+      .orderBy(asc(upsellRulesTable.priority));
+    return rules;
   }
 
   async getBundle(id: string): Promise<any | null> {
