@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+
+interface Restaurant {
+  id: string;
+  name: string;
+  slug: string;
+  subdomain: string | null;
+  customDomain: string | null;
+}
 
 interface ReferralStats {
   totalReferrals: number;
@@ -42,6 +52,27 @@ interface ReferralRewards {
 export default function Social() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+
+  // Fetch restaurant data
+  const { data: restaurant } = useQuery<Restaurant>({
+    queryKey: ["/api/restaurants/me"],
+  });
+
+  // Generate storefront URL
+  const getStorefrontUrl = () => {
+    if (!restaurant) return "";
+    
+    if (restaurant.customDomain) {
+      return `https://${restaurant.customDomain}`;
+    } else if (restaurant.subdomain) {
+      return `https://${restaurant.subdomain}.eatout.app`;
+    } else {
+      return `${window.location.origin}/s/${restaurant.slug}`;
+    }
+  };
+
+  const storefrontUrl = getStorefrontUrl();
 
   const [qrScans, setQrScans] = useState(287);
   const [referralStats, setReferralStats] = useState<ReferralStats>({
@@ -269,11 +300,143 @@ export default function Social() {
   };
 
   const handleDownloadQR = () => {
-    toast({ title: "Download Started", description: "QR code is being downloaded" });
+    if (!qrCodeRef.current || !restaurant) return;
+
+    // Get the SVG element
+    const svg = qrCodeRef.current.querySelector('svg');
+    if (!svg) return;
+
+    // Convert SVG to canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size (larger for better quality)
+    const size = 1024;
+    canvas.width = size;
+    canvas.height = size;
+
+    // Add white background
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, size, size);
+
+    // Convert SVG to image
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+
+      // Download as PNG
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `${restaurant.name.replace(/\s+/g, '-')}-qr-code.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(downloadUrl);
+        
+        toast({ title: "Downloaded", description: "QR code saved successfully" });
+      });
+    };
+
+    img.src = url;
   };
 
   const handlePrintTableTents = () => {
-    toast({ title: "Print Ready", description: "Table tents are ready to print" });
+    if (!restaurant || !storefrontUrl) return;
+
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    // Generate print-friendly table tent HTML
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${restaurant.name} - Table Tent</title>
+          <style>
+            @media print {
+              @page { margin: 0; }
+              body { margin: 1cm; }
+            }
+            body {
+              font-family: Arial, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              margin: 0;
+              background: white;
+            }
+            .table-tent {
+              text-align: center;
+              padding: 40px;
+              border: 2px dashed #ccc;
+              max-width: 600px;
+            }
+            h1 {
+              font-size: 32px;
+              margin-bottom: 10px;
+              color: #333;
+            }
+            .subtitle {
+              font-size: 18px;
+              color: #666;
+              margin-bottom: 30px;
+            }
+            .qr-container {
+              background: white;
+              padding: 20px;
+              display: inline-block;
+              margin: 20px 0;
+            }
+            .instructions {
+              font-size: 16px;
+              color: #666;
+              margin-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="table-tent">
+            <h1>${restaurant.name}</h1>
+            <p class="subtitle">Scan to View Menu & Order</p>
+            <div class="qr-container" id="qr-container"></div>
+            <p class="instructions">
+              Point your phone camera at the QR code<br>
+              to browse our menu and place an order
+            </p>
+          </div>
+          <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+          <script>
+            const canvas = document.createElement('canvas');
+            document.getElementById('qr-container').appendChild(canvas);
+            QRCode.toCanvas(canvas, '${storefrontUrl}', {
+              width: 300,
+              margin: 2,
+              color: {
+                dark: '#000000',
+                light: '#ffffff'
+              }
+            });
+            setTimeout(() => window.print(), 500);
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    toast({ title: "Print Ready", description: "Table tent ready to print" });
   };
 
   const handleCopyLink = () => {
@@ -373,11 +536,24 @@ export default function Social() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-6">
-            <div className="h-48 w-48 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted">
-              <div className="text-center">
-                <QrCode className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">QR Code Preview</p>
-              </div>
+            <div 
+              ref={qrCodeRef}
+              className="h-48 w-48 border-2 rounded-lg flex items-center justify-center bg-white p-3"
+              data-testid="qr-code-preview"
+            >
+              {storefrontUrl ? (
+                <QRCodeSVG
+                  value={storefrontUrl}
+                  size={168}
+                  level="H"
+                  includeMargin={true}
+                />
+              ) : (
+                <div className="text-center">
+                  <QrCode className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                </div>
+              )}
             </div>
             <div className="flex-1 space-y-3">
               <div>
@@ -385,12 +561,26 @@ export default function Social() {
                 <p className="text-sm text-muted-foreground">
                   Customers can scan this code to view your menu and place orders directly
                 </p>
+                {storefrontUrl && (
+                  <p className="text-xs text-muted-foreground mt-2 font-mono break-all">
+                    {storefrontUrl}
+                  </p>
+                )}
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleDownloadQR} data-testid="button-download-qr">
+                <Button 
+                  onClick={handleDownloadQR} 
+                  disabled={!storefrontUrl}
+                  data-testid="button-download-qr"
+                >
                   Download QR Code
                 </Button>
-                <Button variant="outline" onClick={handlePrintTableTents} data-testid="button-print-table-tents">
+                <Button 
+                  variant="outline" 
+                  onClick={handlePrintTableTents}
+                  disabled={!storefrontUrl}
+                  data-testid="button-print-table-tents"
+                >
                   Print Table Tents
                 </Button>
               </div>
