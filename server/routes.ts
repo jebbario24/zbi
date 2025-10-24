@@ -2338,6 +2338,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get loyalty program settings for storefront
+  app.get('/api/storefront/:slug/loyalty-program', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      // Get loyalty program settings from restaurant record
+      const loyaltySettings = (restaurant.loyaltySettings || {
+        enabled: false,
+        programName: 'Rewards Program',
+        programDescription: 'Earn points with every purchase',
+        pointsPerDollar: 10,
+        redemptionValue: 1,
+        minimumRedemption: 100,
+        welcomeBonus: 100,
+        autoEnroll: true,
+        tiers: [
+          { name: 'Bronze', minPoints: 0, discount: 0, color: 'bg-orange-600', members: 0 },
+          { name: 'Silver', minPoints: 500, discount: 5, color: 'bg-gray-400', members: 0 },
+          { name: 'Gold', minPoints: 1000, discount: 10, color: 'bg-yellow-500', members: 0 },
+          { name: 'Platinum', minPoints: 2500, discount: 15, color: 'bg-purple-600', members: 0 }
+        ]
+      }) as any;
+
+      res.json(loyaltySettings);
+    } catch (error) {
+      console.error("Error fetching loyalty program:", error);
+      res.status(500).json({ message: "Failed to fetch loyalty program" });
+    }
+  });
+
+  // Get or create customer loyalty account
+  app.post('/api/storefront/:slug/loyalty-account', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const { customerEmail, customerPhone } = req.body;
+      if (!customerEmail && !customerPhone) {
+        return res.status(400).json({ message: "Email or phone required" });
+      }
+
+      const loyaltySettings = (restaurant.loyaltySettings || { enabled: false }) as any;
+      if (!loyaltySettings.enabled) {
+        return res.json({ enrolled: false, points: 0, tier: null });
+      }
+
+      // Check if customer loyalty account exists
+      let loyaltyAccount = await db
+        .select()
+        .from(customerProfiles)
+        .where(
+          and(
+            eq(customerProfiles.restaurantId, restaurant.id),
+            customerEmail 
+              ? eq(customerProfiles.email, customerEmail)
+              : eq(customerProfiles.phone, customerPhone!)
+          )
+        )
+        .limit(1);
+
+      if (loyaltyAccount.length === 0 && loyaltySettings.autoEnroll) {
+        // Create new loyalty account with welcome bonus
+        const newAccount = await db
+          .insert(customerProfiles)
+          .values({
+            restaurantId: restaurant.id,
+            email: customerEmail || null,
+            phone: customerPhone || null,
+            totalPoints: loyaltySettings.welcomeBonus || 0,
+            lifetimePoints: loyaltySettings.welcomeBonus || 0,
+            totalOrders: 0,
+            totalSpent: '0'
+          })
+          .returning();
+        
+        loyaltyAccount = newAccount;
+      }
+
+      if (loyaltyAccount.length === 0) {
+        return res.json({ enrolled: false, points: 0, tier: null });
+      }
+
+      const account = loyaltyAccount[0];
+      
+      // Determine current tier
+      const tiers = loyaltySettings.tiers || [];
+      const sortedTiers = [...tiers].sort((a: any, b: any) => b.minPoints - a.minPoints);
+      const currentTier = sortedTiers.find((tier: any) => account.totalPoints >= tier.minPoints) || tiers[0];
+
+      res.json({
+        enrolled: true,
+        points: account.totalPoints,
+        lifetimePoints: account.lifetimePoints,
+        tier: currentTier,
+        totalOrders: account.totalOrders,
+        totalSpent: account.totalSpent
+      });
+    } catch (error) {
+      console.error("Error fetching/creating loyalty account:", error);
+      res.status(500).json({ message: "Failed to fetch loyalty account" });
+    }
+  });
+
   app.post('/api/storefront/:slug/checkout', async (req, res) => {
     try {
       const restaurant = await storage.getRestaurantBySlug(req.params.slug);

@@ -42,6 +42,8 @@ import { ActivePromosBanner } from "@/components/marketing/storefront/ActiveProm
 import { LoyaltyWidget } from "@/components/marketing/storefront/LoyaltyWidget";
 import { ReferralCTA } from "@/components/marketing/storefront/ReferralCTA";
 import { BoostedItemsBadge } from "@/components/marketing/storefront/BoostedItemsBadge";
+import { LoyaltyBanner } from "@/components/marketing/storefront/LoyaltyBanner";
+import { LoyaltyModal } from "@/components/marketing/storefront/LoyaltyModal";
 
 interface CartItem {
   menuItem?: MenuItem;
@@ -167,6 +169,9 @@ export default function Storefront() {
   // Upsell modal state
   const [upsellModalOpen, setUpsellModalOpen] = useState(false);
   const [upsellSuggestedItem, setUpsellSuggestedItem] = useState<MenuItem | null>(null);
+
+  // Loyalty modal state
+  const [loyaltyModalOpen, setLoyaltyModalOpen] = useState(false);
 
 
   const mockPromos = [
@@ -294,6 +299,34 @@ export default function Storefront() {
     queryFn: async () => {
       const endpoint = slug ? `/api/storefront/${slug}/bundles` : `/api/storefront/${restaurant?.slug}/bundles`;
       const response = await fetch(endpoint);
+      return response.json();
+    },
+  });
+
+  // Fetch loyalty program settings
+  const { data: loyaltyProgram } = useQuery<any>({
+    queryKey: ["/api/storefront/loyalty-program", restaurant?.slug],
+    enabled: !!restaurant,
+    queryFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/loyalty-program` : `/api/storefront/${restaurant?.slug}/loyalty-program`;
+      const response = await fetch(endpoint);
+      if (!response.ok) return null;
+      return response.json();
+    },
+  });
+
+  // Fetch or create customer loyalty account when customer info is available
+  const { data: loyaltyAccount, refetch: refetchLoyaltyAccount } = useQuery<any>({
+    queryKey: ["/api/storefront/loyalty-account", restaurant?.slug, customerEmail, customerPhone],
+    enabled: !!restaurant && !!(customerEmail || customerPhone) && !!loyaltyProgram?.enabled,
+    queryFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/loyalty-account` : `/api/storefront/${restaurant?.slug}/loyalty-account`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerEmail, customerPhone }),
+      });
+      if (!response.ok) return null;
       return response.json();
     },
   });
@@ -1441,8 +1474,17 @@ export default function Storefront() {
         {/* Marketing: Active Promos Banner */}
         <ActivePromosBanner promos={mockPromos} />
 
-        {/* Marketing: Loyalty Widget */}
-        <LoyaltyWidget loyaltyData={mockLoyalty} enabled={true} />
+        {/* Marketing: Loyalty Banner */}
+        {loyaltyProgram?.enabled && loyaltyAccount?.enrolled && (
+          <div className="mb-6">
+            <LoyaltyBanner
+              points={loyaltyAccount.points}
+              tier={loyaltyAccount.tier}
+              programName={loyaltyProgram.programName}
+              onClick={() => setLoyaltyModalOpen(true)}
+            />
+          </div>
+        )}
 
         {/* Marketing: Bundles & Combos Section */}
         <BundlesSection bundles={bundles} onAddToCart={(bundle) => {
@@ -2160,6 +2202,24 @@ export default function Storefront() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Loyalty Program Modal */}
+      {loyaltyProgram && loyaltyAccount && (
+        <LoyaltyModal
+          open={loyaltyModalOpen}
+          onOpenChange={setLoyaltyModalOpen}
+          programName={loyaltyProgram.programName}
+          programDescription={loyaltyProgram.programDescription}
+          points={loyaltyAccount.points || 0}
+          lifetimePoints={loyaltyAccount.lifetimePoints || 0}
+          currentTier={loyaltyAccount.tier}
+          tiers={loyaltyProgram.tiers || []}
+          pointsPerDollar={loyaltyProgram.pointsPerDollar}
+          redemptionValue={loyaltyProgram.redemptionValue}
+          minimumRedemption={loyaltyProgram.minimumRedemption}
+          formatPrice={formatPrice}
+        />
+      )}
     </div>
   );
 }
