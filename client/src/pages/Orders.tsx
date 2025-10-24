@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Plus, Eye, Clock, CheckCircle, XCircle, ChefHat, Printer } from "lucide-react";
+import { Plus, Eye, Clock, CheckCircle, XCircle, ChefHat, Printer, Trash2, Download } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -25,6 +26,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -62,6 +73,8 @@ export default function Orders() {
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [orderTypeFilter, setOrderTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -381,6 +394,125 @@ export default function Orders() {
     }
   };
 
+  // Bulk operations mutations
+  const bulkConfirmMutation = useMutation({
+    mutationFn: async ({ orderIds, ordersToConfirm }: { orderIds: string[], ordersToConfirm: Order[] }) => {
+      // Only confirm orders that are in "pending" status
+      const pendingOrders = ordersToConfirm.filter(o => o.status === 'pending');
+      if (pendingOrders.length === 0) {
+        throw new Error('no_pending_orders');
+      }
+      return await Promise.all(
+        pendingOrders.map(o => apiRequest(`/api/orders/${o.id}/status`, "PATCH", { status: "confirmed" }))
+      );
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setSelectedOrders(new Set());
+      const confirmedCount = variables.ordersToConfirm.filter(o => o.status === 'pending').length;
+      const skippedCount = variables.orderIds.length - confirmedCount;
+      toast({
+        title: "Orders Confirmed",
+        description: skippedCount > 0 
+          ? `Confirmed ${confirmedCount} order(s). ${skippedCount} order(s) skipped (not in pending status)`
+          : `Successfully confirmed ${confirmedCount} order(s)`,
+      });
+    },
+    onError: (error: any) => {
+      if (error.message === 'no_pending_orders') {
+        toast({
+          title: "No Orders to Confirm",
+          description: "Selected orders are not in pending status",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to confirm orders",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      return await Promise.all(
+        orderIds.map(id => apiRequest(`/api/orders/${id}`, "DELETE"))
+      );
+    },
+    onSuccess: (_, orderIds) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setSelectedOrders(new Set());
+      setShowDeleteDialog(false);
+      toast({
+        title: "Orders Deleted",
+        description: `Successfully deleted ${orderIds.length} order(s)`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete orders",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked && filteredOrders) {
+      setSelectedOrders(new Set(filteredOrders.map(o => o.id)));
+    } else {
+      setSelectedOrders(new Set());
+    }
+  };
+
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    const newSelected = new Set(selectedOrders);
+    if (checked) {
+      newSelected.add(orderId);
+    } else {
+      newSelected.delete(orderId);
+    }
+    setSelectedOrders(newSelected);
+  };
+
+  // Bulk action handlers
+  const handleBulkConfirm = () => {
+    const orderIds = Array.from(selectedOrders);
+    const ordersToConfirm = orders?.filter(o => orderIds.includes(o.id)) || [];
+    bulkConfirmMutation.mutate({ orderIds, ordersToConfirm });
+  };
+
+  const handleBulkDelete = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const confirmBulkDelete = () => {
+    const orderIds = Array.from(selectedOrders);
+    bulkDeleteMutation.mutate(orderIds);
+  };
+
+  const handleBulkPrint = async () => {
+    const orderIds = Array.from(selectedOrders);
+    const selectedOrdersData = orders?.filter(o => orderIds.includes(o.id));
+    
+    if (!selectedOrdersData || selectedOrdersData.length === 0) return;
+
+    // Print each order ticket
+    for (const order of selectedOrdersData) {
+      await handlePrintTicket(order);
+      // Small delay between prints to prevent browser issues
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    toast({
+      title: "Printing Complete",
+      description: `Prepared ${selectedOrdersData.length} order ticket(s) for printing`,
+    });
+  };
+
   const filteredOrders = orders?.filter(order => {
     const typeMatch = orderTypeFilter === "all" || order.orderType === orderTypeFilter;
     const statusMatch = statusFilter === "all" || order.status === statusFilter;
@@ -447,11 +579,60 @@ export default function Orders() {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Bulk Actions Toolbar */}
+          {selectedOrders.size > 0 && (
+            <div className="mb-4 p-4 bg-muted/50 rounded-lg flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold" data-testid="text-selected-count">
+                  {selectedOrders.size} order(s) selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={handleBulkConfirm}
+                  disabled={bulkConfirmMutation.isPending}
+                  data-testid="button-bulk-confirm"
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Confirm All
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleBulkPrint}
+                  data-testid="button-bulk-print"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Print All
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleteMutation.isPending}
+                  data-testid="button-bulk-delete"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete All
+                </Button>
+              </div>
+            </div>
+          )}
+
           {filteredOrders && filteredOrders.length > 0 ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[50px]">
+                      <Checkbox 
+                        checked={filteredOrders.length > 0 && selectedOrders.size === filteredOrders.length}
+                        onCheckedChange={handleSelectAll}
+                        data-testid="checkbox-select-all"
+                      />
+                    </TableHead>
                     <TableHead>Order #</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Customer</TableHead>
@@ -467,6 +648,13 @@ export default function Orders() {
                     const nextStatus = getNextStatus(order.status);
                     return (
                       <TableRow key={order.id} data-testid={`order-row-${order.id}`}>
+                        <TableCell>
+                          <Checkbox 
+                            checked={selectedOrders.has(order.id)}
+                            onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)}
+                            data-testid={`checkbox-order-${order.id}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{order.orderNumber}</TableCell>
                         <TableCell className="capitalize">{order.orderType}</TableCell>
                         <TableCell>{order.customerName || "Guest"}</TableCell>
@@ -665,6 +853,28 @@ export default function Orders() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent data-testid="dialog-bulk-delete-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedOrders.size} Order(s)</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedOrders.size} selected order(s)? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
