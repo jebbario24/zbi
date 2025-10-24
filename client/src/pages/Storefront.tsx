@@ -256,6 +256,18 @@ export default function Storefront() {
     },
   });
 
+  // Fetch active boosts
+  const { data: activeBoosts = [] } = useQuery<any[]>({
+    queryKey: ["/api/storefront/boosts", restaurant?.id],
+    enabled: !!restaurant,
+    queryFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/boosts` : `/api/storefront/${restaurant?.slug}/boosts`;
+      const response = await fetch(endpoint);
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
   const { data: items } = useQuery<MenuItem[]>({
     queryKey: ["/api/storefront/items", restaurant?.id],
     enabled: !!restaurant,
@@ -285,6 +297,11 @@ export default function Storefront() {
       return response.json();
     },
   });
+
+  // Helper function to check if an item is currently boosted
+  const isItemBoosted = (itemName: string) => {
+    return activeBoosts.some((boost: any) => boost.itemName === itemName);
+  };
 
   // Load PayPal SDK with restaurant's currency
   useEffect(() => {
@@ -1497,6 +1514,9 @@ export default function Storefront() {
                             </div>
                           )}
                           
+                          {/* Boosted Item Badge */}
+                          <BoostedItemsBadge isBoosted={isItemBoosted(item.name)} />
+                          
                           {!item.isAvailable ? (
                             <>
                               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -1588,6 +1608,9 @@ export default function Storefront() {
                         <Store className="h-16 w-16 text-muted-foreground/50" />
                       </div>
                     )}
+                    
+                    {/* Boosted Item Badge */}
+                    <BoostedItemsBadge isBoosted={isItemBoosted(item.name)} />
                     
                     {!item.isAvailable ? (
                       <>

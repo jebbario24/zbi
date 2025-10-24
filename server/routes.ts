@@ -25,6 +25,9 @@ import {
   OrderApplicationContextUserAction 
 } from '@paypal/paypal-server-sdk';
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { db } from "./db";
+import { boostSlots } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 
 // Initialize Stripe only if credentials are available
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -2296,6 +2299,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching upsell rules:", error);
       res.status(500).json({ message: "Failed to fetch upsell rules" });
+    }
+  });
+
+  // Get active boosts for storefront
+  app.get('/api/storefront/:slug/boosts', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Get active boosts that are currently running
+      const boosts = await db
+        .select()
+        .from(boostSlots)
+        .where(
+          and(
+            eq(boostSlots.restaurantId, restaurant.id),
+            eq(boostSlots.isActive, true)
+          )
+        );
+      
+      // Filter by current time
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentTime = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+      
+      const activeBoosts = boosts.filter((boost: any) => {
+        return boost.startTime <= currentTime && boost.endTime >= currentTime;
+      });
+      
+      res.json(activeBoosts);
+    } catch (error) {
+      console.error("Error fetching boosts:", error);
+      res.status(500).json({ message: "Failed to fetch boosts" });
     }
   });
 
