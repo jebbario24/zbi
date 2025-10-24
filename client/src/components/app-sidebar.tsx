@@ -184,6 +184,16 @@ const adminMenuItems = [
     icon: DollarSign,
   },
   {
+    titleKey: "Payout Management",
+    url: "/admin/payouts",
+    icon: CreditCard,
+  },
+  {
+    titleKey: "Content Moderation",
+    url: "/admin/moderation",
+    icon: Shield,
+  },
+  {
     titleKey: "Platform Settings",
     url: "/admin/settings",
     icon: Settings,

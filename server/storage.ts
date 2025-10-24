@@ -182,6 +182,18 @@ export interface IStorage {
   getFinancialSummary(): Promise<{ totalRevenue: string; totalCommissions: string; totalPayouts: string; pendingPayouts: string }>;
   getRestaurantFinancialBreakdown(): Promise<Array<{ restaurantId: string; restaurantName: string; totalOrders: number; totalRevenue: string; commissionEarned: string; lastPayoutDate: Date | null }>>;
   getRecentPayoutRuns(limit: number): Promise<any[]>;
+  
+  // Admin Payout Management operations
+  getAllPayoutRunsForAdmin(status?: string): Promise<any[]>;
+  retryFailedPayout(payoutRunId: string): Promise<any>;
+  cancelPayoutRun(payoutRunId: string): Promise<any>;
+  manuallyMarkPayoutAsPaid(payoutRunId: string, transactionId: string): Promise<any>;
+  
+  // Admin Content Moderation operations
+  getAllReviewsForAdmin(status?: string): Promise<any[]>;
+  updateReviewStatus(reviewId: string, isPublished: boolean): Promise<CustomerReview>;
+  deleteReview(reviewId: string): Promise<void>;
+  respondToReview(reviewId: string, response: string): Promise<CustomerReview>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1345,6 +1357,133 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
 
     return runs;
+  }
+
+  async getAllPayoutRunsForAdmin(status?: string): Promise<any[]> {
+    let query = db
+      .select({
+        id: payoutRuns.id,
+        restaurantId: payoutRuns.restaurantId,
+        restaurantName: restaurants.name,
+        totalAmount: payoutRuns.totalAmount,
+        status: payoutRuns.status,
+        payoutProvider: payoutRuns.payoutProvider,
+        payoutTransactionId: payoutRuns.payoutTransactionId,
+        failureReason: payoutRuns.failureReason,
+        scheduledFor: payoutRuns.scheduledFor,
+        completedAt: payoutRuns.completedAt,
+        createdAt: payoutRuns.createdAt,
+      })
+      .from(payoutRuns)
+      .leftJoin(restaurants, eq(payoutRuns.restaurantId, restaurants.id))
+      .orderBy(desc(payoutRuns.createdAt));
+
+    if (status) {
+      query = query.where(eq(payoutRuns.status, status)) as any;
+    }
+
+    return await query;
+  }
+
+  async retryFailedPayout(payoutRunId: string): Promise<any> {
+    const [updated] = await db
+      .update(payoutRuns)
+      .set({
+        status: 'pending',
+        failureReason: null,
+        scheduledFor: new Date(),
+      })
+      .where(eq(payoutRuns.id, payoutRunId))
+      .returning();
+    return updated;
+  }
+
+  async cancelPayoutRun(payoutRunId: string): Promise<any> {
+    const [updated] = await db
+      .update(payoutRuns)
+      .set({
+        status: 'cancelled',
+        completedAt: new Date(),
+      })
+      .where(eq(payoutRuns.id, payoutRunId))
+      .returning();
+    return updated;
+  }
+
+  async manuallyMarkPayoutAsPaid(payoutRunId: string, transactionId: string): Promise<any> {
+    const [updated] = await db
+      .update(payoutRuns)
+      .set({
+        status: 'completed',
+        payoutTransactionId: transactionId,
+        completedAt: new Date(),
+      })
+      .where(eq(payoutRuns.id, payoutRunId))
+      .returning();
+    
+    const ledgerEntries = await db
+      .select({ ledgerEntryId: payoutRunLedgerEntries.ledgerEntryId })
+      .from(payoutRunLedgerEntries)
+      .where(eq(payoutRunLedgerEntries.payoutRunId, payoutRunId));
+
+    const ledgerEntryIds = ledgerEntries.map(e => e.ledgerEntryId);
+    
+    if (ledgerEntryIds.length > 0) {
+      await this.markLedgerEntriesAsPaid(payoutRunId, ledgerEntryIds);
+    }
+
+    return updated;
+  }
+
+  async getAllReviewsForAdmin(status?: string): Promise<any[]> {
+    let query = db
+      .select({
+        id: customerReviews.id,
+        restaurantId: customerReviews.restaurantId,
+        restaurantName: restaurants.name,
+        customerId: customerReviews.customerId,
+        orderId: customerReviews.orderId,
+        customerName: customerReviews.customerName,
+        rating: customerReviews.rating,
+        comment: customerReviews.comment,
+        response: customerReviews.response,
+        respondedAt: customerReviews.respondedAt,
+        isPublished: customerReviews.isPublished,
+        createdAt: customerReviews.createdAt,
+      })
+      .from(customerReviews)
+      .leftJoin(restaurants, eq(customerReviews.restaurantId, restaurants.id))
+      .orderBy(desc(customerReviews.createdAt));
+
+    if (status === 'published') {
+      query = query.where(eq(customerReviews.isPublished, true)) as any;
+    } else if (status === 'hidden') {
+      query = query.where(eq(customerReviews.isPublished, false)) as any;
+    }
+
+    return await query;
+  }
+
+  async updateReviewStatus(reviewId: string, isPublished: boolean): Promise<CustomerReview> {
+    const [updated] = await db
+      .update(customerReviews)
+      .set({ isPublished, updatedAt: new Date() })
+      .where(eq(customerReviews.id, reviewId))
+      .returning();
+    return updated;
+  }
+
+  async deleteReview(reviewId: string): Promise<void> {
+    await db.delete(customerReviews).where(eq(customerReviews.id, reviewId));
+  }
+
+  async respondToReview(reviewId: string, response: string): Promise<CustomerReview> {
+    const [updated] = await db
+      .update(customerReviews)
+      .set({ response, respondedAt: new Date(), updatedAt: new Date() })
+      .where(eq(customerReviews.id, reviewId))
+      .returning();
+    return updated;
   }
 }
 

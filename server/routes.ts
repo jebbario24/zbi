@@ -4228,6 +4228,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get all payout runs with optional status filter
+  app.get('/api/admin/payouts', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const payouts = await storage.getAllPayoutRunsForAdmin(status);
+      res.json(payouts);
+    } catch (error) {
+      console.error("Error fetching payout runs:", error);
+      res.status(500).json({ message: "Failed to fetch payout runs" });
+    }
+  });
+
+  // Admin: Retry failed payout
+  app.post('/api/admin/payouts/:id/retry', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const payout = await storage.retryFailedPayout(id);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error retrying payout:", error);
+      res.status(500).json({ message: "Failed to retry payout" });
+    }
+  });
+
+  // Admin: Cancel payout run
+  app.post('/api/admin/payouts/:id/cancel', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const payout = await storage.cancelPayoutRun(id);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error cancelling payout:", error);
+      res.status(500).json({ message: "Failed to cancel payout" });
+    }
+  });
+
+  // Admin: Manually mark payout as paid
+  app.post('/api/admin/payouts/:id/mark-paid', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { transactionId } = req.body;
+      
+      if (!transactionId) {
+        return res.status(400).json({ message: "Transaction ID is required" });
+      }
+
+      const payout = await storage.manuallyMarkPayoutAsPaid(id, transactionId);
+      res.json(payout);
+    } catch (error) {
+      console.error("Error marking payout as paid:", error);
+      res.status(500).json({ message: "Failed to mark payout as paid" });
+    }
+  });
+
+  // Admin: Get all reviews with optional status filter
+  app.get('/api/admin/reviews', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const reviews = await storage.getAllReviewsForAdmin(status);
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Admin: Publish/hide review
+  app.post('/api/admin/reviews/:id/status', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { isPublished } = req.body;
+      
+      if (typeof isPublished !== 'boolean') {
+        return res.status(400).json({ message: "isPublished must be a boolean" });
+      }
+
+      const review = await storage.updateReviewStatus(id, isPublished);
+      res.json(review);
+    } catch (error) {
+      console.error("Error updating review status:", error);
+      res.status(500).json({ message: "Failed to update review status" });
+    }
+  });
+
+  // Admin: Delete review
+  app.delete('/api/admin/reviews/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteReview(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      res.status(500).json({ message: "Failed to delete review" });
+    }
+  });
+
+  // Admin: Respond to review
+  app.post('/api/admin/reviews/:id/respond', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { response } = req.body;
+      
+      if (!response || typeof response !== 'string') {
+        return res.status(400).json({ message: "Response is required" });
+      }
+
+      const review = await storage.respondToReview(id, response);
+      res.json(review);
+    } catch (error) {
+      console.error("Error responding to review:", error);
+      res.status(500).json({ message: "Failed to respond to review" });
+    }
+  });
+
   // Admin: Get all drivers
   app.get('/api/admin/drivers', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
