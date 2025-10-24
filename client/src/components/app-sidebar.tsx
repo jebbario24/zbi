@@ -163,6 +163,16 @@ const adminMenuItems = [
     url: "/admin/restaurants",
     icon: Building2,
   },
+  {
+    titleKey: "Driver Applications",
+    url: "/admin/drivers",
+    icon: Truck,
+  },
+  {
+    titleKey: "Subscriptions",
+    url: "/admin/subscriptions",
+    icon: CreditCard,
+  },
 ];
 
 export function AppSidebar({ side }: { side?: "left" | "right" }) {

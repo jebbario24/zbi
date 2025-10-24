@@ -6,6 +6,23 @@ EatOut is a comprehensive, subscription-based SaaS restaurant management platfor
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Updates (October 2025)
+
+### Admin Control Panel Enhancement
+- **Driver Applications Management**: Platform admin can review all driver applications through a dedicated page at `/admin/drivers`. Features include:
+  - Four-tab interface: Pending, Approved, Rejected, and Incomplete applications
+  - One-click approve/reject workflow with optional rejection reason tracking
+  - Status tracking via `applicationStatus` field ('pending', 'approved', 'rejected')
+  - Rejection reasons stored and displayed to provide feedback transparency
+  - Real-time badge indicators reflecting current application status
+- **Subscription Management Override**: Platform admin can manually grant or revoke restaurant access at `/admin/subscriptions` without requiring payment:
+  - Manual access override system using `manuallyGrantedAccess` boolean flag on restaurants
+  - Grant access dialog with optional notes field to document special arrangements
+  - Tracking fields: `accessGrantedBy` (admin user ID), `accessGrantedAt` (timestamp), `accessNotes` (reason)
+  - Subscription-status endpoint respects manual grants and bypasses all trial/payment checks
+  - Stats dashboard showing MRR, active subscriptions, trials, and manually granted access counts
+- **Admin Navigation**: Updated admin sidebar with links to Driver Applications and Subscriptions pages
+
 ## System Architecture
 
 ### UI/UX Decisions

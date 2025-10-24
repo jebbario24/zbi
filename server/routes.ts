@@ -776,6 +776,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
+      // Check if admin manually granted access - this overrides all subscription checks
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      const manualAccessGranted = restaurant?.manuallyGrantedAccess || false;
+      
+      if (manualAccessGranted) {
+        return res.json({
+          hasAccess: true,
+          status: 'active',
+          trialEndsAt: user.trialEndsAt,
+          subscriptionEndsAt: user.subscriptionEndsAt,
+          isTrialActive: false,
+          isSubscriptionActive: false,
+          manualAccessGranted: true,
+        });
+      }
+
       const now = new Date();
       const trialActive = user.trialEndsAt && user.trialEndsAt > now;
       
@@ -826,6 +842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscriptionEndsAt: freshSubscriptionEndsAt,
         isTrialActive: trialActive,
         isSubscriptionActive: actualSubscriptionActive,
+        manualAccessGranted: false,
       });
     } catch (error) {
       console.error("Error fetching subscription status:", error);
@@ -4187,6 +4204,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching admin analytics:", error);
       res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Admin: Get all drivers
+  app.get('/api/admin/drivers', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      // Filter for driver role only
+      const drivers = allUsers.filter(u => u.role === 'driver');
+      
+      // Remove password from response
+      const driversWithoutPassword = drivers.map(({ password, ...driver }) => driver);
+      
+      res.json(driversWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+      res.status(500).json({ message: "Failed to fetch drivers" });
+    }
+  });
+
+  // Admin: Approve driver
+  app.post('/api/admin/drivers/:id/approve', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Update driver approval status
+      const updated = await storage.updateUser(id, {
+        adminApproved: true,
+        adminApprovedAt: new Date(),
+        approvedBy: req.user.id,
+        applicationStatus: 'approved',
+        rejectionReason: null, // Clear any previous rejection reason
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error approving driver:", error);
+      res.status(500).json({ message: "Failed to approve driver" });
+    }
+  });
+
+  // Admin: Reject driver
+  app.post('/api/admin/drivers/:id/reject', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      
+      // Update driver approval status to rejected with reason
+      const updated = await storage.updateUser(id, {
+        adminApproved: false,
+        adminApprovedAt: new Date(),
+        approvedBy: req.user.id,
+        applicationStatus: 'rejected',
+        rejectionReason: reason || 'No reason provided',
+      });
+      
+      // TODO: Send rejection email to driver with reason
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error rejecting driver:", error);
+      res.status(500).json({ message: "Failed to reject driver" });
+    }
+  });
+
+  // Admin: Get all subscriptions
+  app.get('/api/admin/subscriptions', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const restaurants = await storage.getAllRestaurants();
+      const users = await storage.getAllUsers();
+      
+      // Combine restaurant and user subscription data
+      const subscriptions = restaurants.map(restaurant => {
+        const owner = users.find(u => u.id === restaurant.ownerId);
+        return {
+          id: restaurant.id,
+          name: restaurant.name,
+          subdomain: restaurant.subdomain,
+          ownerEmail: owner?.email || 'Unknown',
+          subscriptionStatus: owner?.subscriptionStatus || 'inactive',
+          trialEndsAt: owner?.trialEndsAt || null,
+          subscriptionEndsAt: owner?.subscriptionEndsAt || null,
+          manuallyGrantedAccess: restaurant.manuallyGrantedAccess || false,
+          accessGrantedBy: restaurant.accessGrantedBy || null,
+          accessGrantedAt: restaurant.accessGrantedAt || null,
+          accessNotes: restaurant.accessNotes || null,
+          createdAt: restaurant.createdAt,
+        };
+      });
+      
+      res.json(subscriptions);
+    } catch (error) {
+      console.error("Error fetching subscriptions:", error);
+      res.status(500).json({ message: "Failed to fetch subscriptions" });
+    }
+  });
+
+  // Admin: Grant manual access to restaurant
+  app.post('/api/admin/restaurants/:id/grant-access', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body;
+      
+      const updated = await storage.updateRestaurant(id, {
+        manuallyGrantedAccess: true,
+        accessGrantedBy: req.user.id,
+        accessGrantedAt: new Date(),
+        accessNotes: notes || null,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error granting manual access:", error);
+      res.status(500).json({ message: "Failed to grant manual access" });
+    }
+  });
+
+  // Admin: Revoke manual access from restaurant
+  app.post('/api/admin/restaurants/:id/revoke-access', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const updated = await storage.updateRestaurant(id, {
+        manuallyGrantedAccess: false,
+        accessGrantedBy: null,
+        accessGrantedAt: null,
+        accessNotes: null,
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error revoking manual access:", error);
+      res.status(500).json({ message: "Failed to revoke manual access" });
     }
   });
 

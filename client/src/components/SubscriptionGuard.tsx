@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SubscriptionGuardProps {
   children: React.ReactNode;
@@ -11,6 +12,12 @@ interface SubscriptionGuardProps {
 
 export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
   const [location, setLocation] = useLocation();
+  const { user } = useAuth();
+  
+  // Admins and drivers don't need subscription checks
+  if (user?.role === 'admin' || user?.role === 'driver') {
+    return <>{children}</>;
+  }
   
   const { data: subscriptionStatus, isLoading, error } = useQuery({
     queryKey: ['/api/subscription-status'],

@@ -76,6 +76,8 @@ export const users = pgTable("users", {
   adminApproved: boolean("admin_approved").default(false),
   adminApprovedAt: timestamp("admin_approved_at"),
   approvedBy: varchar("approved_by"), // Admin user ID who approved
+  applicationStatus: varchar("application_status", { length: 50 }).default('pending'), // pending, approved, rejected
+  rejectionReason: text("rejection_reason"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -121,6 +123,11 @@ export const restaurants = pgTable("restaurants", {
   googleAdsId: varchar("google_ads_id", { length: 100 }),
   // Domain Verification
   metaVerificationCode: text("meta_verification_code"),
+  // Manual Access Override (Platform Admin)
+  manuallyGrantedAccess: boolean("manually_granted_access").default(false),
+  accessGrantedBy: varchar("access_granted_by"), // Admin user ID who granted access
+  accessGrantedAt: timestamp("access_granted_at"),
+  accessNotes: text("access_notes"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
