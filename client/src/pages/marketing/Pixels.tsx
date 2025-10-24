@@ -33,7 +33,7 @@ export default function Pixels() {
   const { toast } = useToast();
 
   const { data: restaurant, isLoading } = useQuery<Restaurant>({
-    queryKey: ['/api/restaurants/my-restaurant'],
+    queryKey: ['/api/restaurants/me'],
   });
 
   const form = useForm<PixelFormData>({
@@ -58,7 +58,7 @@ export default function Pixels() {
       return apiRequest(`/api/restaurants/${restaurant.id}/pixels`, "PATCH", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/restaurants/my-restaurant'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/restaurants/me'] });
       toast({
         title: "Success",
         description: "Pixel settings updated successfully",
