@@ -2399,18 +2399,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(
           and(
             eq(boostSlots.restaurantId, restaurant.id),
-            eq(boostSlots.isActive, true)
+            eq(boostSlots.status, 'active')
           )
         );
       
-      // Filter by current time
+      // Filter by current time using timestamps
       const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
-      const currentTime = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
       
       const activeBoosts = boosts.filter((boost: any) => {
-        return boost.startTime <= currentTime && boost.endTime >= currentTime;
+        const startedAt = new Date(boost.startedAt);
+        const endsAt = new Date(boost.endsAt);
+        return startedAt <= now && endsAt >= now;
       });
       
       res.json(activeBoosts);
@@ -2441,7 +2440,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           startsAt: promoRules.startsAt,
           expiresAt: promoRules.endsAt,
           redemptionLimit: promoRules.redemptionLimit,
-          redemptionCount: promoRules.redemptionCount,
           buyItemId: promoRules.buyItemId,
           getItemId: promoRules.getItemId,
           buyQuantity: promoRules.buyQuantity,
