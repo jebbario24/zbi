@@ -37,7 +37,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { LogOut, Save, ExternalLink, Check, ChevronsUpDown } from "lucide-react";
+import { LogOut, Save, ExternalLink, Check, ChevronsUpDown, CreditCard, CheckCircle2, AlertCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -80,6 +80,40 @@ export default function Settings() {
 
   const { data: restaurant, isLoading } = useQuery<Restaurant>({
     queryKey: ["/api/restaurants/me"],
+  });
+
+  // Query Stripe Connect status
+  const { data: stripeStatus } = useQuery({
+    queryKey: ["/api/restaurant/connect/status"],
+    enabled: !!restaurant,
+  });
+
+  // Create Stripe Connect account mutation
+  const createAccountMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/restaurant/connect/create-account", "POST", {});
+    },
+    onSuccess: async () => {
+      // After creating account, generate onboarding link and redirect
+      const linkResponse: any = await apiRequest("/api/restaurant/connect/onboarding-link", "POST", {});
+      window.location.href = linkResponse.url;
+    },
+    onError: () => {
+      toast({ title: "Failed to create Stripe account", variant: "destructive" });
+    },
+  });
+
+  // Generate onboarding link for existing account
+  const onboardingLinkMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/restaurant/connect/onboarding-link", "POST", {});
+    },
+    onSuccess: (data: any) => {
+      window.location.href = data.url;
+    },
+    onError: () => {
+      toast({ title: "Failed to generate onboarding link", variant: "destructive" });
+    },
   });
 
   // Auto-detect timezone from browser
@@ -483,6 +517,93 @@ export default function Settings() {
           </CardContent>
         </Card>
       )}
+
+      {/* Stripe Connect Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Bank Account Connection
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Connect your bank account via Stripe to receive automated payouts from your sales. Funds are transferred automatically based on your payout schedule.
+          </p>
+
+          {stripeStatus?.connected ? (
+            <div className="space-y-3">
+              {stripeStatus.payoutsEnabled ? (
+                <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/30 rounded-lg">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium text-green-900 dark:text-green-100">Bank account connected</p>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      Your account is fully set up and ready to receive payouts.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium text-amber-900 dark:text-amber-100">Additional information required</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                      Please complete your onboarding to enable payouts.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!stripeStatus.payoutsEnabled && (
+                <Button
+                  onClick={() => onboardingLinkMutation.mutate()}
+                  disabled={onboardingLinkMutation.isPending}
+                  data-testid="button-complete-onboarding"
+                >
+                  {onboardingLinkMutation.isPending ? "Generating link..." : "Complete Setup"}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
+                <AlertCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium">No bank account connected</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Connect your bank account to start receiving automated payouts from your earnings.
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => createAccountMutation.mutate()}
+                disabled={createAccountMutation.isPending}
+                data-testid="button-connect-bank"
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                {createAccountMutation.isPending ? "Setting up..." : "Connect Bank Account"}
+              </Button>
+            </div>
+          )}
+
+          <div className="text-xs text-muted-foreground border-t pt-4 space-y-1">
+            <p>
+              • Platform charges 2% commission on all orders
+            </p>
+            <p>
+              • Payouts are processed automatically based on your schedule
+            </p>
+            <p>
+              • Minimum payout amount: $10
+            </p>
+            <p>
+              • All payouts are handled securely through Stripe
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
     </div>
   );
