@@ -1472,9 +1472,6 @@ export default function Storefront() {
           </div>
         )}
 
-        {/* Marketing: Active Promos Banner */}
-        <ActivePromosBanner promos={activePromos} />
-
         {/* Marketing: Bundles & Combos Section */}
         <BundlesSection bundles={bundles} onAddToCart={(bundle) => {
           const existingBundle = cart.find(item => item.bundle?.id === bundle.id);
@@ -1509,6 +1506,9 @@ export default function Storefront() {
             }, pixelConfig);
           }
         }} />
+
+        {/* Marketing: Active Promos Banner */}
+        <ActivePromosBanner promos={activePromos} />
 
         {itemsByCategory ? (
           // Showing all items grouped by category
