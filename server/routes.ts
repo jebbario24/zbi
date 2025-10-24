@@ -2108,6 +2108,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Driver Profile
+  app.get('/api/driver/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+      res.json(driver);
+    } catch (error) {
+      console.error("Error fetching driver profile:", error);
+      res.status(500).json({ message: "Failed to fetch driver profile" });
+    }
+  });
+
   // Driver Order Routes
   app.get('/api/driver/my-orders', isAuthenticated, async (req: any, res) => {
     try {
@@ -2189,6 +2203,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error assigning driver to order:", error);
       res.status(500).json({ message: "Failed to assign driver" });
+    }
+  });
+
+  // Stripe Connect for Drivers: Create Express Connected Account
+  app.post("/api/driver/connect/create-account", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe is not configured" });
+      }
+
+      // Get driver profile
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ error: "Driver profile not found" });
+      }
+
+      if (driver.applicationStatus !== 'approved') {
+        return res.status(403).json({ error: "Driver application not approved yet" });
+      }
+
+      // Check if already has a connected account
+      if (driver.stripeConnectAccountId) {
+        return res.status(400).json({ error: "Stripe account already connected" });
+      }
+
+      // Create Stripe Express account for driver
+      const account = await stripe.accounts.create({
+        type: 'express',
+        country: driver.country === 'United States' ? 'US' : 'US', // Default to US, expand later
+        email: driver.email,
+        capabilities: {
+          transfers: { requested: true },
+        },
+        business_type: 'individual',
+        individual: {
+          first_name: driver.firstName,
+          last_name: driver.lastName,
+          email: driver.email,
+          phone: driver.phone,
+        },
+      });
+
+      // Save account ID to driver profile
+      await storage.updateDriverProfile(driver.id, {
+        stripeConnectAccountId: account.id,
+      });
+
+      res.json({
+        accountId: account.id,
+        success: true,
+      });
+    } catch (error: any) {
+      console.error("Error creating driver Stripe Connect account:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
+  // Stripe Connect for Drivers: Generate onboarding link
+  app.post("/api/driver/connect/onboarding-link", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe is not configured" });
+      }
+
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ error: "Driver profile not found" });
+      }
+
+      if (!driver.stripeConnectAccountId) {
+        return res.status(400).json({ error: "No Stripe account found. Create one first." });
+      }
+
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? `https://${process.env.REPLIT_DOMAINS}` 
+        : `http://localhost:5000`;
+
+      const accountLink = await stripe.accountLinks.create({
+        account: driver.stripeConnectAccountId,
+        refresh_url: `${baseUrl}/driver/dashboard?connect=refresh`,
+        return_url: `${baseUrl}/driver/dashboard?connect=success`,
+        type: 'account_onboarding',
+      });
+
+      res.json({
+        url: accountLink.url,
+      });
+    } catch (error: any) {
+      console.error("Error creating driver onboarding link:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
+  // Stripe Connect for Drivers: Check account status
+  app.get("/api/driver/connect/status", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe is not configured" });
+      }
+
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ error: "Driver profile not found" });
+      }
+
+      if (!driver.stripeConnectAccountId) {
+        return res.json({
+          connected: false,
+          payoutsEnabled: false,
+        });
+      }
+
+      const account = await stripe.accounts.retrieve(driver.stripeConnectAccountId);
+
+      // Update onboarding completed status
+      if (account.payouts_enabled && !driver.stripeOnboardingCompleted) {
+        await storage.updateDriverProfile(driver.id, {
+          stripeOnboardingCompleted: true,
+        });
+      }
+
+      res.json({
+        connected: true,
+        payoutsEnabled: account.payouts_enabled,
+        requirementsCurrentlyDue: account.requirements?.currently_due || [],
+        requirementsEventuallyDue: account.requirements?.eventually_due || [],
+      });
+    } catch (error: any) {
+      console.error("Error checking driver account status:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
     }
   });
 

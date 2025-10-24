@@ -47,6 +47,7 @@ import Reports from "@/pages/Reports";
 import Inbox from "@/pages/Inbox";
 import Payouts from "@/pages/Payouts";
 import DriverSignup from "@/pages/DriverSignup";
+import DriverDashboard from "@/pages/DriverDashboard";
 
 function PublicRouter() {
   return (
@@ -72,6 +73,17 @@ function AuthenticatedRouter() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/admin/restaurants" component={AdminRestaurants} />
         <Route path="/settings" component={Settings} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
+  // Driver routes
+  if (user?.role === 'driver') {
+    return (
+      <Switch>
+        <Route path="/" component={DriverDashboard} />
+        <Route path="/driver/dashboard" component={DriverDashboard} />
         <Route component={NotFound} />
       </Switch>
     );

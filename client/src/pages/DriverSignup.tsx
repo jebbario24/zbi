@@ -33,10 +33,6 @@ const driverApplicationSchema = z.object({
   vehicleYear: z.string().min(4, "Vehicle year is required"),
   vehiclePlate: z.string().min(1, "License plate is required"),
   vehicleColor: z.string().min(1, "Vehicle color is required"),
-  bankAccountHolderName: z.string().min(1, "Account holder name is required"),
-  bankName: z.string().min(1, "Bank name is required"),
-  bankAccountNumber: z.string().min(1, "Account number is required"),
-  bankRoutingNumber: z.string().optional(),
 });
 
 type DriverApplicationForm = z.infer<typeof driverApplicationSchema>;
@@ -70,10 +66,6 @@ export default function DriverSignup() {
       vehicleYear: "",
       vehiclePlate: "",
       vehicleColor: "",
-      bankAccountHolderName: "",
-      bankName: "",
-      bankAccountNumber: "",
-      bankRoutingNumber: "",
     },
   });
 
@@ -556,65 +548,17 @@ export default function DriverSignup() {
                     </div>
                   </div>
 
-                  {/* Bank Account Information */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Bank Account (for Payouts)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="bankAccountHolderName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Account Holder Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="John Doe" {...field} data-testid="input-account-holder" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="bankName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bank Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Chase Bank" {...field} data-testid="input-bank-name" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="bankAccountNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Account Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="123456789" {...field} data-testid="input-account-number" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="bankRoutingNumber"
-                        render={({ field}) => (
-                          <FormItem>
-                            <FormLabel>Routing Number (Optional)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="021000021" {...field} data-testid="input-routing-number" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                  {/* Payout Information Notice */}
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                    <div className="flex gap-3">
+                      <DollarSign className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold mb-1">Bank Account & Payouts</h4>
+                        <p className="text-sm text-muted-foreground">
+                          After your application is approved, you'll securely connect your bank account through Stripe to receive payouts. 
+                          Stripe supports 40+ countries and handles all tax forms and compliance automatically.
+                        </p>
+                      </div>
                     </div>
                   </div>
 

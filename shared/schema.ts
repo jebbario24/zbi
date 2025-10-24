@@ -379,11 +379,9 @@ export const driverProfiles = pgTable("driver_profiles", {
   vehicleColor: varchar("vehicle_color", { length: 50 }),
   vehicleInsuranceUrl: text("vehicle_insurance_url"), // Stored in private object storage
   insuranceExpiry: varchar("insurance_expiry", { length: 20 }),
-  // Bank Account (for payouts)
-  bankAccountHolderName: varchar("bank_account_holder_name", { length: 255 }),
-  bankName: varchar("bank_name", { length: 255 }),
-  bankAccountNumber: varchar("bank_account_number", { length: 100 }),
-  bankRoutingNumber: varchar("bank_routing_number", { length: 50 }),
+  // Stripe Connect for payouts (same as restaurants)
+  stripeConnectAccountId: varchar("stripe_connect_account_id", { length: 255 }),
+  stripeOnboardingCompleted: boolean("stripe_onboarding_completed").notNull().default(false),
   // Application & Approval
   applicationStatus: varchar("application_status", { length: 50 }).notNull().default('pending'), // pending, approved, rejected
   approvedAt: timestamp("approved_at"),
