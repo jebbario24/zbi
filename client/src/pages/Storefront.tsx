@@ -42,6 +42,16 @@ import { ActivePromosBanner } from "@/components/marketing/storefront/ActiveProm
 import { ReferralCTA } from "@/components/marketing/storefront/ReferralCTA";
 import { BoostedItemsBadge } from "@/components/marketing/storefront/BoostedItemsBadge";
 
+interface StorefrontPromo {
+  id: string;
+  code: string;
+  type: string;
+  value: number;
+  description: string | null;
+  expiresAt: Date | null;
+  isActive: boolean;
+}
+
 interface CartItem {
   menuItem?: MenuItem;
   bundle?: {
@@ -167,12 +177,6 @@ export default function Storefront() {
   const [upsellModalOpen, setUpsellModalOpen] = useState(false);
   const [upsellSuggestedItem, setUpsellSuggestedItem] = useState<MenuItem | null>(null);
 
-
-  const mockPromos = [
-    { id: '1', code: 'WELCOME10', type: 'percentage', value: 10, isActive: true },
-    { id: '2', code: 'FREESHIP', type: 'free_delivery', value: 0, isActive: true },
-  ];
-
   const mockReferral = {
     referralLink: `${window.location.origin}/store/${slug}?ref=USER123`,
     referrerReward: '$10 credit',
@@ -282,6 +286,18 @@ export default function Storefront() {
     queryFn: async () => {
       const endpoint = slug ? `/api/storefront/${slug}/bundles` : `/api/storefront/${restaurant?.slug}/bundles`;
       const response = await fetch(endpoint);
+      return response.json();
+    },
+  });
+
+  // Fetch active promo codes from the database
+  const { data: activePromos = [] } = useQuery<StorefrontPromo[]>({
+    queryKey: ["/api/storefront/promos", restaurant?.slug],
+    enabled: !!restaurant,
+    queryFn: async () => {
+      const endpoint = slug ? `/api/storefront/${slug}/promos` : `/api/storefront/${restaurant?.slug}/promos`;
+      const response = await fetch(endpoint);
+      if (!response.ok) return [];
       return response.json();
     },
   });
@@ -1427,7 +1443,7 @@ export default function Storefront() {
         )}
 
         {/* Marketing: Active Promos Banner */}
-        <ActivePromosBanner promos={mockPromos} />
+        <ActivePromosBanner promos={activePromos} />
 
         {/* Marketing: Bundles & Combos Section */}
         <BundlesSection bundles={bundles} onAddToCart={(bundle) => {

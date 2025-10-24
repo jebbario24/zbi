@@ -27,7 +27,7 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { db } from "./db";
 import { boostSlots } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 
 // Initialize Stripe only if credentials are available
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -2335,6 +2335,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching boosts:", error);
       res.status(500).json({ message: "Failed to fetch boosts" });
+    }
+  });
+
+  // Get active promo codes for storefront
+  app.get('/api/storefront/:slug/promos', async (req, res) => {
+    try {
+      const restaurant = await storage.getRestaurantBySlug(req.params.slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      const now = new Date();
+      
+      // Get active promo codes with all necessary fields
+      const promos = await db
+        .select({
+          id: promoRules.id,
+          code: promoRules.promoCode,
+          type: promoRules.promoType,
+          value: promoRules.discountValue,
+          description: promoRules.description,
+          startsAt: promoRules.startsAt,
+          expiresAt: promoRules.endsAt,
+          redemptionLimit: promoRules.redemptionLimit,
+          redemptionCount: promoRules.redemptionCount,
+        })
+        .from(promoRules)
+        .where(
+          and(
+            eq(promoRules.restaurantId, restaurant.id),
+            eq(promoRules.isActive, true),
+            // Only include promos with codes (exclude auto-apply promos)
+            isNotNull(promoRules.promoCode)
+          )
+        );
+      
+      // Filter by date validity, time window, and usage limits
+      const activePromos = promos
+        .filter((promo: any) => {
+          // Check if promo has started
+          if (promo.startsAt && new Date(promo.startsAt) > now) {
+            return false;
+          }
+          
+          // Check if promo has expired
+          if (promo.expiresAt && new Date(promo.expiresAt) < now) {
+            return false;
+          }
+          
+          // Check if promo has reached redemption limit
+          if (promo.redemptionLimit && promo.redemptionCount >= promo.redemptionLimit) {
+            return false;
+          }
+          
+          return true;
+        })
+        .map((promo: any) => ({
+          id: promo.id,
+          code: promo.code,
+          type: promo.type,
+          value: promo.value ? parseFloat(promo.value) : 0,
+          description: promo.description,
+          expiresAt: promo.expiresAt,
+          isActive: true,
+        }));
+      
+      res.json(activePromos);
+    } catch (error) {
+      console.error("Error fetching promo codes:", error);
+      res.status(500).json({ message: "Failed to fetch promo codes" });
     }
   });
 
