@@ -90,7 +90,7 @@ export default function DriverSignup() {
       // In a real implementation, you would upload files to object storage here
       // For now, we'll just submit the form data
       
-      const response = await apiRequest("POST", "/api/driver/apply", data);
+      const response = await apiRequest("/api/driver/apply", "POST", data);
       console.log("API response received:", response);
       
       setApplicationSubmitted(true);
