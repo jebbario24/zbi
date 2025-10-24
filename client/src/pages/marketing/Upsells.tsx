@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,14 +9,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, TrendingUp, ShoppingCart, DollarSign } from "lucide-react";
+import type { MenuItem } from "@shared/schema";
 
 type UpsellRule = {
   id: string;
   name: string;
-  trigger: string;
-  suggestion: string;
+  triggerItemId: string;
+  suggestionItemId: string;
   conversionRate: number;
   revenue: number;
   isActive: boolean;
@@ -25,44 +28,12 @@ export default function Upsells() {
   const { t } = useTranslation();
   const { toast } = useToast();
 
-  const [upsellRules, setUpsellRules] = useState<UpsellRule[]>([
-    {
-      id: '1',
-      name: 'Add Drink with Burger',
-      trigger: 'Burger',
-      suggestion: 'Soft Drink',
-      conversionRate: 45.2,
-      revenue: 1240,
-      isActive: true,
-    },
-    {
-      id: '2',
-      name: 'Add Fries with Sandwich',
-      trigger: 'Sandwich',
-      suggestion: 'French Fries',
-      conversionRate: 38.7,
-      revenue: 980,
-      isActive: true,
-    },
-    {
-      id: '3',
-      name: 'Dessert after Main Course',
-      trigger: 'Main Course',
-      suggestion: 'Dessert',
-      conversionRate: 22.4,
-      revenue: 560,
-      isActive: true,
-    },
-    {
-      id: '4',
-      name: 'Upgrade to Large Size',
-      trigger: 'Any Drink',
-      suggestion: 'Large Size',
-      conversionRate: 51.3,
-      revenue: 2150,
-      isActive: false,
-    },
-  ]);
+  // Fetch menu items
+  const { data: menuItems = [], isLoading: loadingItems } = useQuery<MenuItem[]>({
+    queryKey: ['/api/menu/items'],
+  });
+
+  const [upsellRules, setUpsellRules] = useState<UpsellRule[]>([]);
 
   // Edit rule dialog state
   const [editRuleDialogOpen, setEditRuleDialogOpen] = useState(false);
@@ -73,13 +44,18 @@ export default function Upsells() {
   const [createRuleDialogOpen, setCreateRuleDialogOpen] = useState(false);
   const [newRule, setNewRule] = useState<Omit<UpsellRule, 'id'>>({
     name: '',
-    trigger: '',
-    suggestion: '',
+    triggerItemId: '',
+    suggestionItemId: '',
     conversionRate: 0,
     revenue: 0,
     isActive: true,
   });
   const [newRuleInputs, setNewRuleInputs] = useState({ conversionRate: '', revenue: '' });
+
+  // Helper function to get menu item name by ID
+  const getMenuItemName = (itemId: string) => {
+    return menuItems.find(item => item.id === itemId)?.name || 'Unknown Item';
+  };
 
   const activeRules = upsellRules.filter(r => r.isActive).length;
   const totalRevenue = upsellRules.reduce((sum, r) => sum + r.revenue, 0);
@@ -108,7 +84,7 @@ export default function Upsells() {
       return;
     }
 
-    if (!editingRule.trigger.trim()) {
+    if (!editingRule.triggerItemId) {
       toast({
         title: "Validation Error",
         description: "Trigger item is required",
@@ -117,7 +93,7 @@ export default function Upsells() {
       return;
     }
 
-    if (!editingRule.suggestion.trim()) {
+    if (!editingRule.suggestionItemId) {
       toast({
         title: "Validation Error",
         description: "Suggested item is required",
@@ -170,8 +146,8 @@ export default function Upsells() {
   const handleOpenCreateRule = () => {
     setNewRule({
       name: '',
-      trigger: '',
-      suggestion: '',
+      triggerItemId: '',
+      suggestionItemId: '',
       conversionRate: 0,
       revenue: 0,
       isActive: true,
@@ -191,7 +167,7 @@ export default function Upsells() {
       return;
     }
 
-    if (!newRule.trigger.trim()) {
+    if (!newRule.triggerItemId) {
       toast({
         title: "Validation Error",
         description: "Trigger item is required",
@@ -200,7 +176,7 @@ export default function Upsells() {
       return;
     }
 
-    if (!newRule.suggestion.trim()) {
+    if (!newRule.suggestionItemId) {
       toast({
         title: "Validation Error",
         description: "Suggested item is required",
@@ -333,8 +309,8 @@ export default function Upsells() {
               {upsellRules.map((rule) => (
                 <TableRow key={rule.id} data-testid={`upsell-rule-${rule.id}`}>
                   <TableCell className="font-medium">{rule.name}</TableCell>
-                  <TableCell>{rule.trigger}</TableCell>
-                  <TableCell>{rule.suggestion}</TableCell>
+                  <TableCell>{getMenuItemName(rule.triggerItemId)}</TableCell>
+                  <TableCell>{getMenuItemName(rule.suggestionItemId)}</TableCell>
                   <TableCell className="text-right font-medium">
                     {rule.conversionRate.toFixed(1)}%
                   </TableCell>
@@ -389,27 +365,43 @@ export default function Upsells() {
 
               <div className="space-y-2">
                 <Label htmlFor="edit-rule-trigger">Trigger Item</Label>
-                <Input
-                  id="edit-rule-trigger"
-                  value={editingRule.trigger}
-                  onChange={(e) => setEditingRule({ ...editingRule, trigger: e.target.value })}
-                  placeholder="Burger"
-                  data-testid="input-edit-rule-trigger"
-                />
+                <Select
+                  value={editingRule.triggerItemId}
+                  onValueChange={(value) => setEditingRule({ ...editingRule, triggerItemId: value })}
+                >
+                  <SelectTrigger id="edit-rule-trigger" data-testid="select-edit-rule-trigger">
+                    <SelectValue placeholder="Select a menu item" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {menuItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
-                  When this item is in cart
+                  When this item is added to cart
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="edit-rule-suggestion">Suggested Item</Label>
-                <Input
-                  id="edit-rule-suggestion"
-                  value={editingRule.suggestion}
-                  onChange={(e) => setEditingRule({ ...editingRule, suggestion: e.target.value })}
-                  placeholder="Soft Drink"
-                  data-testid="input-edit-rule-suggestion"
-                />
+                <Select
+                  value={editingRule.suggestionItemId}
+                  onValueChange={(value) => setEditingRule({ ...editingRule, suggestionItemId: value })}
+                >
+                  <SelectTrigger id="edit-rule-suggestion" data-testid="select-edit-rule-suggestion">
+                    <SelectValue placeholder="Select a menu item" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {menuItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
                   Suggest this item to the customer
                 </p>
@@ -508,13 +500,21 @@ export default function Upsells() {
 
             <div className="space-y-2">
               <Label htmlFor="new-rule-trigger">Trigger Item</Label>
-              <Input
-                id="new-rule-trigger"
-                value={newRule.trigger}
-                onChange={(e) => setNewRule({ ...newRule, trigger: e.target.value })}
-                placeholder="Burger"
-                data-testid="input-new-rule-trigger"
-              />
+              <Select
+                value={newRule.triggerItemId}
+                onValueChange={(value) => setNewRule({ ...newRule, triggerItemId: value })}
+              >
+                <SelectTrigger id="new-rule-trigger" data-testid="select-new-rule-trigger">
+                  <SelectValue placeholder="Select a menu item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {menuItems.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">
                 When this item is added to cart
               </p>
@@ -522,13 +522,21 @@ export default function Upsells() {
 
             <div className="space-y-2">
               <Label htmlFor="new-rule-suggestion">Suggested Item</Label>
-              <Input
-                id="new-rule-suggestion"
-                value={newRule.suggestion}
-                onChange={(e) => setNewRule({ ...newRule, suggestion: e.target.value })}
-                placeholder="Soft Drink"
-                data-testid="input-new-rule-suggestion"
-              />
+              <Select
+                value={newRule.suggestionItemId}
+                onValueChange={(value) => setNewRule({ ...newRule, suggestionItemId: value })}
+              >
+                <SelectTrigger id="new-rule-suggestion" data-testid="select-new-rule-suggestion">
+                  <SelectValue placeholder="Select a menu item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {menuItems.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">
                 Suggest this item to the customer
               </p>
