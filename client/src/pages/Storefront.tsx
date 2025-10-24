@@ -1339,6 +1339,32 @@ export default function Storefront() {
                           <span className="font-medium">{t('storefront.cash')}</span>
                         </Button>
                       )}
+
+                      {/* Place Order button for pickup when no payment methods are configured */}
+                      {!enabledPaymentMethods?.stripe && !enabledPaymentMethods?.paypal && !enabledPaymentMethods?.cash && orderType === 'pickup' && (
+                        <div className="space-y-3">
+                          <div className="bg-muted/50 rounded-lg p-3 text-center">
+                            <p className="text-sm text-muted-foreground">
+                              {t('storefront.payOnPickup') || 'You will pay when you pick up your order'}
+                            </p>
+                          </div>
+                          <Button
+                            variant="default"
+                            className="w-full h-16 flex items-center justify-center gap-2"
+                            disabled={!customerName || !customerPhone || checkoutMutation.isPending}
+                            onClick={() => {
+                              setPaymentMethod('cash');
+                              setCurrentOrderId(null);
+                              paypalRendered.current = false;
+                              checkoutMutation.mutate();
+                            }}
+                            data-testid="button-place-order"
+                          >
+                            <ShoppingCart className="h-5 w-5" />
+                            <span className="font-medium">{t('storefront.placeOrder') || 'Place Order'}</span>
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </ScrollArea>
