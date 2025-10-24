@@ -2,9 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { 
-  Megaphone, 
   Tag, 
-  Trophy, 
   TrendingUp, 
   MessageSquare, 
   Share2, 
@@ -24,14 +22,6 @@ export default function Marketing() {
       url: "/marketing/promos",
       color: "text-orange-500",
       bgColor: "bg-orange-500/10"
-    },
-    {
-      title: "Loyalty Program",
-      description: "Points, tiers, and rewards to keep customers coming back",
-      icon: Trophy,
-      url: "/marketing/loyalty",
-      color: "text-yellow-500",
-      bgColor: "bg-yellow-500/10"
     },
     {
       title: "Boosts",
@@ -120,10 +110,6 @@ export default function Marketing() {
             <li className="flex items-start gap-2">
               <Zap className="h-4 w-4 text-primary mt-0.5" />
               <span><strong>Free Daily Boosts:</strong> Get featured placement credits every day</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Trophy className="h-4 w-4 text-primary mt-0.5" />
-              <span><strong>Built-in Loyalty:</strong> Automatic points and rewards system</span>
             </li>
             <li className="flex items-start gap-2">
               <TrendingUp className="h-4 w-4 text-primary mt-0.5" />
