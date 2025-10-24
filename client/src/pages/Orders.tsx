@@ -49,6 +49,7 @@ const statusColors: Record<string, "default" | "secondary" | "destructive" | "ou
   confirmed: "default",
   preparing: "default",
   ready: "default",
+  out_for_delivery: "default",
   completed: "outline",
   cancelled: "destructive",
 };
@@ -58,6 +59,7 @@ const statusLabels: Record<string, string> = {
   confirmed: "Confirmed",
   preparing: "Preparing",
   ready: "Ready",
+  out_for_delivery: "Out for Delivery",
   completed: "Completed",
   cancelled: "Cancelled",
 };
@@ -705,9 +707,32 @@ export default function Orders() {
                         <TableCell>{order.customerName || "Guest"}</TableCell>
                         <TableCell className="font-semibold">${order.total}</TableCell>
                         <TableCell>
-                          <Badge variant={statusColors[order.status] || "default"}>
-                            {statusLabels[order.status] || order.status}
-                          </Badge>
+                          <Select
+                            value={order.status}
+                            onValueChange={(newStatus) => handleStatusChange(order.id, newStatus)}
+                            disabled={updateStatusMutation.isPending}
+                          >
+                            <SelectTrigger 
+                              className={`w-auto h-auto px-2.5 py-0.5 text-xs font-semibold rounded-full focus:ring-0 focus:ring-offset-0 ${
+                                statusColors[order.status] === 'secondary' ? 'border-0 bg-secondary text-secondary-foreground' :
+                                statusColors[order.status] === 'destructive' ? 'border-0 bg-destructive text-destructive-foreground' :
+                                statusColors[order.status] === 'outline' ? 'border border-input bg-background' :
+                                'border-0 bg-primary text-primary-foreground'
+                              }`}
+                              data-testid={`select-status-${order.id}`}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="confirmed">Confirmed</SelectItem>
+                              <SelectItem value="preparing">Preparing</SelectItem>
+                              <SelectItem value="ready">Ready</SelectItem>
+                              <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <Badge variant={order.paymentStatus === "paid" ? "default" : "secondary"}>
