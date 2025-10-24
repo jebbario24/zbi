@@ -594,9 +594,6 @@ export default function Settings() {
 
           <div className="text-xs text-muted-foreground border-t pt-4 space-y-1">
             <p>
-              • Platform charges 2% commission on all orders
-            </p>
-            <p>
               • Payouts are processed automatically based on your schedule
             </p>
             <p>
