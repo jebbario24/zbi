@@ -60,6 +60,7 @@
     "frequentlyBoughtTogether": "المشتريات المتكررة معًا",
     "addBundleToCart": "أضف الحزمة إلى السلة",
     "orderSuccess": "تم تقديم الطلب بنجاح! ادفع نقداً عند الاستلام.",
+    "orderSuccessPickup": "تم تقديم الطلب بنجاح! ادفع عند الاستلام.",
     "orderError": "فشل تقديم الطلب",
     "categories": "الفئات",
     "allCategories": "جميع الفئات",
@@ -67,6 +68,7 @@
     "outOfStock": "نفذت الكمية",
     "available": "متوفر",
     "open": "مفتوح",
-    "closed": "مغلق"
+    "closed": "مغلق",
+    "payOnPickup": "ستدفع عند استلام طلبك"
   }
 }

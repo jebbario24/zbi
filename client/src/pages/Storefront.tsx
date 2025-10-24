@@ -616,7 +616,10 @@ export default function Storefront() {
     },
     onSuccess: (data) => {
       if (data.paymentMethod === 'cash') {
-        toast({ title: t('storefront.orderSuccess') });
+        const successMessage = orderType === 'pickup' 
+          ? t('storefront.orderSuccessPickup') || 'Order placed successfully! Pay when you pick up.'
+          : t('storefront.orderSuccess') || 'Order placed successfully! Pay cash on delivery.';
+        toast({ title: successMessage });
         setCart([]);
         setCustomerName("");
         setCustomerPhone("");
