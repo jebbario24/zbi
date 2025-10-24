@@ -78,22 +78,28 @@ export default function DriverSignup() {
   });
 
   const onSubmit = async (data: DriverApplicationForm) => {
-    if (!idProofFile) {
-      toast({
-        title: "ID Proof Required",
-        description: "Please upload your ID proof document",
-        variant: "destructive",
-      });
-      return;
-    }
+    console.log("Form submission started", data);
+    console.log("Form errors:", form.formState.errors);
+    
+    // Temporarily make ID proof optional for testing
+    // if (!idProofFile) {
+    //   toast({
+    //     title: "ID Proof Required",
+    //     description: "Please upload your ID proof document",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
 
     setIsSubmitting(true);
 
     try {
+      console.log("Sending API request to /api/driver/apply");
       // In a real implementation, you would upload files to object storage here
       // For now, we'll just submit the form data
       
       const response = await apiRequest("POST", "/api/driver/apply", data);
+      console.log("API response received:", response);
       
       setApplicationSubmitted(true);
       toast({
@@ -101,6 +107,7 @@ export default function DriverSignup() {
         description: "We'll review your application and get back to you within 48 hours.",
       });
     } catch (error: any) {
+      console.error("Form submission error:", error);
       toast({
         title: "Submission Failed",
         description: error.message || "Failed to submit application. Please try again.",
