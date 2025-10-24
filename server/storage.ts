@@ -759,6 +759,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Promo Management
+  async getPromos(restaurantId: string): Promise<any[]> {
+    const promos = await db
+      .select()
+      .from(promoRules)
+      .where(eq(promoRules.restaurantId, restaurantId))
+      .orderBy(desc(promoRules.createdAt));
+    return promos;
+  }
+
+  async getPromo(id: string): Promise<any | null> {
+    const [promo] = await db
+      .select()
+      .from(promoRules)
+      .where(eq(promoRules.id, id));
+    return promo || null;
+  }
+
+  async createPromo(data: any): Promise<any> {
+    const [promo] = await db
+      .insert(promoRules)
+      .values(data)
+      .returning();
+    return promo;
+  }
+
+  async updatePromo(id: string, data: any): Promise<any> {
+    const [updated] = await db
+      .update(promoRules)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(promoRules.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePromo(id: string): Promise<void> {
+    await db.delete(promoRules).where(eq(promoRules.id, id));
+  }
+
   async getActiveAutoApplyPromos(restaurantId: string): Promise<any[]> {
     const now = new Date();
     const promos = await db

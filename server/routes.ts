@@ -964,6 +964,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Promo routes
+  app.get('/api/promos', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.json([]);
+      }
+      const promos = await storage.getPromos(restaurant.id);
+      res.json(promos);
+    } catch (error) {
+      console.error("Error fetching promos:", error);
+      res.status(500).json({ message: "Failed to fetch promos" });
+    }
+  });
+
+  app.post('/api/promos', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      const data = { ...req.body, restaurantId: restaurant.id };
+      const promo = await storage.createPromo(data);
+      res.json(promo);
+    } catch (error) {
+      console.error("Error creating promo:", error);
+      res.status(400).json({ message: "Failed to create promo" });
+    }
+  });
+
+  app.put('/api/promos/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Verify the promo belongs to the user's restaurant
+      const promo = await storage.getPromo(req.params.id);
+      if (!promo) {
+        return res.status(404).json({ message: "Promo not found" });
+      }
+      if (promo.restaurantId !== restaurant.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const updated = await storage.updatePromo(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating promo:", error);
+      res.status(400).json({ message: "Failed to update promo" });
+    }
+  });
+
+  app.delete('/api/promos/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Verify the promo belongs to the user's restaurant
+      const promo = await storage.getPromo(req.params.id);
+      if (!promo) {
+        return res.status(404).json({ message: "Promo not found" });
+      }
+      if (promo.restaurantId !== restaurant.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      await storage.deletePromo(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting promo:", error);
+      res.status(400).json({ message: "Failed to delete promo" });
+    }
+  });
+
   // Table routes
   app.get('/api/tables', isAuthenticated, async (req: any, res) => {
     try {
