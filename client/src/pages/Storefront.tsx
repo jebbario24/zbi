@@ -1548,6 +1548,35 @@ export default function Storefront() {
                           {/* Boosted Item Badge */}
                           <BoostedItemsBadge isBoosted={isItemBoosted(item.name)} />
                           
+                          {/* Menu Item Badges/Tags */}
+                          {item.tags && item.tags.length > 0 && (
+                            <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
+                              {item.tags.map((tag, idx) => {
+                                const tagColors: Record<string, string> = {
+                                  'Bestseller': 'bg-[hsl(38,92%,50%)] text-white border-transparent',
+                                  'New': 'bg-[hsl(142,76%,36%)] text-white border-transparent',
+                                  "Chef's Special": 'bg-[hsl(221,83%,53%)] text-white border-transparent',
+                                  'Popular': 'bg-[hsl(346,77%,50%)] text-white border-transparent',
+                                  'Spicy': 'bg-[hsl(0,84%,60%)] text-white border-transparent',
+                                  'Vegetarian': 'bg-[hsl(140,61%,45%)] text-white border-transparent',
+                                  'Vegan': 'bg-[hsl(120,61%,50%)] text-white border-transparent',
+                                  'Gluten-Free': 'bg-[hsl(45,93%,47%)] text-white border-transparent',
+                                  'Limited Time': 'bg-[hsl(280,61%,50%)] text-white border-transparent',
+                                };
+                                const badgeColor = tagColors[tag] || 'bg-muted text-foreground border-border';
+                                return (
+                                  <Badge
+                                    key={idx}
+                                    className={`shadow-md text-xs font-semibold ${badgeColor}`}
+                                    data-testid={`badge-tag-${tag.toLowerCase().replace(/\s+/g, '-')}-${item.id}`}
+                                  >
+                                    {tag}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          )}
+                          
                           {!item.isAvailable ? (
                             <>
                               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -1642,6 +1671,35 @@ export default function Storefront() {
                     
                     {/* Boosted Item Badge */}
                     <BoostedItemsBadge isBoosted={isItemBoosted(item.name)} />
+                    
+                    {/* Menu Item Badges/Tags */}
+                    {item.tags && item.tags.length > 0 && (
+                      <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
+                        {item.tags.map((tag, idx) => {
+                          const tagColors: Record<string, string> = {
+                            'Bestseller': 'bg-[hsl(38,92%,50%)] text-white border-transparent',
+                            'New': 'bg-[hsl(142,76%,36%)] text-white border-transparent',
+                            "Chef's Special": 'bg-[hsl(221,83%,53%)] text-white border-transparent',
+                            'Popular': 'bg-[hsl(346,77%,50%)] text-white border-transparent',
+                            'Spicy': 'bg-[hsl(0,84%,60%)] text-white border-transparent',
+                            'Vegetarian': 'bg-[hsl(140,61%,45%)] text-white border-transparent',
+                            'Vegan': 'bg-[hsl(120,61%,50%)] text-white border-transparent',
+                            'Gluten-Free': 'bg-[hsl(45,93%,47%)] text-white border-transparent',
+                            'Limited Time': 'bg-[hsl(280,61%,50%)] text-white border-transparent',
+                          };
+                          const badgeColor = tagColors[tag] || 'bg-muted text-foreground border-border';
+                          return (
+                            <Badge
+                              key={idx}
+                              className={`shadow-md text-xs font-semibold ${badgeColor}`}
+                              data-testid={`badge-tag-${tag.toLowerCase().replace(/\s+/g, '-')}-${item.id}`}
+                            >
+                              {tag}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
                     
                     {!item.isAvailable ? (
                       <>
