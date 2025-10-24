@@ -10,6 +10,10 @@ interface Promo {
   type: string;
   value: number;
   isActive: boolean;
+  buyItemId?: string;
+  getItemId?: string;
+  buyQuantity?: number;
+  getQuantity?: number;
 }
 
 interface ActivePromosBannerProps {
@@ -54,9 +58,13 @@ export function ActivePromosBanner({ promos }: ActivePromosBannerProps) {
                   <p className="text-xs text-muted-foreground">
                     {promo.type === 'percentage' 
                       ? `${promo.value}% off`
-                      : promo.type === 'fixed'
+                      : promo.type === 'fixed' || promo.type === 'fixed_amount'
                         ? `$${promo.value.toFixed(2)} off`
-                        : 'Free Delivery'}
+                        : promo.type === 'free_delivery'
+                          ? 'Free Delivery'
+                          : promo.type === 'buy_x_get_y'
+                            ? `Buy ${promo.buyQuantity} get ${promo.getQuantity} free`
+                            : 'Special Offer'}
                   </p>
                 </div>
                 <Button
