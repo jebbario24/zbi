@@ -26,14 +26,6 @@ export default function Marketing() {
       bgColor: "bg-orange-500/10"
     },
     {
-      title: "Campaigns",
-      description: "Automated campaigns: Welcome, Reactivation, Birthday",
-      icon: Megaphone,
-      url: "/marketing/campaigns",
-      color: "text-blue-500",
-      bgColor: "bg-blue-500/10"
-    },
-    {
       title: "Loyalty Program",
       description: "Points, tiers, and rewards to keep customers coming back",
       icon: Trophy,
@@ -132,10 +124,6 @@ export default function Marketing() {
             <li className="flex items-start gap-2">
               <Trophy className="h-4 w-4 text-primary mt-0.5" />
               <span><strong>Built-in Loyalty:</strong> Automatic points and rewards system</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Megaphone className="h-4 w-4 text-primary mt-0.5" />
-              <span><strong>Smart Campaigns:</strong> Automated messages for reactivation and retention</span>
             </li>
             <li className="flex items-start gap-2">
               <TrendingUp className="h-4 w-4 text-primary mt-0.5" />

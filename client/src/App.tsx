@@ -34,7 +34,6 @@ import AdminRestaurants from "@/pages/AdminRestaurants";
 import NotFound from "@/pages/not-found";
 import Marketing from "@/pages/marketing/Marketing";
 import Promos from "@/pages/marketing/Promos";
-import Campaigns from "@/pages/marketing/Campaigns";
 import Loyalty from "@/pages/marketing/Loyalty";
 import Boosts from "@/pages/marketing/Boosts";
 import Upsells from "@/pages/marketing/Upsells";
@@ -96,7 +95,6 @@ function AuthenticatedRouter() {
       <Route path="/pos" component={POS} />
       <Route path="/marketing" component={Marketing} />
       <Route path="/marketing/promos" component={Promos} />
-      <Route path="/marketing/campaigns" component={Campaigns} />
       <Route path="/marketing/loyalty" component={Loyalty} />
       <Route path="/marketing/boosts" component={Boosts} />
       <Route path="/marketing/upsells" component={Upsells} />
