@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -114,6 +115,23 @@ function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
   usePlatformLanguage();
   
+  // Track RTL direction dynamically
+  const [isRTL, setIsRTL] = useState(document.documentElement.dir === 'rtl');
+  
+  useEffect(() => {
+    // Watch for direction changes
+    const observer = new MutationObserver(() => {
+      setIsRTL(document.documentElement.dir === 'rtl');
+    });
+    
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['dir']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+  
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -135,7 +153,7 @@ function AppContent() {
     <SubscriptionGuard>
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
-          <AppSidebar />
+          <AppSidebar side={isRTL ? "right" : "left"} />
           <div className="flex flex-col flex-1 overflow-hidden">
             <header className="flex items-center justify-between p-3 border-b">
               <SidebarTrigger data-testid="button-sidebar-toggle" />

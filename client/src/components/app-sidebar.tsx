@@ -165,7 +165,7 @@ const adminMenuItems = [
   },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ side }: { side?: "left" | "right" }) {
   const [location] = useLocation();
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -208,7 +208,7 @@ export function AppSidebar() {
   );
 
   return (
-    <Sidebar>
+    <Sidebar side={side}>
       <SidebarHeader className="border-b p-4">
         <Link href={homeUrl}>
           <div className="flex items-center gap-2 cursor-pointer hover-elevate p-2 rounded-md">
