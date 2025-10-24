@@ -15,6 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **Notifications:** Real-time order notifications with red badge, audio alerts for new orders, and smart polling.
 - **Storefront Customization:** Owners can customize branding (logo, cover photo), opening hours, and menu item images.
 - **Menu Item Display:** Storefront shows "Open"/"Closed" status, "Out of Stock," and "Low Stock" indicators.
+- **Menu Item Badges:** Restaurant owners can add custom badges/tags to menu items (Bestseller, New, Chef's Special, Popular, Spicy, Vegetarian, Vegan, Gluten-Free, Limited Time) which display on the storefront with color-coded styling for easy identification.
 
 ### Technical Implementations
 - **Frontend:** React, TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (Radix UI), Tailwind CSS.
