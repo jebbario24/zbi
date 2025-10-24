@@ -2783,6 +2783,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stripe Connect: Create Express Connected Account
+  app.post("/api/restaurant/connect/create-account", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe is not configured" });
+      }
+
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      // Check if already has a connected account
+      if (restaurant.stripeAccountId) {
+        return res.status(400).json({ error: "Stripe account already connected" });
+      }
+
+      // Create Stripe Express account
+      const account = await stripe.accounts.create({
+        type: 'express',
+        country: restaurant.country === 'United States' ? 'US' : 'US', // Default to US, expand later
+        email: restaurant.email || req.user.email,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        business_type: 'individual', // Can be made dynamic
+        business_profile: {
+          name: restaurant.name,
+          url: restaurant.customDomain || `https://${restaurant.subdomain}.${process.env.REPLIT_DOMAINS}`,
+        },
+      });
+
+      // Save account ID to restaurant
+      await storage.updateRestaurant(restaurant.id, {
+        stripeAccountId: account.id,
+      });
+
+      res.json({
+        accountId: account.id,
+        success: true,
+      });
+    } catch (error: any) {
+      console.error("Error creating Stripe Connect account:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
+  // Stripe Connect: Generate onboarding link
+  app.post("/api/restaurant/connect/onboarding-link", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe is not configured" });
+      }
+
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      if (!restaurant.stripeAccountId) {
+        return res.status(400).json({ error: "No Stripe account found. Create one first." });
+      }
+
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? `https://${process.env.REPLIT_DOMAINS}` 
+        : `http://localhost:5000`;
+
+      const accountLink = await stripe.accountLinks.create({
+        account: restaurant.stripeAccountId,
+        refresh_url: `${baseUrl}/settings?connect=refresh`,
+        return_url: `${baseUrl}/settings?connect=success`,
+        type: 'account_onboarding',
+      });
+
+      res.json({
+        url: accountLink.url,
+      });
+    } catch (error: any) {
+      console.error("Error creating onboarding link:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
+  // Stripe Connect: Check account status
+  app.get("/api/restaurant/connect/status", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe is not configured" });
+      }
+
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      if (!restaurant.stripeAccountId) {
+        return res.json({
+          connected: false,
+          chargesEnabled: false,
+          payoutsEnabled: false,
+        });
+      }
+
+      const account = await stripe.accounts.retrieve(restaurant.stripeAccountId);
+
+      res.json({
+        connected: true,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        requirementsCurrentlyDue: account.requirements?.currently_due || [],
+        requirementsEventuallyDue: account.requirements?.eventually_due || [],
+      });
+    } catch (error: any) {
+      console.error("Error checking account status:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
   app.put("/api/restaurant/payout-settings", isAuthenticated, async (req: any, res) => {
     const userId = req.user.id;
     const { accountHolderName, bankName, accountNumber, routingNumber, iban, swiftCode, country, payoutSchedule } = req.body;
