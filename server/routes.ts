@@ -939,10 +939,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: `${originalItem.name} (Copy)`,
         description: originalItem.description,
         price: originalItem.price,
+        priceCents: originalItem.priceCents,
         categoryId: originalItem.categoryId,
         imageUrl: originalItem.imageUrl,
         isAvailable: originalItem.isAvailable,
         restaurantId: restaurant.id,
+        currency: originalItem.currency,
+        options: originalItem.options,
+        allergens: originalItem.allergens,
+        spicyLevel: originalItem.spicyLevel,
+        isVegetarian: originalItem.isVegetarian,
+        isVegan: originalItem.isVegan,
+        isGlutenFree: originalItem.isGlutenFree,
       };
       
       const newItem = await storage.createMenuItem(duplicateData);
