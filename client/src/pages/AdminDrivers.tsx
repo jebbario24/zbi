@@ -173,6 +173,22 @@ export default function AdminDrivers() {
     const completion = getProfileCompletion(driver);
     const fullName = `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || driver.email;
 
+    const getMissingFields = () => {
+      const missing: string[] = [];
+      if (!driver.phone) missing.push("Phone");
+      if (!driver.dateOfBirth) missing.push("Date of Birth");
+      if (!driver.address) missing.push("Address");
+      if (!driver.emergencyContactName) missing.push("Emergency Contact");
+      if (!driver.vehicleType) missing.push("Vehicle Type");
+      if (!driver.licenseNumber) missing.push("License Number");
+      if (!driver.idProofUrl) missing.push("ID Proof");
+      if (!driver.insuranceUrl) missing.push("Insurance");
+      if (!driver.stripeAccountId) missing.push("Bank Account");
+      return missing;
+    };
+
+    const missingFields = getMissingFields();
+
     return (
       <Card data-testid={`card-driver-${driver.id}`}>
         <CardHeader>
@@ -187,6 +203,9 @@ export default function AdminDrivers() {
               <div>
                 <CardTitle className="text-lg">{fullName}</CardTitle>
                 <CardDescription>{driver.email}</CardDescription>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Joined {new Date(driver.createdAt).toLocaleDateString()}
+                </p>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
@@ -217,34 +236,165 @@ export default function AdminDrivers() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Profile Information */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-muted-foreground" />
-              <span>{driver.phone || 'No phone'}</span>
+        <CardContent className="space-y-6">
+          {/* Missing Fields Warning */}
+          {missingFields.length > 0 && (
+            <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900 rounded-md p-3">
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                Missing Information
+              </p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                {missingFields.join(', ')}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Car className="w-4 h-4 text-muted-foreground" />
-              <span>
-                {driver.vehicleType 
-                  ? `${driver.vehicleMake || ''} ${driver.vehicleModel || ''}`.trim() || driver.vehicleType
-                  : 'No vehicle'}
-              </span>
+          )}
+
+          {/* Personal Information */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Personal Information
+            </h4>
+            <div className="grid grid-cols-2 gap-3 text-sm pl-6">
+              <div>
+                <span className="text-muted-foreground">Phone:</span>{" "}
+                <span className="font-medium">{driver.phone || "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Date of Birth:</span>{" "}
+                <span className="font-medium">
+                  {driver.dateOfBirth ? new Date(driver.dateOfBirth).toLocaleDateString() : "—"}
+                </span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Address:</span>{" "}
+                <span className="font-medium">
+                  {driver.address || "—"}
+                  {driver.city && `, ${driver.city}`}
+                  {driver.country && `, ${driver.country}`}
+                  {driver.postalCode && ` ${driver.postalCode}`}
+                </span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Emergency Contact:</span>{" "}
+                <span className="font-medium">
+                  {driver.emergencyContactName || "—"}
+                  {driver.emergencyContactPhone && ` (${driver.emergencyContactPhone})`}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-              <span>{driver.licenseNumber || 'No license'}</span>
+          </div>
+
+          {/* Vehicle Information */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Car className="w-4 h-4" />
+              Vehicle Information
+            </h4>
+            <div className="grid grid-cols-2 gap-3 text-sm pl-6">
+              <div>
+                <span className="text-muted-foreground">Type:</span>{" "}
+                <span className="font-medium">{driver.vehicleType || "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Make & Model:</span>{" "}
+                <span className="font-medium">
+                  {driver.vehicleMake && driver.vehicleModel 
+                    ? `${driver.vehicleMake} ${driver.vehicleModel}`
+                    : "—"}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Year:</span>{" "}
+                <span className="font-medium">{driver.vehicleYear || "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Color:</span>{" "}
+                <span className="font-medium">{driver.vehicleColor || "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">License Plate:</span>{" "}
+                <span className="font-medium">{driver.vehiclePlate || "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">License #:</span>{" "}
+                <span className="font-medium">{driver.licenseNumber || "—"}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-muted-foreground">License Expiry:</span>{" "}
+                <span className="font-medium">
+                  {driver.licenseExpiry ? new Date(driver.licenseExpiry).toLocaleDateString() : "—"}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-muted-foreground" />
-              <span>{driver.stripeAccountId ? 'Bank Connected' : 'No bank account'}</span>
+          </div>
+
+          {/* Documents */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Documents
+            </h4>
+            <div className="grid grid-cols-2 gap-3 text-sm pl-6">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">ID Proof:</span>
+                {driver.idProofUrl ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-blue-600 hover:text-blue-700"
+                    onClick={() => window.open(`/api/objects${driver.idProofUrl}`, '_blank')}
+                    data-testid="button-view-id-proof"
+                  >
+                    View Document
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground">Not uploaded</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Insurance:</span>
+                {driver.insuranceUrl ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-blue-600 hover:text-blue-700"
+                    onClick={() => window.open(`/api/objects${driver.insuranceUrl}`, '_blank')}
+                    data-testid="button-view-insurance"
+                  >
+                    View Document
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground">Not uploaded</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bank Account */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              Bank Account
+            </h4>
+            <div className="text-sm pl-6">
+              {driver.stripeAccountId ? (
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <span className="text-green-600 font-medium">Connected & Verified</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Not connected</span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Action Buttons */}
-          {!driver.adminApproved && driver.profileComplete && (
-            <div className="flex gap-2 pt-2">
+          {driver.applicationStatus === 'pending' && driver.profileComplete && (
+            <div className="flex gap-2 pt-4 border-t">
               <Button
                 onClick={() => handleApprove(driver)}
                 disabled={approveMutation.isPending}
@@ -252,7 +402,7 @@ export default function AdminDrivers() {
                 data-testid="button-approve-driver"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Approve
+                Approve Driver
               </Button>
               <Button
                 onClick={() => handleRejectClick(driver)}
@@ -262,15 +412,24 @@ export default function AdminDrivers() {
                 data-testid="button-reject-driver"
               >
                 <XCircle className="w-4 h-4 mr-2" />
-                Reject
+                Reject Application
               </Button>
             </div>
           )}
 
-          {driver.adminApproved && driver.adminApprovedAt && (
-            <p className="text-xs text-muted-foreground">
-              Approved on {new Date(driver.adminApprovedAt).toLocaleDateString()}
-            </p>
+          {driver.applicationStatus === 'approved' && driver.adminApprovedAt && (
+            <div className="pt-4 border-t">
+              <p className="text-xs text-muted-foreground">
+                ✓ Approved on {new Date(driver.adminApprovedAt).toLocaleDateString()}
+              </p>
+            </div>
+          )}
+
+          {driver.applicationStatus === 'rejected' && driver.rejectionReason && (
+            <div className="pt-4 border-t bg-destructive/10 -mx-6 -mb-6 p-4 rounded-b-lg">
+              <p className="text-sm font-medium text-destructive mb-1">Rejection Reason:</p>
+              <p className="text-sm text-muted-foreground">{driver.rejectionReason}</p>
+            </div>
           )}
         </CardContent>
       </Card>
