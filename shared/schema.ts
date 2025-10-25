@@ -538,6 +538,32 @@ export const walletTransactions = pgTable("wallet_transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Driver Delivery Status - Track delivery progress in real-time
+export const driverDeliveryStatus = pgTable("driver_delivery_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().unique().references(() => orders.id, { onDelete: 'cascade' }),
+  driverId: varchar("driver_id").notNull().references(() => driverProfiles.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  status: varchar("status", { length: 50 }).notNull().default('assigned'), // assigned, en_route_to_pickup, arrived_at_restaurant, picked_up, en_route_to_customer, delivered
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  enRouteToPickupAt: timestamp("en_route_to_pickup_at"),
+  arrivedAtRestaurantAt: timestamp("arrived_at_restaurant_at"),
+  pickedUpAt: timestamp("picked_up_at"),
+  enRouteToCustomerAt: timestamp("en_route_to_customer_at"),
+  deliveredAt: timestamp("delivered_at"),
+  deliveryProofUrl: text("delivery_proof_url"), // Photo of delivery
+  deliveryNotes: text("delivery_notes"),
+  customerSignature: text("customer_signature"), // Base64 signature image
+  estimatedPickupTime: timestamp("estimated_pickup_time"),
+  estimatedDeliveryTime: timestamp("estimated_delivery_time"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_driver_delivery_driver").on(table.driverId),
+  index("idx_driver_delivery_restaurant").on(table.restaurantId),
+  index("idx_driver_delivery_status").on(table.status),
+]);
+
 // Customers - Customer profiles for marketing & loyalty
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1516,6 +1542,14 @@ export const insertWalletTransactionSchema = createInsertSchema(walletTransactio
 });
 export type InsertWalletTransaction = z.infer<typeof insertWalletTransactionSchema>;
 export type WalletTransaction = typeof walletTransactions.$inferSelect;
+
+export const insertDriverDeliveryStatusSchema = createInsertSchema(driverDeliveryStatus).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDriverDeliveryStatus = z.infer<typeof insertDriverDeliveryStatusSchema>;
+export type DriverDeliveryStatus = typeof driverDeliveryStatus.$inferSelect;
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,

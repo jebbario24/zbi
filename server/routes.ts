@@ -28,6 +28,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { db } from "./db";
 import { boostSlots, promoRules } from "@shared/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
+import { wsManager } from "./websocket";
 
 // Initialize Stripe only if credentials are available
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -2744,6 +2745,376 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error calculating delivery fee:", error);
       res.status(500).json({ message: "Failed to calculate delivery fee" });
+    }
+  });
+
+  // Driver Delivery API Routes
+  
+  // 1. GET /api/driver/available-orders - Fetch unassigned delivery orders
+  app.get('/api/driver/available-orders', isAuthenticated, async (req: any, res) => {
+    try {
+      // Verify user is a driver
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can access this endpoint" });
+      }
+
+      // Get driver profile
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      // Check if driver is approved
+      if (driver.applicationStatus !== 'approved') {
+        return res.status(403).json({ message: "Driver account not approved" });
+      }
+
+      // Get available orders
+      const availableOrders = await storage.getAvailableDeliveryOrders();
+
+      // Calculate estimated earnings for each order (80% of delivery fee)
+      const ordersWithEarnings = availableOrders.map(order => {
+        const deliveryFee = parseFloat(order.deliveryFee || '0');
+        const driverShare = (deliveryFee * 0.8).toFixed(2);
+        
+        return {
+          ...order,
+          estimatedEarnings: driverShare,
+        };
+      });
+
+      res.json(ordersWithEarnings);
+    } catch (error) {
+      console.error("Error fetching available orders:", error);
+      res.status(500).json({ message: "Failed to fetch available orders" });
+    }
+  });
+
+  // 2. POST /api/driver/orders/:orderId/accept - Driver accepts an order
+  app.post('/api/driver/orders/:orderId/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+
+      // Verify user is a driver
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can accept orders" });
+      }
+
+      // Get driver profile
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      // Check if driver is approved
+      if (driver.applicationStatus !== 'approved') {
+        return res.status(403).json({ message: "Driver account not approved" });
+      }
+
+      // Check if driver is available
+      if (!driver.isAvailable) {
+        return res.status(403).json({ message: "Please set your status to available before accepting orders" });
+      }
+
+      // Get order details
+      const orderData = await storage.getOrderWithItems(orderId);
+      if (!orderData) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      const order = orderData.order;
+
+      // Validate order is available
+      if (order.assignedDriverId) {
+        return res.status(400).json({ message: "Order already assigned to another driver" });
+      }
+
+      if (order.status !== 'confirmed') {
+        return res.status(400).json({ message: "Order is not available for pickup" });
+      }
+
+      if (order.orderType !== 'delivery') {
+        return res.status(400).json({ message: "This is not a delivery order" });
+      }
+
+      if (order.paymentStatus !== 'paid') {
+        return res.status(400).json({ message: "Payment not confirmed for this order" });
+      }
+
+      // Calculate driver earnings (80% of delivery fee)
+      const deliveryFee = parseFloat(order.deliveryFee || '0');
+      const driverShare = (deliveryFee * 0.8).toFixed(2);
+
+      // Update order with driver assignment and earnings
+      const updatedOrder = await storage.updateOrder(orderId, {
+        assignedDriverId: driver.id,
+        driverAcceptedAt: new Date(),
+        driverShare: driverShare,
+      });
+
+      // Create driver delivery status record
+      await storage.createDriverDeliveryStatus({
+        orderId,
+        driverId: driver.id,
+        restaurantId: order.restaurantId,
+      });
+
+      // WebSocket broadcast to restaurant and admins
+      wsManager.broadcastToRestaurant(order.restaurantId, {
+        type: 'driver_assigned',
+        data: {
+          orderId,
+          driverId: driver.id,
+          driverName: `${driver.firstName} ${driver.lastName}`,
+          driverPhone: driver.phone,
+        },
+      });
+
+      wsManager.broadcastToAdmins({
+        type: 'driver_assigned',
+        data: {
+          orderId,
+          driverId: driver.id,
+          restaurantId: order.restaurantId,
+        },
+      });
+
+      res.json({
+        ...updatedOrder,
+        driver: {
+          id: driver.id,
+          firstName: driver.firstName,
+          lastName: driver.lastName,
+          phone: driver.phone,
+        },
+      });
+    } catch (error) {
+      console.error("Error accepting order:", error);
+      res.status(500).json({ message: "Failed to accept order" });
+    }
+  });
+
+  // 3. POST /api/driver/orders/:orderId/status - Update delivery status
+  app.post('/api/driver/orders/:orderId/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const { status } = req.body;
+
+      // Validate status
+      const validStatuses = ['en_route_to_pickup', 'arrived_at_restaurant', 'picked_up', 'en_route_to_customer', 'delivered'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      // Verify user is a driver
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can update delivery status" });
+      }
+
+      // Get driver profile
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      // Get order and verify driver owns it
+      const orderData = await storage.getOrderWithItems(orderId);
+      if (!orderData) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      if (orderData.order.assignedDriverId !== driver.id) {
+        return res.status(403).json({ message: "You are not assigned to this order" });
+      }
+
+      // Prepare update data based on status
+      const updateData: any = { status };
+      const now = new Date();
+
+      switch (status) {
+        case 'en_route_to_pickup':
+          updateData.enRouteToPickupAt = now;
+          break;
+        case 'arrived_at_restaurant':
+          updateData.arrivedAtRestaurantAt = now;
+          break;
+        case 'picked_up':
+          updateData.pickedUpAt = now;
+          break;
+        case 'en_route_to_customer':
+          updateData.enRouteToCustomerAt = now;
+          break;
+        case 'delivered':
+          updateData.deliveredAt = now;
+          break;
+      }
+
+      // Update driver delivery status
+      const updatedStatus = await storage.updateDriverDeliveryStatus(orderId, updateData);
+
+      // Update order status based on delivery status
+      if (status === 'picked_up') {
+        await storage.updateOrder(orderId, { status: 'out_for_delivery' });
+      } else if (status === 'delivered') {
+        await storage.updateOrder(orderId, { 
+          status: 'delivered',
+          deliveryTime: now,
+        });
+      }
+
+      // WebSocket broadcast to restaurant, customer, and admins
+      wsManager.broadcastToRestaurant(orderData.order.restaurantId, {
+        type: 'delivery_status_updated',
+        data: {
+          orderId,
+          status,
+          timestamp: now,
+        },
+      });
+
+      wsManager.broadcastToAdmins({
+        type: 'delivery_status_updated',
+        data: {
+          orderId,
+          status,
+          driverId: driver.id,
+          restaurantId: orderData.order.restaurantId,
+        },
+      });
+
+      res.json(updatedStatus);
+    } catch (error) {
+      console.error("Error updating delivery status:", error);
+      res.status(500).json({ message: "Failed to update delivery status" });
+    }
+  });
+
+  // 4. GET /api/driver/active-delivery - Get current active delivery
+  app.get('/api/driver/active-delivery', isAuthenticated, async (req: any, res) => {
+    try {
+      // Verify user is a driver
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can access this endpoint" });
+      }
+
+      // Get driver profile
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      // Get active delivery
+      const activeDelivery = await storage.getDriverActiveDelivery(driver.id);
+
+      if (!activeDelivery) {
+        return res.json(null);
+      }
+
+      // Get order items
+      const orderWithItems = await storage.getOrderWithItems(activeDelivery.orderId);
+
+      res.json({
+        ...activeDelivery,
+        items: orderWithItems?.items || [],
+      });
+    } catch (error) {
+      console.error("Error fetching active delivery:", error);
+      res.status(500).json({ message: "Failed to fetch active delivery" });
+    }
+  });
+
+  // 5. GET /api/driver/stats - Get driver performance stats
+  app.get('/api/driver/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      // Verify user is a driver
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can access this endpoint" });
+      }
+
+      // Get driver profile
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      // Get stats
+      const stats = await storage.getDriverStats(driver.id);
+
+      res.json({
+        ...stats,
+        acceptanceRate: '100%', // Placeholder - would need tracking
+        onTimeRate: '95%', // Placeholder - would need tracking
+      });
+    } catch (error) {
+      console.error("Error fetching driver stats:", error);
+      res.status(500).json({ message: "Failed to fetch driver stats" });
+    }
+  });
+
+  // 6. POST /api/driver/status - Toggle driver online/offline status
+  app.post('/api/driver/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { isAvailable } = req.body;
+
+      if (typeof isAvailable !== 'boolean') {
+        return res.status(400).json({ message: "isAvailable must be a boolean" });
+      }
+
+      // Verify user is a driver
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can update their status" });
+      }
+
+      // Get driver profile
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      // Update availability
+      const updatedDriver = await storage.updateDriverProfile(driver.id, { isAvailable });
+
+      // WebSocket broadcast to admins
+      wsManager.broadcastToAdmins({
+        type: 'driver_availability_changed',
+        data: {
+          driverId: driver.id,
+          driverName: `${driver.firstName} ${driver.lastName}`,
+          isAvailable,
+        },
+      });
+
+      res.json({
+        id: updatedDriver.id,
+        isAvailable: updatedDriver.isAvailable,
+      });
+    } catch (error) {
+      console.error("Error updating driver status:", error);
+      res.status(500).json({ message: "Failed to update driver status" });
+    }
+  });
+
+  // 7. GET /api/driver/earnings - Get detailed earnings breakdown
+  app.get('/api/driver/earnings', isAuthenticated, async (req: any, res) => {
+    try {
+      // Verify user is a driver
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can access this endpoint" });
+      }
+
+      // Get driver profile
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      // Get earnings breakdown
+      const earnings = await storage.getDriverEarnings(driver.id);
+
+      res.json(earnings);
+    } catch (error) {
+      console.error("Error fetching driver earnings:", error);
+      res.status(500).json({ message: "Failed to fetch driver earnings" });
     }
   });
 

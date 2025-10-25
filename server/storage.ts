@@ -12,6 +12,7 @@ import {
   inventory,
   deliveryZones,
   driverProfiles,
+  driverDeliveryStatus,
   restaurantPayoutAccounts,
   earningsLedger,
   payoutRuns,
@@ -45,6 +46,7 @@ import {
   type DeliveryZone,
   type InsertDeliveryZone,
   type DriverProfile,
+  type DriverDeliveryStatus,
   type RestaurantPayoutAccount,
   type InsertRestaurantPayoutAccount,
   type CustomerReview,
@@ -163,6 +165,16 @@ export interface IStorage {
   updateDriverAvailability(id: string, isAvailable: boolean): Promise<DriverProfile>;
   getDriverAssignments(): Promise<(Order & { driver?: DriverProfile })[]>;
   getDriverPerformance(): Promise<{ driverId: string; driver: DriverProfile; deliveries: number; earnings: string; rating: string }[]>;
+  
+  // Driver Delivery operations
+  getAvailableDeliveryOrders(): Promise<(Order & { restaurant: Restaurant })[]>;
+  createDriverDeliveryStatus(data: { orderId: string; driverId: string; restaurantId: string }): Promise<DriverDeliveryStatus>;
+  updateDriverDeliveryStatus(orderId: string, data: Partial<DriverDeliveryStatus>): Promise<DriverDeliveryStatus>;
+  getDriverDeliveryStatus(orderId: string): Promise<DriverDeliveryStatus | undefined>;
+  getDriverActiveDelivery(driverId: string): Promise<(DriverDeliveryStatus & { order: Order; restaurant: Restaurant }) | null>;
+  getDriverStats(driverId: string): Promise<{ totalDeliveries: number; totalEarnings: string; weeklyEarnings: string }>;
+  getDriverEarnings(driverId: string): Promise<{ today: string; week: string; month: string; allTime: string; pendingPayouts: string; completedPayouts: string }>;
+  updateOrder(orderId: string, data: Partial<Order>): Promise<Order>;
   
   // Upsell operations
   getActiveUpsellRules(restaurantId: string): Promise<any[]>;
@@ -1036,6 +1048,184 @@ export class DatabaseStorage implements IStorage {
         driverAcceptedAt: new Date(),
         updatedAt: new Date(),
       })
+      .where(eq(orders.id, orderId))
+      .returning();
+    return updated;
+  }
+
+  // Driver Delivery operations
+  async getAvailableDeliveryOrders(): Promise<(Order & { restaurant: Restaurant })[]> {
+    const availableOrders = await db
+      .select()
+      .from(orders)
+      .innerJoin(restaurants, eq(orders.restaurantId, restaurants.id))
+      .where(and(
+        eq(orders.status, 'confirmed'),
+        eq(orders.orderType, 'delivery'),
+        sql`${orders.assignedDriverId} IS NULL`,
+        eq(orders.paymentStatus, 'paid')
+      ))
+      .orderBy(desc(orders.createdAt));
+    
+    return availableOrders.map(row => ({
+      ...row.orders,
+      restaurant: row.restaurants
+    }));
+  }
+
+  async createDriverDeliveryStatus(data: { orderId: string; driverId: string; restaurantId: string }): Promise<DriverDeliveryStatus> {
+    const [created] = await db
+      .insert(driverDeliveryStatus)
+      .values({
+        orderId: data.orderId,
+        driverId: data.driverId,
+        restaurantId: data.restaurantId,
+        status: 'assigned',
+        assignedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any)
+      .returning();
+    return created;
+  }
+
+  async updateDriverDeliveryStatus(orderId: string, data: Partial<DriverDeliveryStatus>): Promise<DriverDeliveryStatus> {
+    const [updated] = await db
+      .update(driverDeliveryStatus)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(driverDeliveryStatus.orderId, orderId))
+      .returning();
+    return updated;
+  }
+
+  async getDriverDeliveryStatus(orderId: string): Promise<DriverDeliveryStatus | undefined> {
+    const [status] = await db
+      .select()
+      .from(driverDeliveryStatus)
+      .where(eq(driverDeliveryStatus.orderId, orderId));
+    return status;
+  }
+
+  async getDriverActiveDelivery(driverId: string): Promise<(DriverDeliveryStatus & { order: Order; restaurant: Restaurant }) | null> {
+    const activeDelivery = await db
+      .select()
+      .from(driverDeliveryStatus)
+      .innerJoin(orders, eq(driverDeliveryStatus.orderId, orders.id))
+      .innerJoin(restaurants, eq(driverDeliveryStatus.restaurantId, restaurants.id))
+      .where(and(
+        eq(driverDeliveryStatus.driverId, driverId),
+        sql`${driverDeliveryStatus.status} NOT IN ('delivered', 'cancelled')`
+      ))
+      .limit(1);
+    
+    if (activeDelivery.length === 0) {
+      return null;
+    }
+    
+    return {
+      ...activeDelivery[0].driver_delivery_status,
+      order: activeDelivery[0].orders,
+      restaurant: activeDelivery[0].restaurants
+    };
+  }
+
+  async getDriverStats(driverId: string): Promise<{ totalDeliveries: number; totalEarnings: string; weeklyEarnings: string }> {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const allTimeStats = await db
+      .select({
+        totalDeliveries: sql<number>`COUNT(*)`.as('totalDeliveries'),
+        totalEarnings: sql<string>`COALESCE(SUM(${orders.driverShare}), 0)`.as('totalEarnings'),
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.assignedDriverId, driverId),
+        eq(orders.status, 'delivered')
+      ));
+    
+    const weeklyStats = await db
+      .select({
+        weeklyEarnings: sql<string>`COALESCE(SUM(${orders.driverShare}), 0)`.as('weeklyEarnings'),
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.assignedDriverId, driverId),
+        eq(orders.status, 'delivered'),
+        sql`${orders.deliveryTime} >= ${sevenDaysAgo}`
+      ));
+    
+    return {
+      totalDeliveries: allTimeStats[0]?.totalDeliveries || 0,
+      totalEarnings: allTimeStats[0]?.totalEarnings || '0',
+      weeklyEarnings: weeklyStats[0]?.weeklyEarnings || '0',
+    };
+  }
+
+  async getDriverEarnings(driverId: string): Promise<{ today: string; week: string; month: string; allTime: string; pendingPayouts: string; completedPayouts: string }> {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - 7);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const todayEarnings = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${orders.driverShare}), 0)`.as('total'),
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.assignedDriverId, driverId),
+        eq(orders.status, 'delivered'),
+        sql`${orders.deliveryTime} >= ${startOfToday}`
+      ));
+    
+    const weekEarnings = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${orders.driverShare}), 0)`.as('total'),
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.assignedDriverId, driverId),
+        eq(orders.status, 'delivered'),
+        sql`${orders.deliveryTime} >= ${startOfWeek}`
+      ));
+    
+    const monthEarnings = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${orders.driverShare}), 0)`.as('total'),
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.assignedDriverId, driverId),
+        eq(orders.status, 'delivered'),
+        sql`${orders.deliveryTime} >= ${startOfMonth}`
+      ));
+    
+    const allTimeEarnings = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${orders.driverShare}), 0)`.as('total'),
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.assignedDriverId, driverId),
+        eq(orders.status, 'delivered')
+      ));
+    
+    return {
+      today: todayEarnings[0]?.total || '0',
+      week: weekEarnings[0]?.total || '0',
+      month: monthEarnings[0]?.total || '0',
+      allTime: allTimeEarnings[0]?.total || '0',
+      pendingPayouts: '0',
+      completedPayouts: '0',
+    };
+  }
+
+  async updateOrder(orderId: string, data: Partial<Order>): Promise<Order> {
+    const [updated] = await db
+      .update(orders)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(orders.id, orderId))
       .returning();
     return updated;

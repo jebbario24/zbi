@@ -1,9 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { 
   DollarSign, 
   CheckCircle, 
@@ -12,9 +16,17 @@ import {
   User, 
   XCircle,
   Clock,
-  Package
+  Package,
+  MapPin,
+  TrendingUp,
+  Power,
+  ArrowRight,
+  Store,
+  Home
 } from "lucide-react";
 import { Link } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface CompletionStatus {
   profileComplete: boolean;
@@ -25,11 +37,70 @@ interface DriverStats {
   totalDeliveries: number;
   totalEarnings: number;
   weeklyEarnings: number;
-  pendingOrders: number;
+  acceptanceRate: number;
+  isAvailable: boolean;
 }
+
+interface OrderItem {
+  id: string;
+  menuItemId?: string;
+  bundleId?: string;
+  quantity: number;
+  unitPrice: string;
+  subtotal: string;
+  menuItem?: {
+    name: string;
+    price: string;
+  };
+  bundle?: {
+    name: string;
+    price: string;
+  };
+}
+
+interface Restaurant {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+}
+
+interface ActiveDelivery {
+  id: string;
+  orderNumber: string;
+  status: string;
+  total: string;
+  deliveryAddress: string;
+  deliveryFee: string;
+  driverShare: string;
+  restaurant: Restaurant;
+  items: OrderItem[];
+  customerName: string;
+  customerPhone: string;
+}
+
+interface AvailableOrder {
+  id: string;
+  orderNumber: string;
+  total: string;
+  deliveryAddress: string;
+  estimatedEarnings: string;
+  restaurant: Restaurant;
+  createdAt: string;
+}
+
+const deliveryStatusSteps = [
+  { key: 'pending', label: 'Order Placed', nextStatus: 'en_route_to_pickup' },
+  { key: 'en_route_to_pickup', label: 'En Route to Pickup', nextStatus: 'arrived_at_restaurant' },
+  { key: 'arrived_at_restaurant', label: 'Arrived at Restaurant', nextStatus: 'picked_up' },
+  { key: 'picked_up', label: 'Picked Up Order', nextStatus: 'en_route_to_customer' },
+  { key: 'en_route_to_customer', label: 'En Route to Customer', nextStatus: 'delivered' },
+  { key: 'delivered', label: 'Delivered', nextStatus: null },
+];
 
 export default function DriverDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
 
   // Fetch profile completion status
   const { data: completionStatus, isLoading: loadingStatus } = useQuery<CompletionStatus>({
@@ -37,13 +108,92 @@ export default function DriverDashboard() {
     enabled: !!user && user.role === 'driver',
   });
 
-  // Mock driver stats (replace with real API call later)
-  const stats: DriverStats = {
-    totalDeliveries: 0,
-    totalEarnings: 0,
-    weeklyEarnings: 0,
-    pendingOrders: 0,
-  };
+  // Fetch driver stats
+  const { data: stats, isLoading: loadingStats } = useQuery<DriverStats>({
+    queryKey: ['/api/driver/stats'],
+    enabled: !!user && user.role === 'driver' && completionStatus?.adminApproved === true,
+  });
+
+  // Fetch active delivery
+  const { data: activeDelivery, isLoading: loadingActiveDelivery } = useQuery<ActiveDelivery | null>({
+    queryKey: ['/api/driver/active-delivery'],
+    enabled: !!user && user.role === 'driver' && completionStatus?.adminApproved === true,
+  });
+
+  // Fetch available orders
+  const { data: availableOrders = [], isLoading: loadingAvailableOrders } = useQuery<AvailableOrder[]>({
+    queryKey: ['/api/driver/available-orders'],
+    enabled: !!user && user.role === 'driver' && completionStatus?.adminApproved === true && !activeDelivery,
+  });
+
+  // Toggle driver online/offline status
+  const statusMutation = useMutation({
+    mutationFn: async (isAvailable: boolean) => {
+      const response = await apiRequest('/api/driver/status', 'POST', { isAvailable });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/driver/stats'] });
+      toast({
+        title: "Status Updated",
+        description: stats?.isAvailable ? "You are now offline" : "You are now online",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Accept order mutation
+  const acceptOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await apiRequest(`/api/driver/orders/${orderId}/accept`, 'POST');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/driver/active-delivery'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/driver/available-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/driver/stats'] });
+      toast({
+        title: "Order Accepted",
+        description: "You can now start the delivery",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update delivery status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+      const response = await apiRequest(`/api/driver/orders/${orderId}/status`, 'POST', { status });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/driver/active-delivery'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/driver/stats'] });
+      toast({
+        title: "Status Updated",
+        description: "Delivery status has been updated",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const getProfileCompletionMessage = () => {
     if (!completionStatus) return { message: "Loading...", percent: 0 };
@@ -59,7 +209,18 @@ export default function DriverDashboard() {
     return { message: "Please complete your profile to start delivering.", percent: 25 };
   };
 
+  const getCurrentStepIndex = (status: string) => {
+    return deliveryStatusSteps.findIndex(step => step.key === status);
+  };
+
+  const getNextStatus = (currentStatus: string) => {
+    const step = deliveryStatusSteps.find(s => s.key === currentStatus);
+    return step?.nextStatus;
+  };
+
   const profileStatus = getProfileCompletionMessage();
+  const isApproved = completionStatus?.adminApproved === true;
+  const canToggleStatus = completionStatus?.profileComplete && completionStatus?.adminApproved;
 
   if (loadingStatus) {
     return (
@@ -72,19 +233,48 @@ export default function DriverDashboard() {
   return (
     <div className="p-6 space-y-6">
       {/* Welcome Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Truck className="h-8 w-8" />
-          Driver Dashboard
-        </h1>
-        <p className="text-muted-foreground">
-          Welcome back, {user?.firstName || 'Driver'}!
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Truck className="h-8 w-8" />
+            Driver Dashboard
+          </h1>
+          <p className="text-muted-foreground">
+            Welcome back, {user?.firstName || 'Driver'}!
+          </p>
+        </div>
+
+        {/* Driver Status Toggle */}
+        {isApproved && (
+          <Card className="w-auto" data-testid="card-driver-status">
+            <CardContent className="flex items-center gap-4 py-4">
+              <div className="flex items-center gap-2">
+                <Power className={`h-5 w-5 ${stats?.isAvailable ? 'text-green-600' : 'text-muted-foreground'}`} />
+                <Label htmlFor="status-toggle" className="text-sm font-medium">
+                  {stats?.isAvailable ? 'Online' : 'Offline'}
+                </Label>
+              </div>
+              <Switch
+                id="status-toggle"
+                data-testid="switch-driver-status"
+                checked={stats?.isAvailable || false}
+                onCheckedChange={(checked) => statusMutation.mutate(checked)}
+                disabled={!canToggleStatus || statusMutation.isPending}
+              />
+              <Badge 
+                variant={stats?.isAvailable ? "default" : "secondary"}
+                data-testid="badge-driver-status"
+              >
+                {stats?.isAvailable ? 'Available' : 'Unavailable'}
+              </Badge>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Profile Completion Alert */}
       {!completionStatus?.adminApproved && (
-        <Alert variant={completionStatus?.profileComplete ? "default" : "destructive"}>
+        <Alert variant={completionStatus?.profileComplete ? "default" : "destructive"} data-testid="alert-profile-status">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
             <span>{profileStatus.message}</span>
@@ -100,68 +290,70 @@ export default function DriverDashboard() {
       )}
 
       {/* Profile Completion Card */}
-      <Card data-testid="card-profile-completion">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Profile Status
-          </CardTitle>
-          <CardDescription>
-            Complete your profile to start accepting deliveries
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Profile Completion</span>
-              <span className="font-medium">{profileStatus.percent}%</span>
-            </div>
-            <Progress value={profileStatus.percent} />
-          </div>
-          
-          <div className="grid gap-3">
-            <div className="flex items-center gap-2">
-              {completionStatus?.profileComplete ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-destructive" />
-              )}
-              <span className="text-sm">
-                {completionStatus?.profileComplete ? 'Profile Complete' : 'Profile Incomplete'}
-              </span>
+      {!isApproved && (
+        <Card data-testid="card-profile-completion">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Profile Status
+            </CardTitle>
+            <CardDescription>
+              Complete your profile to start accepting deliveries
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Profile Completion</span>
+                <span className="font-medium" data-testid="text-completion-percent">{profileStatus.percent}%</span>
+              </div>
+              <Progress value={profileStatus.percent} data-testid="progress-profile-completion" />
             </div>
             
-            <div className="flex items-center gap-2">
-              {completionStatus?.adminApproved ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : completionStatus?.profileComplete ? (
-                <Clock className="h-5 w-5 text-yellow-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-muted-foreground" />
-              )}
-              <span className="text-sm">
-                {completionStatus?.adminApproved 
-                  ? 'Approved by Admin' 
-                  : completionStatus?.profileComplete
-                  ? 'Pending Admin Approval'
-                  : 'Awaiting Profile Completion'}
-              </span>
+            <div className="grid gap-3">
+              <div className="flex items-center gap-2">
+                {completionStatus?.profileComplete ? (
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-destructive" />
+                )}
+                <span className="text-sm" data-testid="text-profile-complete-status">
+                  {completionStatus?.profileComplete ? 'Profile Complete' : 'Profile Incomplete'}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {completionStatus?.adminApproved ? (
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                ) : completionStatus?.profileComplete ? (
+                  <Clock className="h-5 w-5 text-yellow-600" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-muted-foreground" />
+                )}
+                <span className="text-sm" data-testid="text-admin-approval-status">
+                  {completionStatus?.adminApproved 
+                    ? 'Approved by Admin' 
+                    : completionStatus?.profileComplete
+                    ? 'Pending Admin Approval'
+                    : 'Awaiting Profile Completion'}
+                </span>
+              </div>
             </div>
-          </div>
 
-          {!completionStatus?.profileComplete && (
-            <Link href="/driver/settings">
-              <Button className="w-full" data-testid="button-go-to-settings">
-                <User className="mr-2 h-4 w-4" />
-                Complete Your Profile
-              </Button>
-            </Link>
-          )}
-        </CardContent>
-      </Card>
+            {!completionStatus?.profileComplete && (
+              <Link href="/driver/settings">
+                <Button className="w-full" data-testid="button-go-to-settings">
+                  <User className="mr-2 h-4 w-4" />
+                  Complete Your Profile
+                </Button>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Grid - Only show when approved */}
-      {completionStatus?.adminApproved && (
+      {isApproved && stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card data-testid="card-total-deliveries">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
@@ -183,7 +375,7 @@ export default function DriverDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="stat-total-earnings">
-                ${stats.totalEarnings.toFixed(2)}
+                ${Number(stats.totalEarnings).toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
@@ -196,45 +388,240 @@ export default function DriverDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600" data-testid="stat-weekly-earnings">
-                ${stats.weeklyEarnings.toFixed(2)}
+                ${Number(stats.weeklyEarnings).toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">Last 7 days</p>
             </CardContent>
           </Card>
 
-          <Card data-testid="card-pending-orders">
+          <Card data-testid="card-acceptance-rate">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Available Orders</CardTitle>
-              <Truck className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Acceptance Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary" data-testid="stat-pending-orders">
-                {stats.pendingOrders}
+              <div className="text-2xl font-bold text-primary" data-testid="stat-acceptance-rate">
+                {stats.acceptanceRate}%
               </div>
-              <p className="text-xs text-muted-foreground">Ready to accept</p>
+              <p className="text-xs text-muted-foreground">Order acceptance</p>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Available Deliveries - Only show when approved */}
-      {completionStatus?.adminApproved && (
-        <Card data-testid="card-available-deliveries">
+      {/* Active Delivery Tracker */}
+      {isApproved && activeDelivery && (
+        <Card data-testid="card-active-delivery">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Truck className="h-5 w-5" />
-              Available Deliveries
+              Active Delivery
+            </CardTitle>
+            <CardDescription>
+              Order #{activeDelivery.orderNumber}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Order Details */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <Store className="h-4 w-4 mt-1 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium" data-testid="text-restaurant-name">{activeDelivery.restaurant.name}</p>
+                    <p className="text-sm text-muted-foreground">{activeDelivery.restaurant.address}</p>
+                    <p className="text-sm text-muted-foreground">{activeDelivery.restaurant.phone}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <Home className="h-4 w-4 mt-1 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium" data-testid="text-customer-name">{activeDelivery.customerName}</p>
+                    <p className="text-sm text-muted-foreground" data-testid="text-delivery-address">{activeDelivery.deliveryAddress}</p>
+                    <p className="text-sm text-muted-foreground">{activeDelivery.customerPhone}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Order Items */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold">Order Items</h4>
+              <div className="space-y-2" data-testid="list-order-items">
+                {activeDelivery.items.map((item) => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span>
+                      {item.quantity}x {item.menuItem?.name || item.bundle?.name}
+                    </span>
+                    <span className="text-muted-foreground">${Number(item.subtotal).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Delivery Progress */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold">Delivery Progress</h4>
+              <div className="space-y-3">
+                {deliveryStatusSteps.map((step, index) => {
+                  const currentIndex = getCurrentStepIndex(activeDelivery.status);
+                  const isCompleted = index <= currentIndex;
+                  const isCurrent = index === currentIndex;
+                  
+                  return (
+                    <div key={step.key} className="flex items-center gap-3">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                        isCompleted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {isCompleted ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          <span className="text-xs">{index + 1}</span>
+                        )}
+                      </div>
+                      <span className={`text-sm ${isCurrent ? 'font-semibold' : ''}`} data-testid={`text-status-${step.key}`}>
+                        {step.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Earnings Info */}
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div>
+                <p className="text-sm text-muted-foreground">Your Earnings</p>
+                <p className="text-2xl font-bold text-green-600" data-testid="text-delivery-earnings">
+                  ${Number(activeDelivery.driverShare).toFixed(2)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Order Total</p>
+                <p className="text-lg font-semibold" data-testid="text-order-total">
+                  ${Number(activeDelivery.total).toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {/* Update Status Button */}
+            {getNextStatus(activeDelivery.status) && (
+              <Button
+                className="w-full"
+                size="lg"
+                data-testid={`button-update-status-${getNextStatus(activeDelivery.status)}`}
+                onClick={() => updateStatusMutation.mutate({ 
+                  orderId: activeDelivery.id, 
+                  status: getNextStatus(activeDelivery.status)! 
+                })}
+                disabled={updateStatusMutation.isPending}
+              >
+                {updateStatusMutation.isPending ? (
+                  "Updating..."
+                ) : (
+                  <>
+                    {deliveryStatusSteps.find(s => s.key === getNextStatus(activeDelivery.status))?.label}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Available Orders Section */}
+      {isApproved && !activeDelivery && stats?.isAvailable && (
+        <Card data-testid="card-available-orders">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Available Orders
             </CardTitle>
             <CardDescription>
               Accept orders and start delivering
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No orders available at the moment</p>
-              <p className="text-sm">Check back soon for delivery opportunities</p>
-            </div>
+            {loadingAvailableOrders ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              </div>
+            ) : availableOrders.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p data-testid="text-no-orders">No orders available at the moment</p>
+                <p className="text-sm">Check back soon for delivery opportunities</p>
+              </div>
+            ) : (
+              <div className="space-y-4" data-testid="list-available-orders">
+                {availableOrders.map((order) => (
+                  <Card key={order.id} data-testid={`card-order-${order.id}`}>
+                    <CardContent className="pt-6 space-y-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <p className="font-semibold" data-testid={`text-order-number-${order.id}`}>
+                            Order #{order.orderNumber}
+                          </p>
+                          <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-${order.id}`}>
+                            <Store className="inline h-3 w-3 mr-1" />
+                            {order.restaurant.name}
+                          </p>
+                        </div>
+                        <Badge variant="outline" data-testid={`badge-earnings-${order.id}`}>
+                          Earn ${Number(order.estimatedEarnings).toFixed(2)}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2 text-sm">
+                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                          <span className="text-muted-foreground" data-testid={`text-delivery-address-${order.id}`}>
+                            {order.deliveryAddress}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Order Total:</span>
+                          <span className="font-semibold" data-testid={`text-total-${order.id}`}>
+                            ${Number(order.total).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        data-testid={`button-accept-order-${order.id}`}
+                        onClick={() => acceptOrderMutation.mutate(order.id)}
+                        disabled={acceptOrderMutation.isPending}
+                      >
+                        {acceptOrderMutation.isPending ? "Accepting..." : "Accept Order"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Offline Message */}
+      {isApproved && !stats?.isAvailable && !activeDelivery && (
+        <Card data-testid="card-offline-message">
+          <CardContent className="py-12 text-center">
+            <Power className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">You're Currently Offline</h3>
+            <p className="text-muted-foreground max-w-md mx-auto mb-4">
+              Toggle your status to online at the top of the page to start receiving delivery orders.
+            </p>
           </CardContent>
         </Card>
       )}
