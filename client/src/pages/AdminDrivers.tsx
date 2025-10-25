@@ -83,6 +83,10 @@ export default function AdminDrivers() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("pending");
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{ url: string; title: string } | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<Partial<Driver> | null>(null);
 
   const { data: drivers = [], isLoading } = useQuery<Driver[]>({
     queryKey: ['/api/admin/drivers'],
@@ -227,6 +231,16 @@ export default function AdminDrivers() {
   const handleDeleteConfirm = () => {
     if (!selectedDriver) return;
     deleteMutation.mutate(selectedDriver.id);
+  };
+
+  const handleViewImage = (url: string, title: string) => {
+    setSelectedImage({ url: `/api/objects${url}`, title });
+    setShowImageModal(true);
+  };
+
+  const handleEditClick = (driver: Driver) => {
+    setEditingDriver({ ...driver });
+    setShowEditDialog(true);
   };
 
   const pendingDrivers = drivers.filter(d => d.applicationStatus === 'pending' && d.profileComplete);
@@ -430,7 +444,7 @@ export default function AdminDrivers() {
                     variant="ghost"
                     size="sm"
                     className="h-auto p-0 text-blue-600 hover:text-blue-700"
-                    onClick={() => window.open(`/api/objects${driver.idProofUrl}`, '_blank')}
+                    onClick={() => handleViewImage(driver.idProofUrl!, 'ID Proof')}
                     data-testid="button-view-id-proof"
                   >
                     View Document
@@ -446,7 +460,7 @@ export default function AdminDrivers() {
                     variant="ghost"
                     size="sm"
                     className="h-auto p-0 text-blue-600 hover:text-blue-700"
-                    onClick={() => window.open(`/api/objects${driver.insuranceUrl}`, '_blank')}
+                    onClick={() => handleViewImage(driver.insuranceUrl!, 'Insurance Document')}
                     data-testid="button-view-insurance"
                   >
                     View Document
@@ -481,6 +495,17 @@ export default function AdminDrivers() {
 
           {/* Action Buttons */}
           <div className="pt-4 border-t space-y-2">
+            {/* Edit Button - Available for all drivers */}
+            <Button
+              onClick={() => handleEditClick(driver)}
+              variant="outline"
+              className="w-full"
+              data-testid="button-edit-driver"
+            >
+              <User className="w-4 h-4 mr-2" />
+              Edit Driver Information
+            </Button>
+
             {driver.applicationStatus === 'pending' && driver.profileComplete && (
               <div className="flex gap-2">
                 <Button
@@ -780,6 +805,377 @@ export default function AdminDrivers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Viewer Modal */}
+      <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
+        <DialogContent className="max-w-4xl" data-testid="dialog-image-viewer">
+          <DialogHeader>
+            <DialogTitle>{selectedImage?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center bg-muted/20 rounded-md p-4">
+            {selectedImage && (
+              <img
+                src={selectedImage.url}
+                alt={selectedImage.title}
+                className="max-w-full max-h-[70vh] object-contain"
+                data-testid="img-document"
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowImageModal(false)}
+              data-testid="button-close-image"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Driver Dialog */}
+      <EditDriverDialog
+        driver={editingDriver}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/drivers'] });
+          setShowEditDialog(false);
+          toast({
+            title: "Driver Updated",
+            description: "Driver information has been updated successfully",
+          });
+        }}
+      />
     </div>
+  );
+}
+
+// Separate component for Edit Driver Dialog
+interface EditDriverDialogProps {
+  driver: Partial<Driver> | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}
+
+function EditDriverDialog({ driver, open, onOpenChange, onSuccess }: EditDriverDialogProps) {
+  const { toast } = useToast();
+  const [formData, setFormData] = useState<Partial<Driver>>({});
+
+  useEffect(() => {
+    if (driver) {
+      setFormData(driver);
+    }
+  }, [driver]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: Partial<Driver>) => {
+      const response = await apiRequest(`/api/admin/drivers/${driver?.id}`, 'PATCH', data);
+      return response.json();
+    },
+    onSuccess,
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSave = () => {
+    if (!driver?.id) return;
+    updateMutation.mutate(formData);
+  };
+
+  const handleChange = (field: keyof Driver, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  if (!driver) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-driver">
+        <DialogHeader>
+          <DialogTitle>Edit Driver Information</DialogTitle>
+          <DialogDescription>
+            Update driver details. Changes will be saved immediately and may affect approval status.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Personal Information */}
+          <div className="space-y-4">
+            <h4 className="font-semibold flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Personal Information
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-firstName">First Name</Label>
+                <input
+                  id="edit-firstName"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.firstName || ''}
+                  onChange={(e) => handleChange('firstName', e.target.value)}
+                  data-testid="input-edit-firstName"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-lastName">Last Name</Label>
+                <input
+                  id="edit-lastName"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.lastName || ''}
+                  onChange={(e) => handleChange('lastName', e.target.value)}
+                  data-testid="input-edit-lastName"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <input
+                  id="edit-email"
+                  type="email"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.email || ''}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  data-testid="input-edit-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone</Label>
+                <input
+                  id="edit-phone"
+                  type="tel"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.phone || ''}
+                  onChange={(e) => handleChange('phone', e.target.value)}
+                  data-testid="input-edit-phone"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-dateOfBirth">Date of Birth</Label>
+                <input
+                  id="edit-dateOfBirth"
+                  type="date"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.dateOfBirth || ''}
+                  onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                  data-testid="input-edit-dateOfBirth"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Address Information */}
+          <div className="space-y-4">
+            <h4 className="font-semibold">Address Information</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-address">Street Address</Label>
+                <input
+                  id="edit-address"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.address || ''}
+                  onChange={(e) => handleChange('address', e.target.value)}
+                  data-testid="input-edit-address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-city">City</Label>
+                <input
+                  id="edit-city"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.city || ''}
+                  onChange={(e) => handleChange('city', e.target.value)}
+                  data-testid="input-edit-city"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-country">Country</Label>
+                <input
+                  id="edit-country"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.country || ''}
+                  onChange={(e) => handleChange('country', e.target.value)}
+                  data-testid="input-edit-country"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-postalCode">Postal Code</Label>
+                <input
+                  id="edit-postalCode"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.postalCode || ''}
+                  onChange={(e) => handleChange('postalCode', e.target.value)}
+                  data-testid="input-edit-postalCode"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Vehicle Information */}
+          <div className="space-y-4">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Car className="w-4 h-4" />
+              Vehicle Information
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-vehicleType">Vehicle Type</Label>
+                <input
+                  id="edit-vehicleType"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.vehicleType || ''}
+                  onChange={(e) => handleChange('vehicleType', e.target.value)}
+                  placeholder="e.g., Car, Motorcycle, Scooter"
+                  data-testid="input-edit-vehicleType"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-vehicleMake">Make</Label>
+                <input
+                  id="edit-vehicleMake"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.vehicleMake || ''}
+                  onChange={(e) => handleChange('vehicleMake', e.target.value)}
+                  data-testid="input-edit-vehicleMake"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-vehicleModel">Model</Label>
+                <input
+                  id="edit-vehicleModel"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.vehicleModel || ''}
+                  onChange={(e) => handleChange('vehicleModel', e.target.value)}
+                  data-testid="input-edit-vehicleModel"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-vehicleYear">Year</Label>
+                <input
+                  id="edit-vehicleYear"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.vehicleYear || ''}
+                  onChange={(e) => handleChange('vehicleYear', e.target.value)}
+                  data-testid="input-edit-vehicleYear"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-vehicleColor">Color</Label>
+                <input
+                  id="edit-vehicleColor"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.vehicleColor || ''}
+                  onChange={(e) => handleChange('vehicleColor', e.target.value)}
+                  data-testid="input-edit-vehicleColor"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-vehiclePlate">License Plate</Label>
+                <input
+                  id="edit-vehiclePlate"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.vehiclePlate || ''}
+                  onChange={(e) => handleChange('vehiclePlate', e.target.value)}
+                  data-testid="input-edit-vehiclePlate"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* License Information */}
+          <div className="space-y-4">
+            <h4 className="font-semibold">License Information</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-licenseNumber">License Number</Label>
+                <input
+                  id="edit-licenseNumber"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.licenseNumber || ''}
+                  onChange={(e) => handleChange('licenseNumber', e.target.value)}
+                  data-testid="input-edit-licenseNumber"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-licenseExpiry">License Expiry</Label>
+                <input
+                  id="edit-licenseExpiry"
+                  type="date"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.licenseExpiry || ''}
+                  onChange={(e) => handleChange('licenseExpiry', e.target.value)}
+                  data-testid="input-edit-licenseExpiry"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Emergency Contact */}
+          <div className="space-y-4">
+            <h4 className="font-semibold">Emergency Contact</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-emergencyContactName">Contact Name</Label>
+                <input
+                  id="edit-emergencyContactName"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.emergencyContactName || ''}
+                  onChange={(e) => handleChange('emergencyContactName', e.target.value)}
+                  data-testid="input-edit-emergencyContactName"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-emergencyContactPhone">Contact Phone</Label>
+                <input
+                  id="edit-emergencyContactPhone"
+                  type="tel"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.emergencyContactPhone || ''}
+                  onChange={(e) => handleChange('emergencyContactPhone', e.target.value)}
+                  data-testid="input-edit-emergencyContactPhone"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="mt-6">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            data-testid="button-cancel-edit"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={updateMutation.isPending}
+            data-testid="button-save-edit"
+          >
+            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
