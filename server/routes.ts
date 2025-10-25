@@ -646,6 +646,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Object Storage Upload URL
+  app.post('/api/object-storage/upload-url', isAuthenticated, async (req: any, res) => {
+    try {
+      const { fileName, objectPath } = req.body;
+      
+      if (!objectPath) {
+        return res.status(400).json({ message: "objectPath is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const signedUrl = await objectStorageService.signObjectURL(objectPath, 'PUT', 900);
+      
+      res.json({
+        method: 'PUT',
+        url: signedUrl,
+        objectPath: objectPath,
+      });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ message: "Failed to generate upload URL" });
+    }
+  });
+
   // Subscription routes
   app.post('/api/create-subscription', isAuthenticated, async (req: any, res) => {
     try {
