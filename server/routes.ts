@@ -3078,8 +3078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         ...stats,
-        acceptanceRate: '100%', // Placeholder - would need tracking
-        onTimeRate: '95%', // Placeholder - would need tracking
+        acceptanceRate: 100, // Placeholder - would need tracking
       });
     } catch (error) {
       console.error("Error fetching driver stats:", error);
