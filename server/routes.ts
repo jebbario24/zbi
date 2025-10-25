@@ -2416,8 +2416,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Update driver documents
   const documentsSchema = z.object({
-    idProofUrl: z.string().url("Invalid ID proof URL").optional(),
-    insuranceUrl: z.string().url("Invalid insurance URL").optional(),
+    idProofUrl: z.string().min(1, "ID proof URL is required").optional(),
+    insuranceUrl: z.string().min(1, "Insurance URL is required").optional(),
   });
 
   app.patch('/api/driver/documents', isAuthenticated, async (req: any, res) => {
