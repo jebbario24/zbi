@@ -26,6 +26,10 @@ import {
   FileText,
   CreditCard,
   AlertCircle,
+  Truck,
+  Users,
+  Activity,
+  TrendingUp,
 } from "lucide-react";
 
 interface Driver {
@@ -142,6 +146,14 @@ export default function AdminDrivers() {
   const approvedDrivers = drivers.filter(d => d.applicationStatus === 'approved');
   const rejectedDrivers = drivers.filter(d => d.applicationStatus === 'rejected');
   const incompleteDrivers = drivers.filter(d => !d.profileComplete);
+
+  // Stats calculations
+  const totalDrivers = drivers.length;
+  const approvedCount = approvedDrivers.length;
+  const pendingCount = pendingDrivers.length;
+  const completionRate = totalDrivers > 0 
+    ? Math.round((drivers.filter(d => d.profileComplete).length / totalDrivers) * 100) 
+    : 0;
 
   const getProfileCompletion = (driver: Driver) => {
     const fields = [
@@ -276,8 +288,58 @@ export default function AdminDrivers() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Driver Applications</h1>
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Truck className="h-8 w-8" />
+          Driver Management
+        </h1>
         <p className="text-muted-foreground">Review and manage driver applications</p>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card data-testid="card-total-drivers">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Drivers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="stat-total-drivers">{totalDrivers}</div>
+            <p className="text-xs text-muted-foreground">All driver accounts</p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-pending-applications">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600" data-testid="stat-pending-drivers">{pendingCount}</div>
+            <p className="text-xs text-muted-foreground">Awaiting approval</p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-approved-drivers">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Approved Drivers</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600" data-testid="stat-approved-drivers">{approvedCount}</div>
+            <p className="text-xs text-muted-foreground">Active and delivering</p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-completion-rate">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Profile Completion</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="stat-completion-rate">{completionRate}%</div>
+            <p className="text-xs text-muted-foreground">Drivers with complete profiles</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

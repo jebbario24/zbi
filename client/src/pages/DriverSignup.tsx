@@ -12,7 +12,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 const signupSchema = z.object({
@@ -29,7 +29,7 @@ const signupSchema = z.object({
 type SignupForm = z.infer<typeof signupSchema>;
 
 export default function DriverSignup() {
-  const { user, refetch } = useAuth();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -67,8 +67,8 @@ export default function DriverSignup() {
 
       const newUser = await response.json();
       
-      // Refetch user to update auth state
-      await refetch();
+      // Invalidate auth query to update user state
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       
       toast({
         title: "Account Created!",
