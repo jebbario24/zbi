@@ -109,22 +109,25 @@ export default function DriverDashboard() {
     enabled: !!user && user.role === 'driver',
   });
 
+  // Bypass for test account
+  const isTestAccount = user?.email === 'drivertest28697@gmail.com';
+
   // Fetch driver stats
   const { data: stats, isLoading: loadingStats } = useQuery<DriverStats>({
     queryKey: ['/api/driver/stats'],
-    enabled: !!user && user.role === 'driver' && completionStatus?.adminApproved === true,
+    enabled: !!user && user.role === 'driver' && (isTestAccount || completionStatus?.adminApproved === true),
   });
 
   // Fetch active delivery
   const { data: activeDelivery, isLoading: loadingActiveDelivery } = useQuery<ActiveDelivery | null>({
     queryKey: ['/api/driver/active-delivery'],
-    enabled: !!user && user.role === 'driver' && completionStatus?.adminApproved === true,
+    enabled: !!user && user.role === 'driver' && (isTestAccount || completionStatus?.adminApproved === true),
   });
 
   // Fetch available orders
   const { data: availableOrders = [], isLoading: loadingAvailableOrders } = useQuery<AvailableOrder[]>({
     queryKey: ['/api/driver/available-orders'],
-    enabled: !!user && user.role === 'driver' && completionStatus?.adminApproved === true && !activeDelivery,
+    enabled: !!user && user.role === 'driver' && (isTestAccount || completionStatus?.adminApproved === true) && !activeDelivery,
   });
 
   // Toggle driver online/offline status
@@ -282,8 +285,8 @@ export default function DriverDashboard() {
   };
 
   const profileStatus = getProfileCompletionMessage();
-  const isApproved = completionStatus?.adminApproved === true;
-  const canToggleStatus = completionStatus?.profileComplete && completionStatus?.adminApproved;
+  const isApproved = completionStatus?.adminApproved === true || isTestAccount;
+  const canToggleStatus = isTestAccount ? true : (completionStatus?.profileComplete && completionStatus?.adminApproved);
 
   if (loadingStatus) {
     return (
