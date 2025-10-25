@@ -196,7 +196,7 @@ export default function DriverDashboard() {
     },
   });
 
-  // WebSocket listener for real-time application status updates
+  // WebSocket listener for real-time updates
   useEffect(() => {
     if (!user || user.role !== 'driver') return;
 
@@ -204,32 +204,45 @@ export default function DriverDashboard() {
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     
     ws.onopen = () => {
-      console.log('WebSocket connected for driver status monitoring');
+      console.log('WebSocket connected for driver dashboard');
     };
     
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         
-        // Handle application status changes (approved/rejected)
-        if (message.type === 'application_status_changed') {
+        // Handle application status changes (approved/rejected/updated)
+        if (message.type === 'application_status_changed' || message.type === 'driver_application_updated') {
           queryClient.invalidateQueries({ queryKey: ['/api/driver/check-completion'] });
           
-          if (message.data.status === 'approved') {
+          if (message.data?.status === 'approved' || message.type === 'application_status_changed') {
             toast({
               title: "Application Approved! 🎉",
-              description: message.data.message || "You can now start accepting deliveries!",
+              description: message.data?.message || "You can now start accepting deliveries!",
               duration: 10000,
             });
-            // Also refetch stats and orders since driver is now approved
+            // Refetch stats and orders since driver is now approved
             queryClient.invalidateQueries({ queryKey: ['/api/driver/stats'] });
             queryClient.invalidateQueries({ queryKey: ['/api/driver/available-orders'] });
           }
         }
         
-        // Handle other driver-related WebSocket events
+        // Handle new orders becoming available
         if (message.type === 'new_order_available') {
           queryClient.invalidateQueries({ queryKey: ['/api/driver/available-orders'] });
+        }
+        
+        // Handle delivery status updates
+        if (message.type === 'delivery_status_updated') {
+          queryClient.invalidateQueries({ queryKey: ['/api/driver/active-delivery'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/driver/stats'] });
+        }
+        
+        // Handle driver assignment to orders
+        if (message.type === 'driver_assigned') {
+          queryClient.invalidateQueries({ queryKey: ['/api/driver/active-delivery'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/driver/available-orders'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/driver/stats'] });
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
