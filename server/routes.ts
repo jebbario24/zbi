@@ -24,7 +24,7 @@ import {
   OrderApplicationContextLandingPage,
   OrderApplicationContextUserAction 
 } from '@paypal/paypal-server-sdk';
-import { ObjectStorageService, ObjectNotFoundError, signObjectURL } from "./objectStorage";
+import { ObjectStorageService, ObjectNotFoundError, signObjectURL, parseObjectPath } from "./objectStorage";
 import { db } from "./db";
 import { boostSlots, promoRules } from "@shared/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
@@ -655,20 +655,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "objectPath is required" });
       }
 
-      const objectStorageService = new ObjectStorageService();
-      
       // Get private object directory and construct full path
+      const objectStorageService = new ObjectStorageService();
       const privateDir = objectStorageService.getPrivateObjectDir();
       const fullPath = `${privateDir}/${objectPath}`;
       
       // Parse the full path to get bucket and object names
-      const pathParts = fullPath.split("/").filter(p => p);
-      if (pathParts.length < 2) {
-        return res.status(400).json({ message: "Invalid object path" });
-      }
-      
-      const bucketName = pathParts[0];
-      const objectName = pathParts.slice(1).join("/");
+      const { bucketName, objectName } = parseObjectPath(fullPath);
       
       // Generate signed URL
       const signedUrl = await signObjectURL({
