@@ -4916,7 +4916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = req.body;
       
       // Get driver info to verify it's a driver
-      const driver = await storage.getUserById(id);
+      const driver = await storage.getUser(id);
       if (!driver) {
         return res.status(404).json({ message: "Driver not found" });
       }
@@ -5042,7 +5042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get driver info before deletion for logging
-      const driver = await storage.getUserById(id);
+      const driver = await storage.getUser(id);
       if (!driver) {
         return res.status(404).json({ message: "Driver not found" });
       }
