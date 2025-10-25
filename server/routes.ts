@@ -4909,6 +4909,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Update driver information
+  app.patch('/api/admin/drivers/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      
+      // Get driver info to verify it's a driver
+      const driver = await storage.getUserById(id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver not found" });
+      }
+      
+      if (driver.role !== 'driver') {
+        return res.status(400).json({ message: "User is not a driver" });
+      }
+      
+      // Update allowed fields only
+      const allowedFields = [
+        'firstName', 'lastName', 'email', 'phone', 'dateOfBirth',
+        'address', 'city', 'country', 'postalCode',
+        'emergencyContactName', 'emergencyContactPhone',
+        'vehicleType', 'vehicleMake', 'vehicleModel', 'vehicleYear',
+        'vehicleColor', 'vehiclePlate',
+        'licenseNumber', 'licenseExpiry'
+      ];
+      
+      const filteredData: any = {};
+      for (const field of allowedFields) {
+        if (updateData[field] !== undefined) {
+          filteredData[field] = updateData[field];
+        }
+      }
+      
+      // Update the driver
+      const updated = await storage.updateUser(id, filteredData);
+      
+      // Log the action
+      await logAdminActivity({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        actionType: 'driver_updated',
+        actionCategory: 'driver',
+        description: `Updated driver information for ${updated.email}`,
+        targetId: id,
+        targetType: 'user',
+        targetName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim() || updated.email,
+        metadata: { driverId: id, driverEmail: updated.email, updatedFields: Object.keys(filteredData) },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      // WebSocket broadcast to all admins
+      wsManager.broadcastToAdmins({
+        type: 'driver_application_updated',
+        data: {
+          driverId: id,
+          driverName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim() || updated.email,
+          action: 'updated',
+          status: updated.applicationStatus,
+        },
+      });
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating driver:", error);
+      res.status(500).json({ message: "Failed to update driver" });
+    }
+  });
+
   // Admin: Delete driver application
   app.delete('/api/admin/drivers/:id', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
