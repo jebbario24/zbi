@@ -58,21 +58,42 @@ export default function AdminDashboard() {
     queryKey: ['/api/admin/drivers/activity'],
   });
 
-  // WebSocket integration for real-time driver updates
+  // WebSocket integration for real-time updates across all dashboards
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
     ws.onopen = () => {
-      console.log('WebSocket connected for admin driver monitoring');
+      console.log('WebSocket connected for admin dashboard');
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === 'delivery_update') {
-          // Invalidate driver activity query to refresh data
+        
+        // Handle driver-related events
+        if (data.type === 'driver_application_updated' || 
+            data.type === 'driver_application_deleted' ||
+            data.type === 'driver_availability_changed') {
           queryClient.invalidateQueries({ queryKey: ['/api/admin/drivers/activity'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/drivers'] });
+        }
+        
+        // Handle delivery events
+        if (data.type === 'delivery_status_updated' || 
+            data.type === 'driver_assigned') {
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/drivers/activity'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/analytics'] });
+        }
+        
+        // Handle payout events
+        if (data.type === 'payout_processed' || data.type === 'payout_failed') {
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/payouts'] });
+        }
+        
+        // Handle review events
+        if (data.type === 'review_updated' || data.type === 'review_published' || data.type === 'review_hidden') {
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/reviews'] });
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);

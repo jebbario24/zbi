@@ -234,7 +234,9 @@ export default function AdminDrivers() {
   };
 
   const handleViewImage = (url: string, title: string) => {
-    setSelectedImage({ url: `/api/objects${url}`, title });
+    // Ensure proper URL formatting - add slash if not present
+    const formattedUrl = url.startsWith('/') ? url : `/${url}`;
+    setSelectedImage({ url: `/api/objects${formattedUrl}`, title });
     setShowImageModal(true);
   };
 

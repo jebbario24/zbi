@@ -119,18 +119,38 @@ export default function Orders() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  // WebSocket setup for real-time delivery tracking
+  // WebSocket setup for real-time order and delivery tracking
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     
     ws.onopen = () => {
-      console.log('WebSocket connected for delivery tracking');
+      console.log('WebSocket connected for order tracking');
     };
     
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        
+        // Handle driver assignment events
+        if (data.type === 'driver_assigned') {
+          queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+          toast({
+            title: "Driver Assigned",
+            description: `${data.data?.driverName || 'A driver'} has been assigned to your order`,
+          });
+        }
+        
+        // Handle delivery status updates
+        if (data.type === 'delivery_status_updated') {
+          queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+          toast({
+            title: "Delivery Update",
+            description: "Order delivery status has been updated",
+          });
+        }
+        
+        // Handle legacy delivery_update event for backwards compatibility
         if (data.type === 'delivery_update') {
           queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
           toast({
