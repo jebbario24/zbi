@@ -18,7 +18,8 @@ import {
   FileText,
   MessageSquare,
   DollarSign,
-  Shield
+  Shield,
+  Activity
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -192,6 +193,11 @@ const adminMenuItems = [
     titleKey: "Content Moderation",
     url: "/admin/moderation",
     icon: Shield,
+  },
+  {
+    titleKey: "Activity Logs",
+    url: "/admin/activity-logs",
+    icon: Activity,
   },
   {
     titleKey: "Platform Settings",

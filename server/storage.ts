@@ -21,6 +21,7 @@ import {
   promoRules,
   bundles as bundlesTable,
   upsellRules as upsellRulesTable,
+  activityLogs,
   type User,
   type UpsertUser,
   type Restaurant,
@@ -51,6 +52,8 @@ import {
   type InboxMessage,
   type InsertInboxMessage,
   type Bundle,
+  type ActivityLog,
+  type InsertActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, like, sql } from "drizzle-orm";
@@ -194,6 +197,10 @@ export interface IStorage {
   updateReviewStatus(reviewId: string, isPublished: boolean): Promise<CustomerReview>;
   deleteReview(reviewId: string): Promise<void>;
   respondToReview(reviewId: string, response: string): Promise<CustomerReview>;
+  
+  // Admin Activity Logs operations
+  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+  getAllActivityLogs(filters?: { actionCategory?: string; userId?: string; startDate?: string; endDate?: string }): Promise<ActivityLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1484,6 +1491,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(customerReviews.id, reviewId))
       .returning();
     return updated;
+  }
+
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const [created] = await db
+      .insert(activityLogs)
+      .values(log)
+      .returning();
+    return created;
+  }
+
+  async getAllActivityLogs(filters?: { actionCategory?: string; userId?: string; startDate?: string; endDate?: string }): Promise<ActivityLog[]> {
+    let query = db.select().from(activityLogs);
+    
+    const conditions = [];
+    
+    if (filters?.actionCategory) {
+      conditions.push(eq(activityLogs.actionCategory, filters.actionCategory));
+    }
+    
+    if (filters?.userId) {
+      conditions.push(eq(activityLogs.userId, filters.userId));
+    }
+    
+    if (filters?.startDate) {
+      conditions.push(sql`${activityLogs.createdAt} >= ${filters.startDate}`);
+    }
+    
+    if (filters?.endDate) {
+      conditions.push(sql`${activityLogs.createdAt} <= ${filters.endDate}`);
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const logs = await query.orderBy(desc(activityLogs.createdAt));
+    return logs;
   }
 }
 

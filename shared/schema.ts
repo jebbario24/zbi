@@ -387,6 +387,23 @@ export const platformPaymentSettings = pgTable("platform_payment_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Activity Logs - Track all admin actions across the platform
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userEmail: varchar("user_email", { length: 255 }).notNull(),
+  actionType: varchar("action_type", { length: 100 }).notNull(), // e.g., 'restaurant_deleted', 'driver_approved', 'subscription_cancelled'
+  actionCategory: varchar("action_category", { length: 50 }).notNull(), // e.g., 'restaurant', 'driver', 'subscription', 'user', 'payout', 'review'
+  targetId: varchar("target_id", { length: 255 }), // ID of the affected entity
+  targetType: varchar("target_type", { length: 50 }), // e.g., 'restaurant', 'user', 'subscription'
+  targetName: varchar("target_name", { length: 255 }), // Human-readable name of the target
+  description: text("description").notNull(), // Human-readable description of the action
+  metadata: jsonb("metadata"), // Additional context (old values, new values, etc.)
+  ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Restaurant Payout Accounts - Bank details for restaurant payouts
 export const restaurantPayoutAccounts = pgTable("restaurant_payout_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1652,3 +1669,10 @@ export const insertReferralLinkSchema = createInsertSchema(referralLinks).omit({
 });
 export type InsertReferralLink = z.infer<typeof insertReferralLinkSchema>;
 export type ReferralLink = typeof referralLinks.$inferSelect;
+
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;

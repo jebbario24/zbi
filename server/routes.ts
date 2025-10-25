@@ -73,6 +73,28 @@ async function generateOrderNumber(restaurantId: string, prefix: 'ORD' | 'WEB'):
   return `${prefix}-${String(nextNumber).padStart(3, '0')}`;
 }
 
+// Helper function to log admin activity
+async function logAdminActivity(params: {
+  userId: string;
+  userEmail: string;
+  actionType: string;
+  actionCategory: string;
+  description: string;
+  targetId?: string;
+  targetType?: string;
+  targetName?: string;
+  metadata?: any;
+  ipAddress?: string;
+  userAgent?: string;
+}) {
+  try {
+    await storage.createActivityLog(params);
+  } catch (error) {
+    console.error("Failed to log admin activity:", error);
+    // Don't throw - logging failure shouldn't break the actual action
+  }
+}
+
 const orderSchema = z.object({
   orderType: z.string(),
   tableId: z.string().nullable().optional(),
@@ -4342,6 +4364,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get all activity logs
+  app.get('/api/admin/activity-logs', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const filters = {
+        actionCategory: req.query.actionCategory as string | undefined,
+        userId: req.query.userId as string | undefined,
+        startDate: req.query.startDate as string | undefined,
+        endDate: req.query.endDate as string | undefined,
+      };
+      const logs = await storage.getAllActivityLogs(filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
+    }
+  });
+
   // Admin: Get all drivers
   app.get('/api/admin/drivers', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
@@ -4371,6 +4410,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approvedBy: req.user.id,
         applicationStatus: 'approved',
         rejectionReason: null, // Clear any previous rejection reason
+      });
+      
+      // Log the action
+      await logAdminActivity({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        actionType: 'driver_approved',
+        actionCategory: 'driver',
+        description: `Approved driver application for ${updated.email}`,
+        targetId: id,
+        targetType: 'user',
+        targetName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim() || updated.email,
+        metadata: { driverId: id, driverEmail: updated.email },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
       });
       
       res.json(updated);
@@ -4485,6 +4539,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscriptionEndsAt: new Date(), // End immediately
       });
       
+      // Log the action
+      await logAdminActivity({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        actionType: 'subscription_cancelled',
+        actionCategory: 'subscription',
+        description: `Cancelled subscription for restaurant "${updated.name}"`,
+        targetId: id,
+        targetType: 'restaurant',
+        targetName: updated.name,
+        metadata: { restaurantId: id, restaurantName: updated.name },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
       res.json(updated);
     } catch (error) {
       console.error("Error cancelling subscription:", error);
@@ -4528,8 +4597,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       
+      // Get restaurant details before deleting for logging
+      const restaurant = await storage.getRestaurant(id);
+      
       // Delete all associated data
       await storage.deleteRestaurantCompletely(id);
+      
+      // Log the action
+      await logAdminActivity({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        actionType: 'restaurant_deleted',
+        actionCategory: 'restaurant',
+        description: `Deleted restaurant "${restaurant?.name || id}" and all associated data`,
+        targetId: id,
+        targetType: 'restaurant',
+        targetName: restaurant?.name,
+        metadata: { restaurantId: id, restaurantName: restaurant?.name },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       
       res.json({ message: "Restaurant deleted successfully" });
     } catch (error) {

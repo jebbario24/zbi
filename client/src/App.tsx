@@ -39,6 +39,7 @@ import AdminFinancials from "@/pages/AdminFinancials";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminPayouts from "@/pages/AdminPayouts";
 import AdminModeration from "@/pages/AdminModeration";
+import AdminActivityLogs from "@/pages/AdminActivityLogs";
 import NotFound from "@/pages/not-found";
 import Marketing from "@/pages/marketing/Marketing";
 import Promos from "@/pages/marketing/Promos";
@@ -88,6 +89,7 @@ function AuthenticatedRouter() {
         <Route path="/admin/financials" component={AdminFinancials} />
         <Route path="/admin/payouts" component={AdminPayouts} />
         <Route path="/admin/moderation" component={AdminModeration} />
+        <Route path="/admin/activity-logs" component={AdminActivityLogs} />
         <Route path="/admin/settings" component={AdminSettings} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
