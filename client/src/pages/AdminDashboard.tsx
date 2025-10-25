@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, Store, Users, TrendingUp, CreditCard, MessageSquare, ArrowRight, Clock, CheckCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, Store, Users, TrendingUp, CreditCard, MessageSquare, ArrowRight, Clock, CheckCircle, Truck, Navigation } from "lucide-react";
 import { Link } from "wouter";
+import { useEffect } from "react";
+import { queryClient } from "@/lib/queryClient";
 
 interface AdminAnalytics {
   totalRestaurants: number;
@@ -11,6 +14,29 @@ interface AdminAnalytics {
   mrr: number;
   commissionRevenue: number;
   recentSignups: any[];
+}
+
+interface DriverActivity {
+  totalDrivers: number;
+  onlineDrivers: number;
+  approvedDrivers: number;
+  pendingDrivers: number;
+  activeDeliveries: Array<{
+    orderId: string;
+    orderNumber: string;
+    restaurantName: string;
+    driverName: string;
+    driverPhone: string;
+    customerName: string;
+    customerAddress: string;
+    deliveryStatus: string;
+    orderTotal: string;
+    deliveryFee: string;
+    assignedAt: Date;
+    lastUpdatedAt: Date;
+  }>;
+  todaysDeliveries: number;
+  todaysEarnings: string;
 }
 
 export default function AdminDashboard() {
@@ -27,6 +53,44 @@ export default function AdminDashboard() {
     queryKey: ['/api/admin/reviews'],
     queryFn: async () => fetch('/api/admin/reviews').then(res => res.json()),
   });
+
+  const { data: driverActivity } = useQuery<DriverActivity>({
+    queryKey: ['/api/admin/drivers/activity'],
+  });
+
+  // WebSocket integration for real-time driver updates
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+    ws.onopen = () => {
+      console.log('WebSocket connected for admin driver monitoring');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'delivery_update') {
+          // Invalidate driver activity query to refresh data
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/drivers/activity'] });
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
 
   const payoutStats = {
     total: allPayouts.length,
@@ -183,6 +247,111 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0">
+          <div>
+            <CardTitle>Driver Activity</CardTitle>
+            <CardDescription>Real-time driver monitoring across the platform</CardDescription>
+          </div>
+          <Truck className="h-5 w-5 text-muted-foreground" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="text-2xl font-bold" data-testid="dashboard-stat-total-drivers">
+                {driverActivity?.totalDrivers || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Total Drivers</p>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-green-600" data-testid="dashboard-stat-online-drivers">
+                {driverActivity?.onlineDrivers || 0}
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Navigation className="h-3 w-3" />Online
+              </p>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-blue-600" data-testid="dashboard-stat-active-deliveries">
+                {driverActivity?.activeDeliveries.length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Active Deliveries</p>
+            </div>
+          </div>
+
+          {driverActivity?.activeDeliveries && driverActivity.activeDeliveries.length > 0 ? (
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Current Deliveries</div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {driverActivity.activeDeliveries.slice(0, 5).map((delivery) => (
+                  <div
+                    key={delivery.orderId}
+                    className="flex items-center justify-between p-3 border rounded-md hover-elevate"
+                    data-testid={`row-delivery-${delivery.orderId}`}
+                  >
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm" data-testid={`text-order-number-${delivery.orderId}`}>
+                          {delivery.orderNumber}
+                        </span>
+                        <Badge 
+                          variant={
+                            delivery.deliveryStatus === 'picked_up' ? 'default' :
+                            delivery.deliveryStatus === 'en_route_to_customer' ? 'default' :
+                            delivery.deliveryStatus === 'arrived_at_restaurant' ? 'secondary' :
+                            'outline'
+                          }
+                          className="text-xs"
+                          data-testid={`badge-status-${delivery.orderId}`}
+                        >
+                          {delivery.deliveryStatus.replace(/_/g, ' ')}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {delivery.restaurantName} → {delivery.customerName}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Driver: {delivery.driverName}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground ml-2">
+                      <div className="font-medium">${delivery.orderTotal}</div>
+                      <div>{new Date(delivery.assignedAt).toLocaleTimeString()}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              No active deliveries at the moment
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+            <div>
+              <div className="text-lg font-bold" data-testid="dashboard-stat-todays-deliveries">
+                {driverActivity?.todaysDeliveries || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Today's Deliveries</p>
+            </div>
+            <div>
+              <div className="text-lg font-bold" data-testid="dashboard-stat-todays-earnings">
+                ${parseFloat(driverActivity?.todaysEarnings || '0').toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground">Today's Earnings</p>
+            </div>
+          </div>
+
+          <Link href="/admin/drivers">
+            <Button variant="outline" className="w-full" data-testid="button-view-all-drivers">
+              View All Drivers
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

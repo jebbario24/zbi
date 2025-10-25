@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Plus, Eye, Clock, CheckCircle, XCircle, ChefHat, Printer, Trash2, Download } from "lucide-react";
+import { Plus, Eye, Clock, CheckCircle, XCircle, ChefHat, Printer, Trash2, Download, Truck, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -64,6 +65,33 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+const deliveryStatusLabels: Record<string, string> = {
+  pending: "Pending",
+  assigned: "Assigned",
+  en_route_to_pickup: "En Route to Pickup",
+  arrived_at_restaurant: "Arrived",
+  picked_up: "Picked Up",
+  en_route_to_customer: "En Route to Customer",
+  delivered: "Delivered",
+};
+
+const deliveryStatusColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  pending: "secondary",
+  assigned: "secondary",
+  en_route_to_pickup: "default",
+  arrived_at_restaurant: "default",
+  picked_up: "default",
+  en_route_to_customer: "default",
+  delivered: "outline",
+};
+
+type ExtendedOrder = Order & {
+  driverName?: string | null;
+  driverPhone?: string | null;
+  deliveryStatus?: string | null;
+  deliveryUpdatedAt?: string | null;
+};
+
 type OrderWithItems = {
   order: Order;
   items: (OrderItem & { menuItem?: MenuItem; bundle?: Bundle })[];
@@ -91,7 +119,44 @@ export default function Orders() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const { data: orders, isLoading } = useQuery<Order[]>({
+  // WebSocket setup for real-time delivery tracking
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    
+    ws.onopen = () => {
+      console.log('WebSocket connected for delivery tracking');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'delivery_update') {
+          queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+          toast({
+            title: "Delivery Update",
+            description: "Order delivery status has been updated",
+          });
+        }
+      } catch (error) {
+        console.error('WebSocket message parsing error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+    
+    return () => {
+      ws.close();
+    };
+  }, [toast]);
+
+  const { data: orders, isLoading } = useQuery<ExtendedOrder[]>({
     queryKey: ["/api/orders"],
   });
 
@@ -503,6 +568,16 @@ export default function Orders() {
     return typeMatch && statusMatch;
   });
 
+  // Helper function to format phone numbers
+  const formatPhone = (phone: string | null | undefined): string => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    }
+    return phone;
+  };
+
   if (authLoading || isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -683,6 +758,7 @@ export default function Orders() {
                     <TableHead>Order #</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Customer</TableHead>
+                    <TableHead>Driver</TableHead>
                     <TableHead>Total</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Payment</TableHead>
@@ -705,6 +781,50 @@ export default function Orders() {
                         <TableCell className="font-medium">{order.orderNumber}</TableCell>
                         <TableCell className="capitalize">{order.orderType}</TableCell>
                         <TableCell>{order.customerName || "Guest"}</TableCell>
+                        <TableCell>
+                          <TooltipProvider>
+                            {order.driverName ? (
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <Truck className="h-4 w-4 text-primary" data-testid={`icon-driver-${order.id}`} />
+                                  <span className="font-medium text-sm" data-testid={`text-driver-name-${order.id}`}>
+                                    {order.driverName}
+                                  </span>
+                                </div>
+                                {order.driverPhone && (
+                                  <span className="text-xs text-muted-foreground" data-testid={`text-driver-phone-${order.id}`}>
+                                    {formatPhone(order.driverPhone)}
+                                  </span>
+                                )}
+                                {order.deliveryStatus && (
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge 
+                                        variant={deliveryStatusColors[order.deliveryStatus] || "secondary"}
+                                        className="text-xs w-fit"
+                                        data-testid={`badge-delivery-status-${order.id}`}
+                                      >
+                                        {deliveryStatusLabels[order.deliveryStatus] || order.deliveryStatus}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">
+                                        {order.deliveryUpdatedAt 
+                                          ? `Last updated: ${new Date(order.deliveryUpdatedAt).toLocaleString()}`
+                                          : 'No update time available'}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <User className="h-4 w-4" data-testid={`icon-no-driver-${order.id}`} />
+                                <span className="text-sm" data-testid={`text-no-driver-${order.id}`}>Not Assigned</span>
+                              </div>
+                            )}
+                          </TooltipProvider>
+                        </TableCell>
                         <TableCell className="font-semibold">${order.total}</TableCell>
                         <TableCell>
                           <Select

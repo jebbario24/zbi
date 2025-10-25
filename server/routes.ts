@@ -4829,6 +4829,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get driver activity (comprehensive monitoring)
+  app.get('/api/admin/drivers/activity', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      // Get comprehensive driver stats
+      const stats = await storage.getDriverActivityStats();
+      
+      // Get active deliveries
+      const activeDeliveries = await storage.getActiveDeliveries();
+      
+      res.json({
+        totalDrivers: stats.totalDrivers,
+        onlineDrivers: stats.onlineDrivers,
+        approvedDrivers: stats.approvedDrivers,
+        pendingDrivers: stats.pendingDrivers,
+        activeDeliveries,
+        todaysDeliveries: stats.todaysDeliveries,
+        todaysEarnings: stats.todaysEarnings,
+      });
+    } catch (error) {
+      console.error("Error fetching driver activity:", error);
+      res.status(500).json({ message: "Failed to fetch driver activity" });
+    }
+  });
+
   // Admin: Get all subscriptions
   app.get('/api/admin/subscriptions', isAuthenticated, isAdmin, async (req: any, res) => {
     try {

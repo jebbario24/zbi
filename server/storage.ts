@@ -176,6 +176,11 @@ export interface IStorage {
   getDriverEarnings(driverId: string): Promise<{ today: string; week: string; month: string; allTime: string; pendingPayouts: string; completedPayouts: string }>;
   updateOrder(orderId: string, data: Partial<Order>): Promise<Order>;
   
+  // Admin Driver Monitoring operations
+  getActiveDeliveries(): Promise<any[]>;
+  getDriverActivityStats(): Promise<{ totalDrivers: number; onlineDrivers: number; approvedDrivers: number; pendingDrivers: number; todaysDeliveries: number; todaysEarnings: string }>;
+
+  
   // Upsell operations
   getActiveUpsellRules(restaurantId: string): Promise<any[]>;
   
@@ -445,11 +450,58 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrders(restaurantId: string): Promise<Order[]> {
-    return await db.select().from(orders).where(eq(orders.restaurantId, restaurantId)).orderBy(desc(orders.createdAt));
+    const results = await db
+      .select({
+        order: orders,
+        deliveryStatus: driverDeliveryStatus,
+        driverProfile: driverProfiles,
+        driverUser: users,
+      })
+      .from(orders)
+      .leftJoin(driverDeliveryStatus, eq(orders.id, driverDeliveryStatus.orderId))
+      .leftJoin(driverProfiles, eq(driverDeliveryStatus.driverId, driverProfiles.id))
+      .leftJoin(users, eq(driverProfiles.userId, users.id))
+      .where(eq(orders.restaurantId, restaurantId))
+      .orderBy(desc(orders.createdAt));
+
+    return results.map(result => ({
+      ...result.order,
+      driverId: result.driverProfile?.id || null,
+      driverName: result.driverUser
+        ? `${result.driverUser.firstName || ''} ${result.driverUser.lastName || ''}`.trim()
+        : null,
+      driverPhone: result.driverProfile?.phone || null,
+      deliveryStatus: result.deliveryStatus?.status || null,
+      deliveryUpdatedAt: result.deliveryStatus?.updatedAt || null,
+    } as any));
   }
 
   async getRecentOrders(restaurantId: string, limit: number): Promise<Order[]> {
-    return await db.select().from(orders).where(eq(orders.restaurantId, restaurantId)).orderBy(desc(orders.createdAt)).limit(limit);
+    const results = await db
+      .select({
+        order: orders,
+        deliveryStatus: driverDeliveryStatus,
+        driverProfile: driverProfiles,
+        driverUser: users,
+      })
+      .from(orders)
+      .leftJoin(driverDeliveryStatus, eq(orders.id, driverDeliveryStatus.orderId))
+      .leftJoin(driverProfiles, eq(driverDeliveryStatus.driverId, driverProfiles.id))
+      .leftJoin(users, eq(driverProfiles.userId, users.id))
+      .where(eq(orders.restaurantId, restaurantId))
+      .orderBy(desc(orders.createdAt))
+      .limit(limit);
+
+    return results.map(result => ({
+      ...result.order,
+      driverId: result.driverProfile?.id || null,
+      driverName: result.driverUser
+        ? `${result.driverUser.firstName || ''} ${result.driverUser.lastName || ''}`.trim()
+        : null,
+      driverPhone: result.driverProfile?.phone || null,
+      deliveryStatus: result.deliveryStatus?.status || null,
+      deliveryUpdatedAt: result.deliveryStatus?.updatedAt || null,
+    } as any));
   }
 
   async createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order> {
@@ -465,8 +517,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrderWithItems(orderId: string): Promise<{ order: Order; items: (OrderItem & { menuItem?: MenuItem; bundle?: Bundle })[] } | undefined> {
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-    if (!order) return undefined;
+    const orderResults = await db
+      .select({
+        order: orders,
+        deliveryStatus: driverDeliveryStatus,
+        driverProfile: driverProfiles,
+        driverUser: users,
+      })
+      .from(orders)
+      .leftJoin(driverDeliveryStatus, eq(orders.id, driverDeliveryStatus.orderId))
+      .leftJoin(driverProfiles, eq(driverDeliveryStatus.driverId, driverProfiles.id))
+      .leftJoin(users, eq(driverProfiles.userId, users.id))
+      .where(eq(orders.id, orderId))
+      .limit(1);
+    
+    if (orderResults.length === 0) return undefined;
+    
+    const result = orderResults[0];
+    const orderWithDriver = {
+      ...result.order,
+      driverId: result.driverProfile?.id || null,
+      driverName: result.driverUser
+        ? `${result.driverUser.firstName || ''} ${result.driverUser.lastName || ''}`.trim()
+        : null,
+      driverPhone: result.driverProfile?.phone || null,
+      deliveryStatus: result.deliveryStatus?.status || null,
+      deliveryUpdatedAt: result.deliveryStatus?.updatedAt || null,
+    };
     
     const items = await db
       .select()
@@ -476,7 +553,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orderItems.orderId, orderId));
     
     return {
-      order,
+      order: orderWithDriver as any,
       items: items.map(item => ({
         ...item.order_items,
         menuItem: item.menu_items || undefined,
@@ -1229,6 +1306,92 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, orderId))
       .returning();
     return updated;
+  }
+
+  // Admin Driver Monitoring
+  async getActiveDeliveries(): Promise<any[]> {
+    const activeDeliveries = await db
+      .select({
+        orderId: orders.id,
+        orderNumber: orders.orderNumber,
+        restaurantId: restaurants.id,
+        restaurantName: restaurants.name,
+        driverId: driverProfiles.id,
+        driverName: sql<string>`${driverProfiles.firstName} || ' ' || ${driverProfiles.lastName}`.as('driver_name'),
+        driverPhone: driverProfiles.phone,
+        customerName: orders.customerName,
+        customerAddress: orders.deliveryAddress,
+        deliveryStatus: driverDeliveryStatus.status,
+        orderTotal: orders.total,
+        deliveryFee: orders.deliveryFee,
+        assignedAt: driverDeliveryStatus.assignedAt,
+        lastUpdatedAt: driverDeliveryStatus.updatedAt,
+      })
+      .from(driverDeliveryStatus)
+      .innerJoin(orders, eq(driverDeliveryStatus.orderId, orders.id))
+      .innerJoin(restaurants, eq(driverDeliveryStatus.restaurantId, restaurants.id))
+      .innerJoin(driverProfiles, eq(driverDeliveryStatus.driverId, driverProfiles.id))
+      .where(sql`${driverDeliveryStatus.status} NOT IN ('delivered', 'cancelled')`)
+      .orderBy(desc(driverDeliveryStatus.assignedAt));
+
+    return activeDeliveries;
+  }
+
+  async getDriverActivityStats(): Promise<{ totalDrivers: number; onlineDrivers: number; approvedDrivers: number; pendingDrivers: number; todaysDeliveries: number; todaysEarnings: string }> {
+    // Total drivers
+    const totalDriversResult = await db
+      .select({ count: sql<number>`COUNT(*)::int`.as('count') })
+      .from(driverProfiles);
+    
+    // Online drivers (available)
+    const onlineDriversResult = await db
+      .select({ count: sql<number>`COUNT(*)::int`.as('count') })
+      .from(driverProfiles)
+      .where(eq(driverProfiles.isAvailable, true));
+    
+    // Approved drivers
+    const approvedDriversResult = await db
+      .select({ count: sql<number>`COUNT(*)::int`.as('count') })
+      .from(driverProfiles)
+      .where(eq(driverProfiles.applicationStatus, 'approved'));
+    
+    // Pending drivers
+    const pendingDriversResult = await db
+      .select({ count: sql<number>`COUNT(*)::int`.as('count') })
+      .from(driverProfiles)
+      .where(eq(driverProfiles.applicationStatus, 'pending'));
+    
+    // Today's deliveries
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    
+    const todaysDeliveriesResult = await db
+      .select({ count: sql<number>`COUNT(*)::int`.as('count') })
+      .from(driverDeliveryStatus)
+      .where(and(
+        eq(driverDeliveryStatus.status, 'delivered'),
+        sql`${driverDeliveryStatus.deliveredAt} >= ${startOfToday}`
+      ));
+    
+    // Today's earnings for all drivers
+    const todaysEarningsResult = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${orders.driverShare}), 0)`.as('total'),
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.status, 'delivered'),
+        sql`${orders.deliveryTime} >= ${startOfToday}`
+      ));
+    
+    return {
+      totalDrivers: totalDriversResult[0]?.count || 0,
+      onlineDrivers: onlineDriversResult[0]?.count || 0,
+      approvedDrivers: approvedDriversResult[0]?.count || 0,
+      pendingDrivers: pendingDriversResult[0]?.count || 0,
+      todaysDeliveries: todaysDeliveriesResult[0]?.count || 0,
+      todaysEarnings: todaysEarningsResult[0]?.total || '0',
+    };
   }
 
   // Customer Reviews
