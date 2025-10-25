@@ -209,7 +209,7 @@ export default function DriverSettings() {
   const handleIdProofUpload = async () => {
     const res = await apiRequest("/api/object-storage/upload-url", "POST", {
       fileName: "id-proof.jpg",
-      objectPath: `.private/drivers/${user?.id}/id-proof.jpg`,
+      objectPath: `drivers/${user?.id}/id-proof.jpg`,
     });
     return res.json();
   };
@@ -217,7 +217,7 @@ export default function DriverSettings() {
   const handleInsuranceUpload = async () => {
     const res = await apiRequest("/api/object-storage/upload-url", "POST", {
       fileName: "insurance.jpg",
-      objectPath: `.private/drivers/${user?.id}/insurance.jpg`,
+      objectPath: `drivers/${user?.id}/insurance.jpg`,
     });
     return res.json();
   };

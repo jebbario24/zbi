@@ -24,7 +24,7 @@ import {
   OrderApplicationContextLandingPage,
   OrderApplicationContextUserAction 
 } from '@paypal/paypal-server-sdk';
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectStorageService, ObjectNotFoundError, signObjectURL } from "./objectStorage";
 import { db } from "./db";
 import { boostSlots, promoRules } from "@shared/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
@@ -649,14 +649,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Object Storage Upload URL
   app.post('/api/object-storage/upload-url', isAuthenticated, async (req: any, res) => {
     try {
-      const { fileName, objectPath } = req.body;
+      const { objectPath } = req.body;
       
       if (!objectPath) {
         return res.status(400).json({ message: "objectPath is required" });
       }
 
       const objectStorageService = new ObjectStorageService();
-      const signedUrl = await objectStorageService.signObjectURL(objectPath, 'PUT', 900);
+      
+      // Get private object directory and construct full path
+      const privateDir = objectStorageService.getPrivateObjectDir();
+      const fullPath = `${privateDir}/${objectPath}`;
+      
+      // Parse the full path to get bucket and object names
+      const pathParts = fullPath.split("/").filter(p => p);
+      if (pathParts.length < 2) {
+        return res.status(400).json({ message: "Invalid object path" });
+      }
+      
+      const bucketName = pathParts[0];
+      const objectName = pathParts.slice(1).join("/");
+      
+      // Generate signed URL
+      const signedUrl = await signObjectURL({
+        bucketName,
+        objectName,
+        method: "PUT",
+        ttlSec: 900,
+      });
       
       res.json({
         method: 'PUT',
