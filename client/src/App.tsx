@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { DriverSidebar } from "@/components/driver-sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SubscriptionGuard } from "@/components/SubscriptionGuard";
 import { useAuth } from "@/hooks/useAuth";
@@ -146,7 +147,7 @@ function AuthenticatedRouter() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   usePlatformLanguage();
   
   // Track RTL direction dynamically
@@ -183,6 +184,30 @@ function AppContent() {
     return <PublicRouter />;
   }
 
+  // Use different layout for drivers (no subscription guard, different sidebar)
+  if (user?.role === 'driver') {
+    return (
+      <SidebarProvider style={style as React.CSSProperties}>
+        <div className="flex h-screen w-full">
+          <DriverSidebar side={isRTL ? "right" : "left"} />
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <header className="flex items-center justify-between p-3 border-b">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <UserMenu />
+              </div>
+            </header>
+            <main className="flex-1 overflow-auto">
+              <AuthenticatedRouter />
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  // Restaurant owner and admin layout
   return (
     <SubscriptionGuard>
       <SidebarProvider style={style as React.CSSProperties}>
