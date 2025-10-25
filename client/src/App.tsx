@@ -68,6 +68,7 @@ function PublicRouter() {
       <Route path="/signup" component={Signup} />
       <Route path="/subscribe" component={Subscribe} />
       <Route path="/driver-signup" component={DriverSignup} />
+      <Route path="/driver/signup" component={DriverSignup} />
       <Route path="/driver/login" component={DriverLogin} />
       <Route component={NotFound} />
     </Switch>
