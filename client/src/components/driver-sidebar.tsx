@@ -3,7 +3,11 @@ import {
   Settings,
   DollarSign,
   Truck,
-  User
+  User,
+  Package,
+  History,
+  HelpCircle,
+  Receipt
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -28,9 +32,34 @@ const driverMenuItems = [
     icon: LayoutDashboard,
   },
   {
+    title: "Available Orders",
+    url: "/driver/available-orders",
+    icon: Package,
+  },
+  {
+    title: "Earnings",
+    url: "/driver/earnings",
+    icon: DollarSign,
+  },
+  {
+    title: "Delivery History",
+    url: "/driver/history",
+    icon: History,
+  },
+  {
+    title: "Payouts",
+    url: "/driver/payouts",
+    icon: Receipt,
+  },
+  {
     title: "Settings",
     url: "/driver/settings",
     icon: Settings,
+  },
+  {
+    title: "Help & Support",
+    url: "/driver/help",
+    icon: HelpCircle,
   },
 ];
 
