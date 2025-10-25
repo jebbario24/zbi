@@ -41,6 +41,8 @@ Preferred communication style: Simple, everyday language.
 - **Printable Order Tickets:** "Print Ticket" functionality for printer-friendly order tickets.
 - **Bulk Order Management:** Bulk operations in the Orders page for status changes, printing, and deletion.
 - **Driver Delivery Portal:** A web-based Progressive Web App (PWA) for delivery drivers, including an application system, order management, delivery tracking, and earnings calculation. It features a progressive profile completion system, dual authentication (email/password and Google OAuth), and integration with Stripe Connect for payouts. Orders are only accessible after full profile completion and admin approval.
+  - **Driver Signup Flow:** Fixed authentication state management issue where signup was using non-existent `refetch()` method - now properly uses `queryClient.invalidateQueries()` to update auth state after account creation.
+  - **Admin Driver Management:** Enhanced dashboard with comprehensive stats (total drivers, pending applications, approved drivers, profile completion rate), tabbed interface for filtering by status (Pending, Approved, Rejected, Incomplete), and detailed driver cards showing completion progress and quick approval/rejection actions.
 - **Comprehensive Admin Controls:** Platform administrators have centralized access to:
   - **Payout Management:** Monitor, retry, cancel, and manually process payouts across all restaurants with real-time status tracking
   - **Content Moderation:** Review, publish/hide, respond to, and delete customer reviews from all restaurants
