@@ -1157,6 +1157,54 @@ function EditDriverDialog({ driver, open, onOpenChange, onSuccess }: EditDriverD
               </div>
             </div>
           </div>
+
+          {/* Application Status & Profile Completion */}
+          <div className="space-y-4">
+            <h4 className="font-semibold">Application Status</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-applicationStatus">Status</Label>
+                <select
+                  id="edit-applicationStatus"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.applicationStatus || 'pending'}
+                  onChange={(e) => handleChange('applicationStatus', e.target.value)}
+                  data-testid="select-edit-applicationStatus"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-profileComplete">Profile Complete</Label>
+                <select
+                  id="edit-profileComplete"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={formData.profileComplete ? 'true' : 'false'}
+                  onChange={(e) => handleChange('profileComplete', e.target.value === 'true')}
+                  data-testid="select-edit-profileComplete"
+                >
+                  <option value="false">Incomplete</option>
+                  <option value="true">Complete</option>
+                </select>
+              </div>
+            </div>
+            {formData.applicationStatus === 'approved' && !formData.profileComplete && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3" data-testid="warning-incomplete-profile">
+                <p className="text-sm text-destructive font-medium">
+                  ⚠️ Warning: Cannot approve driver with incomplete profile. Please mark profile as complete first.
+                </p>
+              </div>
+            )}
+            {formData.applicationStatus === 'approved' && formData.profileComplete === false && driver?.applicationStatus === 'approved' && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3" data-testid="warning-approved-incomplete">
+                <p className="text-sm text-destructive font-medium">
+                  ⚠️ Warning: Cannot mark an approved driver as incomplete. Please change status first.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter className="mt-6">

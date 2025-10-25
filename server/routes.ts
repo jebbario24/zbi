@@ -4932,7 +4932,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'emergencyContactName', 'emergencyContactPhone',
         'vehicleType', 'vehicleMake', 'vehicleModel', 'vehicleYear',
         'vehicleColor', 'vehiclePlate',
-        'licenseNumber', 'licenseExpiry'
+        'licenseNumber', 'licenseExpiry',
+        'applicationStatus', 'profileComplete'
       ];
       
       const filteredData: any = {};
@@ -4940,6 +4941,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (updateData[field] !== undefined) {
           filteredData[field] = updateData[field];
         }
+      }
+      
+      // Validate: Cannot approve without complete profile
+      const finalProfileComplete = filteredData.profileComplete !== undefined 
+        ? filteredData.profileComplete 
+        : driver.profileComplete;
+      
+      const finalStatus = filteredData.applicationStatus !== undefined
+        ? filteredData.applicationStatus
+        : driver.applicationStatus;
+      
+      // Prevent approving incomplete profiles
+      if (filteredData.applicationStatus === 'approved' && !finalProfileComplete) {
+        return res.status(400).json({ 
+          message: "Cannot approve driver with incomplete profile. Please mark profile as complete first." 
+        });
+      }
+      
+      // Prevent marking approved drivers as incomplete
+      if (finalStatus === 'approved' && filteredData.profileComplete === false) {
+        return res.status(400).json({
+          message: "Cannot mark an approved driver as incomplete. Please change status first."
+        });
+      }
+      
+      // If status is being changed to approved, update approval fields
+      if (filteredData.applicationStatus === 'approved' && driver.applicationStatus !== 'approved') {
+        filteredData.adminApproved = true;
+        filteredData.adminApprovedAt = new Date();
+        filteredData.approvedBy = req.user.id;
+        filteredData.rejectionReason = null;
+      }
+      
+      // If status is being changed to rejected, update rejection fields
+      if (filteredData.applicationStatus === 'rejected' && driver.applicationStatus !== 'rejected') {
+        filteredData.adminApproved = false;
+        filteredData.adminApprovedAt = new Date();
+        filteredData.approvedBy = req.user.id;
+      }
+      
+      // If status is being changed to pending, clear approval/rejection fields
+      if (filteredData.applicationStatus === 'pending' && driver.applicationStatus !== 'pending') {
+        filteredData.adminApproved = false;
+        filteredData.adminApprovedAt = null;
+        filteredData.approvedBy = null;
+        filteredData.rejectionReason = null;
       }
       
       // Update the driver
@@ -4970,6 +5017,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: updated.applicationStatus,
         },
       });
+      
+      // If status changed to approved, notify the driver
+      if (filteredData.applicationStatus === 'approved' && driver.applicationStatus !== 'approved') {
+        wsManager.broadcastToUser(id, {
+          type: 'application_status_changed',
+          data: {
+            status: 'approved',
+            message: 'Your driver application has been approved! You can now start accepting deliveries.',
+          },
+        });
+      }
       
       res.json(updated);
     } catch (error) {
