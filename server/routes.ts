@@ -4834,6 +4834,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userAgent: req.get('user-agent'),
       });
       
+      // WebSocket broadcast to all admins and the driver
+      wsManager.broadcastToAdmins({
+        type: 'driver_application_updated',
+        data: {
+          driverId: id,
+          driverName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim() || updated.email,
+          action: 'approved',
+          status: 'approved',
+        },
+      });
+      
+      // Notify the specific driver that they're approved
+      wsManager.broadcastToUser(id, {
+        type: 'application_status_changed',
+        data: {
+          status: 'approved',
+          message: 'Your driver application has been approved! You can now start accepting deliveries.',
+        },
+      });
+      
       res.json(updated);
     } catch (error) {
       console.error("Error approving driver:", error);
@@ -4856,12 +4876,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rejectionReason: reason || 'No reason provided',
       });
       
-      // TODO: Send rejection email to driver with reason
+      // Log the action
+      await logAdminActivity({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        actionType: 'driver_rejected',
+        actionCategory: 'driver',
+        description: `Rejected driver application for ${updated.email}: ${reason || 'No reason provided'}`,
+        targetId: id,
+        targetType: 'user',
+        targetName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim() || updated.email,
+        metadata: { driverId: id, driverEmail: updated.email, reason: reason || 'No reason provided' },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      // WebSocket broadcast to all admins
+      wsManager.broadcastToAdmins({
+        type: 'driver_application_updated',
+        data: {
+          driverId: id,
+          driverName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim() || updated.email,
+          action: 'rejected',
+          status: 'rejected',
+        },
+      });
       
       res.json(updated);
     } catch (error) {
       console.error("Error rejecting driver:", error);
       res.status(500).json({ message: "Failed to reject driver" });
+    }
+  });
+
+  // Admin: Delete driver application
+  app.delete('/api/admin/drivers/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get driver info before deletion for logging
+      const driver = await storage.getUserById(id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver not found" });
+      }
+      
+      if (driver.role !== 'driver') {
+        return res.status(400).json({ message: "User is not a driver" });
+      }
+      
+      // Delete the driver account
+      await storage.deleteUser(id);
+      
+      // Log the action
+      await logAdminActivity({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        actionType: 'driver_deleted',
+        actionCategory: 'driver',
+        description: `Deleted driver application for ${driver.email}`,
+        targetId: id,
+        targetType: 'user',
+        targetName: `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || driver.email,
+        metadata: { driverId: id, driverEmail: driver.email },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      // WebSocket broadcast to all admins
+      wsManager.broadcastToAdmins({
+        type: 'driver_application_deleted',
+        data: {
+          driverId: id,
+          driverName: `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || driver.email,
+        },
+      });
+      
+      res.json({ message: "Driver application deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting driver:", error);
+      res.status(500).json({ message: "Failed to delete driver" });
     }
   });
 

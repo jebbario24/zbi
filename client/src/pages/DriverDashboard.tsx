@@ -1,4 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -194,6 +195,55 @@ export default function DriverDashboard() {
       });
     },
   });
+
+  // WebSocket listener for real-time application status updates
+  useEffect(() => {
+    if (!user || user.role !== 'driver') return;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    
+    ws.onopen = () => {
+      console.log('WebSocket connected for driver status monitoring');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        // Handle application status changes (approved/rejected)
+        if (message.type === 'application_status_changed') {
+          queryClient.invalidateQueries({ queryKey: ['/api/driver/check-completion'] });
+          
+          if (message.data.status === 'approved') {
+            toast({
+              title: "Application Approved! 🎉",
+              description: message.data.message || "You can now start accepting deliveries!",
+              duration: 10000,
+            });
+            // Also refetch stats and orders since driver is now approved
+            queryClient.invalidateQueries({ queryKey: ['/api/driver/stats'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/driver/available-orders'] });
+          }
+        }
+        
+        // Handle other driver-related WebSocket events
+        if (message.type === 'new_order_available') {
+          queryClient.invalidateQueries({ queryKey: ['/api/driver/available-orders'] });
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+    
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+    
+    return () => {
+      ws.close();
+    };
+  }, [user, toast]);
 
   const getProfileCompletionMessage = () => {
     if (!completionStatus) return { message: "Loading...", percent: 0 };

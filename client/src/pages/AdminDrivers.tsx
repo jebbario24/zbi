@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +40,7 @@ import {
   Users,
   Activity,
   TrendingUp,
+  Trash2,
 } from "lucide-react";
 
 interface Driver {
@@ -70,11 +81,55 @@ export default function AdminDrivers() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("pending");
 
   const { data: drivers = [], isLoading } = useQuery<Driver[]>({
     queryKey: ['/api/admin/drivers'],
   });
+
+  // WebSocket listener for real-time updates
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    
+    ws.onopen = () => {
+      console.log('WebSocket connected for admin driver monitoring');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        // Handle driver application updates
+        if (message.type === 'driver_application_updated' || message.type === 'driver_application_deleted') {
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/drivers'] });
+          
+          if (message.type === 'driver_application_updated') {
+            toast({
+              title: "Driver Application Updated",
+              description: `${message.data.driverName} has been ${message.data.action}`,
+            });
+          } else if (message.type === 'driver_application_deleted') {
+            toast({
+              title: "Driver Application Deleted",
+              description: `${message.data.driverName}'s application has been deleted`,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+    
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+    
+    return () => {
+      ws.close();
+    };
+  }, [toast]);
 
   const approveMutation = useMutation({
     mutationFn: async (driverId: string) => {
@@ -120,6 +175,28 @@ export default function AdminDrivers() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (driverId: string) => {
+      return await apiRequest(`/api/admin/drivers/${driverId}`, 'DELETE');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/drivers'] });
+      toast({
+        title: "Driver Deleted",
+        description: "The driver application has been permanently deleted.",
+      });
+      setShowDeleteDialog(false);
+      setSelectedDriver(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete driver application.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleApprove = (driver: Driver) => {
     if (!driver.profileComplete) {
       toast({
@@ -140,6 +217,16 @@ export default function AdminDrivers() {
   const handleRejectConfirm = () => {
     if (!selectedDriver) return;
     rejectMutation.mutate({ driverId: selectedDriver.id, reason: rejectionReason });
+  };
+
+  const handleDeleteClick = (driver: Driver) => {
+    setSelectedDriver(driver);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!selectedDriver) return;
+    deleteMutation.mutate(selectedDriver.id);
   };
 
   const pendingDrivers = drivers.filter(d => d.applicationStatus === 'pending' && d.profileComplete);
@@ -393,44 +480,56 @@ export default function AdminDrivers() {
           </div>
 
           {/* Action Buttons */}
-          {driver.applicationStatus === 'pending' && driver.profileComplete && (
-            <div className="flex gap-2 pt-4 border-t">
-              <Button
-                onClick={() => handleApprove(driver)}
-                disabled={approveMutation.isPending}
-                className="flex-1"
-                data-testid="button-approve-driver"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Approve Driver
-              </Button>
-              <Button
-                onClick={() => handleRejectClick(driver)}
-                variant="destructive"
-                disabled={rejectMutation.isPending}
-                className="flex-1"
-                data-testid="button-reject-driver"
-              >
-                <XCircle className="w-4 h-4 mr-2" />
-                Reject Application
-              </Button>
-            </div>
-          )}
+          <div className="pt-4 border-t space-y-2">
+            {driver.applicationStatus === 'pending' && driver.profileComplete && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => handleApprove(driver)}
+                  disabled={approveMutation.isPending}
+                  className="flex-1"
+                  data-testid="button-approve-driver"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Approve Driver
+                </Button>
+                <Button
+                  onClick={() => handleRejectClick(driver)}
+                  variant="destructive"
+                  disabled={rejectMutation.isPending}
+                  className="flex-1"
+                  data-testid="button-reject-driver"
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Reject Application
+                </Button>
+              </div>
+            )}
 
-          {driver.applicationStatus === 'approved' && driver.adminApprovedAt && (
-            <div className="pt-4 border-t">
+            {driver.applicationStatus === 'approved' && driver.adminApprovedAt && (
               <p className="text-xs text-muted-foreground">
                 ✓ Approved on {new Date(driver.adminApprovedAt).toLocaleDateString()}
               </p>
-            </div>
-          )}
+            )}
 
-          {driver.applicationStatus === 'rejected' && driver.rejectionReason && (
-            <div className="pt-4 border-t bg-destructive/10 -mx-6 -mb-6 p-4 rounded-b-lg">
-              <p className="text-sm font-medium text-destructive mb-1">Rejection Reason:</p>
-              <p className="text-sm text-muted-foreground">{driver.rejectionReason}</p>
-            </div>
-          )}
+            {driver.applicationStatus === 'rejected' && driver.rejectionReason && (
+              <div className="bg-destructive/10 -mx-6 p-4 mb-2 rounded-md">
+                <p className="text-sm font-medium text-destructive mb-1">Rejection Reason:</p>
+                <p className="text-sm text-muted-foreground">{driver.rejectionReason}</p>
+              </div>
+            )}
+
+            {/* Delete Button - Available for all drivers */}
+            <Button
+              onClick={() => handleDeleteClick(driver)}
+              variant="outline"
+              disabled={deleteMutation.isPending}
+              className="w-full text-destructive hover:bg-destructive/10"
+              data-testid="button-delete-driver"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Application
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -650,6 +749,37 @@ export default function AdminDrivers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent data-testid="dialog-delete">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Driver Application</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete{" "}
+              {selectedDriver && (
+                <span className="font-semibold">
+                  {selectedDriver.firstName && selectedDriver.lastName
+                    ? `${selectedDriver.firstName} ${selectedDriver.lastName}`
+                    : selectedDriver.email}
+                </span>
+              )}
+              's application? This action cannot be undone and will remove all driver data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
