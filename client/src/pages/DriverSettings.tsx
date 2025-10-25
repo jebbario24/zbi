@@ -223,18 +223,46 @@ export default function DriverSettings() {
   };
 
   const handleIdProofComplete = async (result: any) => {
+    if (!result?.successful || result.successful.length === 0) {
+      toast({
+        title: "Error",
+        description: "Failed to upload ID proof",
+        variant: "destructive",
+      });
+      return;
+    }
     const file = result.successful[0];
-    const objectPath = file.meta?.objectPath;
+    const objectPath = file?.meta?.objectPath;
     if (objectPath) {
       documentsMutation.mutate({ idProofUrl: objectPath });
+    } else {
+      toast({
+        title: "Error",
+        description: "Upload completed but path not found",
+        variant: "destructive",
+      });
     }
   };
 
   const handleInsuranceComplete = async (result: any) => {
+    if (!result?.successful || result.successful.length === 0) {
+      toast({
+        title: "Error",
+        description: "Failed to upload insurance certificate",
+        variant: "destructive",
+      });
+      return;
+    }
     const file = result.successful[0];
-    const objectPath = file.meta?.objectPath;
+    const objectPath = file?.meta?.objectPath;
     if (objectPath) {
       documentsMutation.mutate({ insuranceUrl: objectPath });
+    } else {
+      toast({
+        title: "Error",
+        description: "Upload completed but path not found",
+        variant: "destructive",
+      });
     }
   };
 
