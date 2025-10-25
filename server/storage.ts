@@ -172,7 +172,7 @@ export interface IStorage {
   updateDriverDeliveryStatus(orderId: string, data: Partial<DriverDeliveryStatus>): Promise<DriverDeliveryStatus>;
   getDriverDeliveryStatus(orderId: string): Promise<DriverDeliveryStatus | undefined>;
   getDriverActiveDelivery(driverId: string): Promise<(DriverDeliveryStatus & { order: Order; restaurant: Restaurant }) | null>;
-  getDriverStats(driverId: string): Promise<{ totalDeliveries: number; totalEarnings: string; weeklyEarnings: string }>;
+  getDriverStats(driverId: string): Promise<{ totalDeliveries: number; totalEarnings: string; weeklyEarnings: string; isAvailable: boolean }>;
   getDriverEarnings(driverId: string): Promise<{ today: string; week: string; month: string; allTime: string; pendingPayouts: string; completedPayouts: string }>;
   updateOrder(orderId: string, data: Partial<Order>): Promise<Order>;
   
@@ -1206,9 +1206,15 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getDriverStats(driverId: string): Promise<{ totalDeliveries: number; totalEarnings: string; weeklyEarnings: string }> {
+  async getDriverStats(driverId: string): Promise<{ totalDeliveries: number; totalEarnings: string; weeklyEarnings: string; isAvailable: boolean }> {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    // Get driver availability status
+    const [driver] = await db
+      .select({ isAvailable: driverProfiles.isAvailable })
+      .from(driverProfiles)
+      .where(eq(driverProfiles.id, driverId));
     
     const allTimeStats = await db
       .select({
@@ -1236,6 +1242,7 @@ export class DatabaseStorage implements IStorage {
       totalDeliveries: allTimeStats[0]?.totalDeliveries || 0,
       totalEarnings: allTimeStats[0]?.totalEarnings || '0',
       weeklyEarnings: weeklyStats[0]?.weeklyEarnings || '0',
+      isAvailable: driver?.isAvailable || false,
     };
   }
 
