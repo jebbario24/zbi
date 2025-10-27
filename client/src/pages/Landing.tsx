@@ -183,11 +183,10 @@ export default function Landing() {
                     size="lg" 
                     variant="outline" 
                     className="text-lg h-12 px-8"
-                    onClick={() => window.location.href = '/contact'}
-                    data-testid="button-contact"
+                    onClick={() => window.location.href = '/login'}
+                    data-testid="button-login"
                   >
-                    <Mail className="mr-2 h-5 w-5" />
-                    Contact Us
+                    Login
                   </Button>
                 </div>
               </>
@@ -224,11 +223,10 @@ export default function Landing() {
                     size="lg" 
                     variant="outline" 
                     className="text-lg h-12 px-8"
-                    onClick={() => window.location.href = '/contact/driver'}
-                    data-testid="button-driver-contact"
+                    onClick={() => window.location.href = '/driver/login'}
+                    data-testid="button-driver-login"
                   >
-                    <Mail className="mr-2 h-5 w-5" />
-                    Contact Us
+                    Driver Login
                   </Button>
                 </div>
               </>
