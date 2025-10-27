@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { DriverSidebar } from "@/components/driver-sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SubscriptionGuard } from "@/components/SubscriptionGuard";
+import { RestaurantSetupGuard } from "@/components/RestaurantSetupGuard";
 import { useAuth } from "@/hooks/useAuth";
 import { UserMenu } from "@/components/UserMenu";
 import { usePlatformLanguage } from "@/hooks/useLanguage";
@@ -224,23 +225,25 @@ function AppContent() {
   // Restaurant owner and admin layout
   return (
     <SubscriptionGuard>
-      <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex h-screen w-full">
-          <AppSidebar side={isRTL ? "right" : "left"} />
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <header className="flex items-center justify-between p-3 border-b">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <div className="flex items-center gap-2">
-                <ThemeToggle />
-                <UserMenu />
-              </div>
-            </header>
-            <main className="flex-1 overflow-auto">
-              <AuthenticatedRouter />
-            </main>
+      <RestaurantSetupGuard>
+        <SidebarProvider style={style as React.CSSProperties}>
+          <div className="flex h-screen w-full">
+            <AppSidebar side={isRTL ? "right" : "left"} />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <header className="flex items-center justify-between p-3 border-b">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+                <div className="flex items-center gap-2">
+                  <ThemeToggle />
+                  <UserMenu />
+                </div>
+              </header>
+              <main className="flex-1 overflow-auto">
+                <AuthenticatedRouter />
+              </main>
+            </div>
           </div>
-        </div>
-      </SidebarProvider>
+        </SidebarProvider>
+      </RestaurantSetupGuard>
     </SubscriptionGuard>
   );
 }

@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Restaurant } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,7 +38,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { LogOut, Save, ExternalLink, Check, ChevronsUpDown, CreditCard, CheckCircle2, AlertCircle } from "lucide-react";
+import { LogOut, Save, ExternalLink, Check, ChevronsUpDown, CreditCard, CheckCircle2, AlertCircle, Store } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -205,7 +206,7 @@ export default function Settings() {
         <div>
           <h1 className="text-3xl font-display font-bold">Settings</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your restaurant profile and preferences
+            {restaurant ? "Manage your restaurant profile and preferences" : "Complete your restaurant profile to get started"}
           </p>
         </div>
         <Button
@@ -217,6 +218,16 @@ export default function Settings() {
           Logout
         </Button>
       </div>
+
+      {!restaurant && (
+        <Alert>
+          <Store className="h-4 w-4" />
+          <AlertTitle>Welcome to EatOut! 🎉</AlertTitle>
+          <AlertDescription>
+            Let's set up your restaurant profile. Fill out the form below to get started with your online ordering platform.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {restaurant?.slug && (
         <Card className="bg-primary/5 border-primary/20">
