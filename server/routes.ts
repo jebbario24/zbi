@@ -1221,9 +1221,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const priceValue = parseFloat(requestData.price);
         if (!isNaN(priceValue)) {
           requestData.priceCents = Math.round(priceValue * 100);
+          requestData.price = priceValue.toFixed(2); // Ensure price is a decimal string with 2 places
           console.log(`[MENU ITEM CREATE] Converted price ${requestData.price} to priceCents ${requestData.priceCents}`);
         }
-        delete requestData.price;
       }
       
       const data = insertMenuItemSchema.parse({ ...requestData, restaurantId: restaurant.id });
@@ -1262,8 +1262,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const priceValue = parseFloat(requestData.price);
         if (!isNaN(priceValue)) {
           requestData.priceCents = Math.round(priceValue * 100);
+          requestData.price = priceValue.toFixed(2); // Ensure price is a decimal string with 2 places
         }
-        delete requestData.price;
       }
       
       const data = insertMenuItemSchema.partial().parse(requestData);
