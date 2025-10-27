@@ -1214,7 +1214,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Restaurant not found" });
       }
       console.log("[MENU ITEM CREATE] Request body received:", JSON.stringify(req.body, null, 2));
-      const data = insertMenuItemSchema.parse({ ...req.body, restaurantId: restaurant.id });
+      
+      // Handle price conversion if priceCents is not provided but price is
+      let requestData = { ...req.body };
+      if (!requestData.priceCents && requestData.price) {
+        const priceValue = parseFloat(requestData.price);
+        if (!isNaN(priceValue)) {
+          requestData.priceCents = Math.round(priceValue * 100);
+          console.log(`[MENU ITEM CREATE] Converted price ${requestData.price} to priceCents ${requestData.priceCents}`);
+        }
+        delete requestData.price;
+      }
+      
+      const data = insertMenuItemSchema.parse({ ...requestData, restaurantId: restaurant.id });
       
       // If imageUrl is provided, make it publicly accessible
       if (data.imageUrl) {
@@ -1243,7 +1255,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
       }
-      const data = insertMenuItemSchema.partial().parse(req.body);
+      
+      // Handle price conversion if priceCents is not provided but price is
+      let requestData = { ...req.body };
+      if (!requestData.priceCents && requestData.price) {
+        const priceValue = parseFloat(requestData.price);
+        if (!isNaN(priceValue)) {
+          requestData.priceCents = Math.round(priceValue * 100);
+        }
+        delete requestData.price;
+      }
+      
+      const data = insertMenuItemSchema.partial().parse(requestData);
       
       // If imageUrl is provided, make it publicly accessible
       if (data.imageUrl) {
