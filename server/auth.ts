@@ -198,6 +198,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
               .returning();
 
             user = newUser;
+
+            // Create driver profile with minimal required fields
+            const { storage } = await import('./storage');
+            await storage.createDriverApplication({
+              userId: newUser.id,
+              firstName: newUser.firstName || '',
+              lastName: newUser.lastName || '',
+              email: newUser.email,
+              phone: '', // Will be filled during profile completion
+              applicationStatus: 'incomplete',
+            });
           }
 
           // Double-check user has driver role

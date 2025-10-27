@@ -557,6 +557,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         adminApproved: false,
       });
 
+      // Create driver profile with minimal required fields
+      await storage.createDriverApplication({
+        userId: newUser.id,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        email: validatedData.email.toLowerCase(),
+        phone: '', // Will be filled during profile completion
+        applicationStatus: 'incomplete',
+      });
+
       // Auto-login the user
       req.login(newUser, (err) => {
         if (err) {
