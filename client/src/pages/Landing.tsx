@@ -14,7 +14,8 @@ import {
   Truck,
   DollarSign,
   Clock,
-  MapPin
+  MapPin,
+  Mail
 } from "lucide-react";
 
 type ViewMode = "restaurant" | "driver";
@@ -182,10 +183,11 @@ export default function Landing() {
                     size="lg" 
                     variant="outline" 
                     className="text-lg h-12 px-8"
-                    onClick={() => window.location.href = '/login'}
-                    data-testid="button-login"
+                    onClick={() => window.location.href = '/contact'}
+                    data-testid="button-contact"
                   >
-                    Login
+                    <Mail className="mr-2 h-5 w-5" />
+                    Contact Us
                   </Button>
                 </div>
               </>
@@ -222,10 +224,11 @@ export default function Landing() {
                     size="lg" 
                     variant="outline" 
                     className="text-lg h-12 px-8"
-                    onClick={() => window.location.href = '/driver/login'}
-                    data-testid="button-driver-login"
+                    onClick={() => window.location.href = '/contact/driver'}
+                    data-testid="button-driver-contact"
                   >
-                    Driver Login
+                    <Mail className="mr-2 h-5 w-5" />
+                    Contact Us
                   </Button>
                 </div>
               </>

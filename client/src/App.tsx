@@ -64,6 +64,7 @@ import DriverEarnings from "@/pages/DriverEarnings";
 import DriverHistory from "@/pages/DriverHistory";
 import DriverPayouts from "@/pages/DriverPayouts";
 import DriverHelp from "@/pages/DriverHelp";
+import Contact from "@/pages/Contact";
 
 function PublicRouter() {
   return (
@@ -72,6 +73,8 @@ function PublicRouter() {
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/subscribe" component={Subscribe} />
+      <Route path="/contact" component={() => <Contact userType="restaurant" />} />
+      <Route path="/contact/driver" component={() => <Contact userType="driver" />} />
       <Route path="/driver-signup" component={DriverSignup} />
       <Route path="/driver/signup" component={DriverSignup} />
       <Route path="/driver/login" component={DriverLogin} />
