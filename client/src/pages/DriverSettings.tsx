@@ -271,6 +271,16 @@ export default function DriverSettings() {
   };
 
   const handleConnectBank = () => {
+    if (!user?.phone || !user.phone.match(/^\+[1-9]\d{1,14}$/)) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please add a valid phone number in international format (+1234567890) on the Personal tab before connecting your bank account.",
+        variant: "destructive",
+      });
+      setActiveTab("personal");
+      return;
+    }
+
     if (!stripeStatus?.connected) {
       createStripeMutation.mutate();
     } else {
