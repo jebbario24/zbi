@@ -1102,26 +1102,26 @@ export default function Storefront() {
                     {orderType === 'delivery' && (
                       <>
                         <Input
-                          placeholder={`${t('storefront.country')} *`}
+                          placeholder="Country *"
                           value={deliveryCountry}
                           onChange={(e) => setDeliveryCountry(e.target.value)}
                           data-testid="input-delivery-country"
                         />
                     <Input
-                      placeholder={`${t('storefront.city')} *`}
+                      placeholder="City *"
                       value={deliveryCity}
                       onChange={(e) => setDeliveryCity(e.target.value)}
                       data-testid="input-delivery-city"
                     />
                     <Input
-                      placeholder={`${t('storefront.neighborhood')} (${t('storefront.optional')})`}
+                      placeholder="Neighborhood (optional)"
                       value={deliveryNeighborhood}
                       onChange={(e) => setDeliveryNeighborhood(e.target.value)}
                       data-testid="input-delivery-neighborhood"
                     />
                     {deliveryFeeLoading && (
                       <p className="text-xs text-muted-foreground">
-                        {t('storefront.calculatingDeliveryFee')}...
+                        Calculating delivery fee...
                       </p>
                     )}
                     {deliveryError && !deliveryFeeLoading && (
