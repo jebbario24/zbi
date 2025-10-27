@@ -269,8 +269,11 @@ export default function Menu() {
 
   const createItemMutation = useMutation({
     mutationFn: async (data: z.infer<typeof itemSchema>) => {
+      const priceCents = Math.round(parseFloat(data.price) * 100);
       return await apiRequest("/api/menu/items", "POST", {
         ...data,
+        priceCents,
+        price: undefined,
         preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
       });
     },
@@ -296,8 +299,11 @@ export default function Menu() {
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof itemSchema> }) => {
+      const priceCents = Math.round(parseFloat(data.price) * 100);
       return await apiRequest(`/api/menu/items/${id}`, "PUT", {
         ...data,
+        priceCents,
+        price: undefined,
         preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
       });
     },
