@@ -18,14 +18,18 @@ import { z } from "zod";
 import { CheckCircle2, XCircle, Clock, Upload, ExternalLink, FileText, CreditCard, User, Car } from "lucide-react";
 
 const personalInfoSchema = z.object({
-  phone: z.string().min(1, "Phone is required"),
+  phone: z.string()
+    .min(1, "Phone is required")
+    .regex(/^\+[1-9]\d{1,14}$/, "Phone must be in international format (e.g., +12125551234)"),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   address: z.string().min(1, "Address is required"),
   city: z.string().min(1, "City is required"),
   country: z.string().min(1, "Country is required"),
   postalCode: z.string().min(1, "Postal code is required"),
   emergencyContactName: z.string().min(1, "Emergency contact name is required"),
-  emergencyContactPhone: z.string().min(1, "Emergency contact phone is required"),
+  emergencyContactPhone: z.string()
+    .min(1, "Emergency contact phone is required")
+    .regex(/^\+[1-9]\d{1,14}$/, "Phone must be in international format (e.g., +12125551234)"),
 });
 
 const vehicleDetailsSchema = z.object({
@@ -331,7 +335,7 @@ export default function DriverSettings() {
                         <FormItem>
                           <FormLabel>Phone Number</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-phone" />
+                            <Input {...field} placeholder="+12125551234" data-testid="input-phone" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -429,7 +433,7 @@ export default function DriverSettings() {
                         <FormItem>
                           <FormLabel>Emergency Contact Phone</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-emergency-contact-phone" />
+                            <Input {...field} placeholder="+12125551234" data-testid="input-emergency-contact-phone" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
