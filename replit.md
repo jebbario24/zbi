@@ -71,14 +71,34 @@ Preferred communication style: Simple, everyday language.
 
 **Root Cause:** The `menuItems` table has both `price` (decimal) and `priceCents` (integer) columns. The frontend form sent only the `price` field, but the API endpoint `/api/menu/items` requires `priceCents` in the request body.
 
-**Fix Applied:** Modified both `createItemMutation` and `updateItemMutation` in `client/src/pages/Menu.tsx` to:
-1. Convert price string to cents: `Math.round(parseFloat(data.price) * 100)`
-2. Send `priceCents` in the request body instead of `price`
-3. Remove the `price` field from the request
+**Fix Applied:** 
+- **Backend Fix (server/routes.ts):** Modified both POST `/api/menu/items` and PATCH `/api/menu/items/:id` endpoints to automatically convert `price` to `priceCents` while keeping both fields for database insertion.
+- **Conversion Logic:** `priceCents = Math.round(parseFloat(price) * 100)` and `price = priceValue.toFixed(2)`
 
 **Impact:** Resolves the primary blocker preventing new restaurant subscribers from completing their onboarding by setting up their menu.
 
 **Verified Safe:** All other forms across Restaurant, Driver, and Admin dashboards correctly handle their respective data types (decimals, integers, strings) without requiring similar fixes.
+
+### Cart Delivery Address Form Labels (Fixed October 27, 2025)
+**Issue:** The cart checkout form was displaying raw translation keys instead of clean labels: "storefrontcountry", "storefrontcity", "storefront.neighborhood (storefront.optional)" instead of "Country", "City", "Neighborhood (optional)".
+
+**Root Cause:** The i18n translation keys (`storefront.country`, `storefront.city`, `storefront.neighborhood`, `storefront.optional`, `storefront.calculatingDeliveryFee`) were being used in the code but were **missing** from the translation files (`client/src/locales/*.json`), causing the i18n system to display the raw key names as fallback text.
+
+**Fix Applied:** Added the missing translation keys to `client/src/locales/en.json`:
+```json
+"storefront": {
+  "country": "Country",
+  "city": "City",
+  "neighborhood": "Neighborhood",
+  "optional": "optional",
+  "calculatingDeliveryFee": "Calculating delivery fee",
+  ...
+}
+```
+
+**Impact:** Delivery address form now displays clean, user-friendly labels in the cart checkout flow. The i18n system is preserved for future multi-language support.
+
+**Note:** Other locale files (es.json, fr.json, etc.) will fall back to English for these fields until translations are added.
 
 ### Known Limitations
 - Marketing suite pages (Upsells, Boosts, Messages) currently use local state only and do not persist data to the database. These features require API integration to become fully functional.
