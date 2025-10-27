@@ -62,6 +62,26 @@ Preferred communication style: Simple, everyday language.
 - **Database:** Neon Serverless PostgreSQL with Drizzle ORM.
 - **Schema Design:** Multi-tenant with `restaurant_id` across all tables, covering core entities, payment infrastructure, driver data, and extended configurations.
 - **Menu Data Model:** Enhanced 4-table architecture (Menus, Menu Categories, Menu Items, Item Options) for flexible configuration, scheduling, and multi-tenant isolation.
+- **Data Handling:** Menu items store prices in both `price` (decimal) and `priceCents` (integer) formats. API endpoints expect `priceCents` for create/update operations. All other monetary fields (bundles, delivery fees, promo discounts, order totals) use `decimal` type and accept string dollar values.
+
+## Recent Bug Fixes
+
+### Critical: Menu Item Creation Bug (Fixed October 27, 2025)
+**Issue:** New restaurants could not create menu items. The form collected price as a string (e.g., "8.99") but the API required `priceCents` as an integer (e.g., 899).
+
+**Root Cause:** The `menuItems` table has both `price` (decimal) and `priceCents` (integer) columns. The frontend form sent only the `price` field, but the API endpoint `/api/menu/items` requires `priceCents` in the request body.
+
+**Fix Applied:** Modified both `createItemMutation` and `updateItemMutation` in `client/src/pages/Menu.tsx` to:
+1. Convert price string to cents: `Math.round(parseFloat(data.price) * 100)`
+2. Send `priceCents` in the request body instead of `price`
+3. Remove the `price` field from the request
+
+**Impact:** Resolves the primary blocker preventing new restaurant subscribers from completing their onboarding by setting up their menu.
+
+**Verified Safe:** All other forms across Restaurant, Driver, and Admin dashboards correctly handle their respective data types (decimals, integers, strings) without requiring similar fixes.
+
+### Known Limitations
+- Marketing suite pages (Upsells, Boosts, Messages) currently use local state only and do not persist data to the database. These features require API integration to become fully functional.
 
 ## External Dependencies
 
