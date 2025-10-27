@@ -1213,6 +1213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurant not found" });
       }
+      console.log("[MENU ITEM CREATE] Request body received:", JSON.stringify(req.body, null, 2));
       const data = insertMenuItemSchema.parse({ ...req.body, restaurantId: restaurant.id });
       
       // If imageUrl is provided, make it publicly accessible

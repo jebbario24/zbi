@@ -269,11 +269,17 @@ export default function Menu() {
 
   const createItemMutation = useMutation({
     mutationFn: async (data: z.infer<typeof itemSchema>) => {
-      const priceCents = Math.round(parseFloat(data.price) * 100);
+      const priceValue = data.price?.toString() || '0';
+      const priceCents = Math.round(parseFloat(priceValue) * 100);
+      
+      if (isNaN(priceCents)) {
+        throw new Error("Invalid price value");
+      }
+      
+      const { price, ...dataWithoutPrice } = data;
       return await apiRequest("/api/menu/items", "POST", {
-        ...data,
+        ...dataWithoutPrice,
         priceCents,
-        price: undefined,
         preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
       });
     },
@@ -299,11 +305,17 @@ export default function Menu() {
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof itemSchema> }) => {
-      const priceCents = Math.round(parseFloat(data.price) * 100);
+      const priceValue = data.price?.toString() || '0';
+      const priceCents = Math.round(parseFloat(priceValue) * 100);
+      
+      if (isNaN(priceCents)) {
+        throw new Error("Invalid price value");
+      }
+      
+      const { price, ...dataWithoutPrice } = data;
       return await apiRequest(`/api/menu/items/${id}`, "PUT", {
-        ...data,
+        ...dataWithoutPrice,
         priceCents,
-        price: undefined,
         preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
       });
     },
