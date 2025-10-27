@@ -133,13 +133,24 @@ export default function Landing() {
               </TabsList>
             </Tabs>
 
-            <Button 
-              variant="ghost"
-              onClick={() => window.location.href = '/login'}
-              data-testid="button-login-header"
-            >
-              Login
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost"
+                onClick={() => window.location.href = '/login'}
+                data-testid="button-login-header"
+              >
+                Login
+              </Button>
+              
+              <Button 
+                variant="ghost"
+                onClick={() => window.location.href = '/contact'}
+                data-testid="button-contact-header"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Contact Us
+              </Button>
+            </div>
           </div>
         </div>
       </div>
