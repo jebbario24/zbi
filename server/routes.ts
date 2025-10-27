@@ -2629,6 +2629,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Driver application not approved yet" });
       }
 
+      // Validate required fields for Stripe Connect
+      if (!driver.phone || !driver.phone.match(/^\+[1-9]\d{1,14}$/)) {
+        return res.status(400).json({ error: "Valid phone number in international format is required. Please complete your Personal Information tab first." });
+      }
+
+      if (!driver.firstName || !driver.lastName) {
+        return res.status(400).json({ error: "First name and last name are required. Please complete your Personal Information tab first." });
+      }
+
       // Check if already has a connected account
       if (driver.stripeConnectAccountId) {
         return res.status(400).json({ error: "Stripe account already connected" });
