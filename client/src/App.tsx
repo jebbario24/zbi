@@ -59,6 +59,11 @@ import DriverSignup from "@/pages/DriverSignup";
 import DriverDashboard from "@/pages/DriverDashboard";
 import DriverLogin from "@/pages/DriverLogin";
 import DriverSettings from "@/pages/DriverSettings";
+import DriverAvailableOrders from "@/pages/DriverAvailableOrders";
+import DriverEarnings from "@/pages/DriverEarnings";
+import DriverHistory from "@/pages/DriverHistory";
+import DriverPayouts from "@/pages/DriverPayouts";
+import DriverHelp from "@/pages/DriverHelp";
 
 function PublicRouter() {
   return (
@@ -105,7 +110,12 @@ function AuthenticatedRouter() {
       <Switch>
         <Route path="/" component={DriverDashboard} />
         <Route path="/driver/dashboard" component={DriverDashboard} />
+        <Route path="/driver/available-orders" component={DriverAvailableOrders} />
+        <Route path="/driver/earnings" component={DriverEarnings} />
+        <Route path="/driver/history" component={DriverHistory} />
+        <Route path="/driver/payouts" component={DriverPayouts} />
         <Route path="/driver/settings" component={DriverSettings} />
+        <Route path="/driver/help" component={DriverHelp} />
         <Route component={NotFound} />
       </Switch>
     );
