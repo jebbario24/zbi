@@ -277,11 +277,13 @@ export default function Menu() {
       }
       
       const { price, ...dataWithoutPrice } = data;
-      return await apiRequest("/api/menu/items", "POST", {
+      const requestBody = {
         ...dataWithoutPrice,
         priceCents,
         preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
-      });
+      };
+      console.log("[FRONTEND] Sending menu item create request:", requestBody);
+      return await apiRequest("/api/menu/items", "POST", requestBody);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
