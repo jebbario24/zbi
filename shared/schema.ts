@@ -317,7 +317,12 @@ export const orders = pgTable("orders", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("idx_orders_restaurant").on(table.restaurantId),
+  index("idx_orders_status").on(table.status),
+  index("idx_orders_delivery_zone").on(table.deliveryZoneId),
+  index("idx_orders_available_delivery").on(table.status, table.orderType, table.assignedDriverId, table.paymentStatus, table.deliveryZoneId),
+]);
 
 // Order Items (supports both menu items and bundles)
 export const orderItems = pgTable("order_items", {
