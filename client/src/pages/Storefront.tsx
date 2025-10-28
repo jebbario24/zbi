@@ -385,7 +385,25 @@ export default function Storefront() {
     return getTodayHoursText(restaurant.openingHours as OpeningHours);
   }, [restaurant?.openingHours]);
 
-  const addToCart = (item: MenuItem, skipUpsell = false) => {
+  // Get suggested items for marketing triggers modal
+  const suggestedMarketingItems = useMemo(() => {
+    if (!pendingCartItem || !menuItems || menuItems.length === 0) return [];
+    
+    const item = pendingCartItem.menuItem;
+    let triggerIds: string[] = [];
+    
+    if (marketingTriggerType === 'crossSell') {
+      triggerIds = (item.crossSellItemIds as string[]) || [];
+    } else if (marketingTriggerType === 'upsell') {
+      triggerIds = (item.upsellItemIds as string[]) || [];
+    } else if (marketingTriggerType === 'downsell') {
+      triggerIds = (item.downsellItemIds as string[]) || [];
+    }
+    
+    return menuItems.filter((mi: MenuItem) => triggerIds.includes(mi.id));
+  }, [pendingCartItem, menuItems, marketingTriggerType]);
+
+  const addToCart = (item: MenuItem, skipUpsell = false, skipMarketingTriggers = false) => {
     // Check if item has options - if yes, open modal for selection
     const itemOptions = (item.options as any) || [];
     if (itemOptions.length > 0) {
@@ -409,6 +427,38 @@ export default function Storefront() {
           setUpsellModalOpen(true);
           return;
         }
+      }
+    }
+    
+    // Check for marketing trigger items if not skipping
+    if (!skipMarketingTriggers) {
+      const upsellIds = (item.upsellItemIds as string[]) || [];
+      const crossSellIds = (item.crossSellItemIds as string[]) || [];
+      const downsellIds = (item.downsellItemIds as string[]) || [];
+      
+      // Determine which type of trigger to show
+      let triggerIds: string[] = [];
+      let triggerType: 'upsell' | 'crossSell' | 'downsell' = 'crossSell';
+      
+      if (crossSellIds.length > 0) {
+        triggerIds = crossSellIds;
+        triggerType = 'crossSell';
+      } else if (upsellIds.length > 0) {
+        triggerIds = upsellIds;
+        triggerType = 'upsell';
+      } else if (downsellIds.length > 0) {
+        triggerIds = downsellIds;
+        triggerType = 'downsell';
+      }
+      
+      // If there are marketing triggers, show the modal
+      if (triggerIds.length > 0 && menuItems.length > 0) {
+        setPendingCartItem({
+          menuItem: item
+        });
+        setMarketingTriggerType(triggerType);
+        setMarketingTriggersModalOpen(true);
+        return;
       }
     }
     
@@ -442,7 +492,45 @@ export default function Storefront() {
   const addToCartWithOptions = () => {
     if (!selectedItem) return;
     
-    // Add item with selected options to cart
+    // Close the toppings modal first
+    setItemModalOpen(false);
+    
+    // Check for marketing trigger items (upsell/cross-sell/downsell)
+    const upsellIds = (selectedItem.upsellItemIds as string[]) || [];
+    const crossSellIds = (selectedItem.crossSellItemIds as string[]) || [];
+    const downsellIds = (selectedItem.downsellItemIds as string[]) || [];
+    
+    // Determine which type of trigger to show (prioritize cross-sell, then upsell, then downsell)
+    let triggerIds: string[] = [];
+    let triggerType: 'upsell' | 'crossSell' | 'downsell' = 'crossSell';
+    
+    if (crossSellIds.length > 0) {
+      triggerIds = crossSellIds;
+      triggerType = 'crossSell';
+    } else if (upsellIds.length > 0) {
+      triggerIds = upsellIds;
+      triggerType = 'upsell';
+    } else if (downsellIds.length > 0) {
+      triggerIds = downsellIds;
+      triggerType = 'downsell';
+    }
+    
+    // If there are marketing triggers, show the modal
+    if (triggerIds.length > 0 && menuItems.length > 0) {
+      setPendingCartItem({
+        menuItem: selectedItem,
+        selectedOptions: selectedItemOptions
+      });
+      setMarketingTriggerType(triggerType);
+      setMarketingTriggersModalOpen(true);
+      
+      // Clear the toppings modal state
+      setSelectedItem(null);
+      setSelectedItemOptions([]);
+      return;
+    }
+    
+    // No marketing triggers - add directly to cart
     setCart([...cart, { 
       menuItem: selectedItem, 
       quantity: 1,
@@ -450,7 +538,6 @@ export default function Storefront() {
     }]);
     
     toast({ title: `${selectedItem.name} added to cart` });
-    setItemModalOpen(false);
     setSelectedItem(null);
     setSelectedItemOptions([]);
   };
@@ -477,6 +564,29 @@ export default function Storefront() {
     setUpsellModalOpen(false);
     setSelectedItem(null);
     setUpsellSuggestedItem(null);
+  };
+
+  // Marketing triggers modal handlers
+  const handleAddSuggestedItem = (suggestedItem: MenuItem) => {
+    // Add suggested item to cart (skip marketing triggers to avoid infinite loop)
+    addToCart(suggestedItem, true, true);
+  };
+
+  const handleContinueToCart = () => {
+    // Add the pending item to cart
+    if (pendingCartItem) {
+      setCart([...cart, {
+        menuItem: pendingCartItem.menuItem,
+        quantity: 1,
+        selectedOptions: pendingCartItem.selectedOptions
+      }]);
+      
+      toast({ title: `${pendingCartItem.menuItem.name} added to cart` });
+    }
+    
+    // Close modal and reset state
+    setMarketingTriggersModalOpen(false);
+    setPendingCartItem(null);
   };
 
   const updateQuantity = (index: number, delta: number) => {
@@ -2383,6 +2493,19 @@ export default function Storefront() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Marketing Triggers Modal */}
+      <MarketingTriggersModal
+        open={marketingTriggersModalOpen}
+        onOpenChange={setMarketingTriggersModalOpen}
+        originalItem={pendingCartItem?.menuItem || null}
+        suggestedItems={suggestedMarketingItems}
+        triggerType={marketingTriggerType}
+        onAddSuggestedItem={handleAddSuggestedItem}
+        onContinue={handleContinueToCart}
+        formatPrice={formatPrice}
+        selectedLanguage={i18n.language}
+      />
     </div>
   );
 }
