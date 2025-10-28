@@ -5842,6 +5842,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update restaurant subdomain
+  app.patch('/api/restaurants/:id/subdomain', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const restaurant = await storage.getRestaurant(id);
+      
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Verify ownership (unless admin)
+      if (req.user.role !== 'admin' && restaurant.ownerId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { subdomain } = req.body;
+      
+      // Validate subdomain format (alphanumeric and hyphens only, no spaces)
+      if (subdomain && !/^[a-z0-9-]+$/.test(subdomain)) {
+        return res.status(400).json({ message: "Subdomain can only contain lowercase letters, numbers, and hyphens" });
+      }
+      
+      // Check if subdomain is already taken
+      if (subdomain) {
+        const existing = await storage.getRestaurantBySubdomain(subdomain);
+        if (existing && existing.id !== id) {
+          return res.status(400).json({ message: "This subdomain is already taken" });
+        }
+      }
+      
+      const updated = await storage.updateRestaurant(id, { 
+        subdomain: subdomain || null 
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating subdomain:", error);
+      res.status(500).json({ message: "Failed to update subdomain" });
+    }
+  });
+
+  // Update restaurant custom domain
+  app.patch('/api/restaurants/:id/custom-domain', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const restaurant = await storage.getRestaurant(id);
+      
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Verify ownership (unless admin)
+      if (req.user.role !== 'admin' && restaurant.ownerId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { customDomain } = req.body;
+      
+      // Check if custom domain is already taken
+      if (customDomain) {
+        const existing = await storage.getRestaurantByCustomDomain(customDomain);
+        if (existing && existing.id !== id) {
+          return res.status(400).json({ message: "This custom domain is already in use" });
+        }
+      }
+      
+      const updated = await storage.updateRestaurant(id, { 
+        customDomain: customDomain || null 
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating custom domain:", error);
+      res.status(500).json({ message: "Failed to update custom domain" });
+    }
+  });
+
+  // Verify custom domain DNS configuration
+  app.post('/api/restaurants/:id/verify-domain', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const restaurant = await storage.getRestaurant(id);
+      
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      
+      // Verify ownership (unless admin)
+      if (req.user.role !== 'admin' && restaurant.ownerId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      if (!restaurant.customDomain) {
+        return res.status(400).json({ message: "No custom domain configured" });
+      }
+      
+      if (!restaurant.subdomain) {
+        return res.status(400).json({ message: "Subdomain must be configured before verifying custom domain" });
+      }
+      
+      // Simple DNS verification: try to resolve the domain
+      // In production, you'd use dns.promises.resolveCname() from Node.js
+      // For now, we'll return a success response indicating manual verification is needed
+      res.json({ 
+        verified: false,
+        message: "Please configure your DNS CNAME record and allow 24-48 hours for propagation",
+        instructions: {
+          type: "CNAME",
+          host: restaurant.customDomain.replace(/^www\./, ''),
+          value: `${restaurant.subdomain}.${process.env.REPLIT_DOMAINS || 'eatout.app'}`,
+          note: "If using www subdomain, point it to your apex domain or directly to the subdomain"
+        }
+      });
+    } catch (error) {
+      console.error("Error verifying domain:", error);
+      res.status(500).json({ message: "Failed to verify domain" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
