@@ -213,6 +213,15 @@ export default function DriverSettings() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("personal");
 
+  // Read tab from URL query parameter on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab && ['personal', 'vehicle', 'documents', 'zones', 'bank', 'status'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
+
   // Personal Info Form
   const personalForm = useForm<PersonalInfoForm>({
     resolver: zodResolver(personalInfoSchema),
