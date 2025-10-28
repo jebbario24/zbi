@@ -2970,6 +2970,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get available delivery zones for a restaurant (public endpoint for storefront)
+  app.get('/api/storefront/delivery-zones/:restaurantId', async (req: any, res) => {
+    try {
+      const { restaurantId } = req.params;
+
+      // Get all active delivery zones for the restaurant
+      const zones = await storage.getDeliveryZones(restaurantId);
+      const activeZones = zones.filter(z => z.isActive);
+
+      // Return only the fields needed for the storefront dropdowns
+      const publicZones = activeZones.map(z => ({
+        id: z.id,
+        country: z.country,
+        city: z.city,
+        neighborhood: z.neighborhood,
+      }));
+
+      res.json(publicZones);
+    } catch (error) {
+      console.error("Error fetching delivery zones for storefront:", error);
+      res.status(500).json({ message: "Failed to fetch delivery zones" });
+    }
+  });
+
   // Calculate delivery fee based on customer address
   app.get('/api/storefront/delivery-fee/:restaurantId', async (req: any, res) => {
     try {

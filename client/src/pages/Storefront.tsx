@@ -31,7 +31,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard, Banknote, Star, Mail, Phone, MessageSquare, Send, AlertCircle, Users } from "lucide-react";
-import { Country, City } from "country-state-city";
 import { SiPaypal, SiApple, SiGoogle } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -205,18 +204,6 @@ export default function Storefront() {
     referralRevenue: 80.00,
   };
 
-  // Compute available countries and cities
-  const countries = useMemo(() => {
-    return Country.getAllCountries().sort((a, b) => a.name.localeCompare(b.name));
-  }, []);
-
-  const cities = useMemo(() => {
-    if (!deliveryCountry) return [];
-    const selectedCountry = countries.find(c => c.name === deliveryCountry);
-    if (!selectedCountry) return [];
-    return City.getCitiesOfCountry(selectedCountry.isoCode)?.sort((a, b) => a.name.localeCompare(b.name)) || [];
-  }, [deliveryCountry, countries]);
-
   // Try hostname-based lookup first, fallback to slug
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: slug ? ["/api/storefront/restaurant", slug] : ["/api/storefront/by-hostname"],
@@ -264,6 +251,58 @@ export default function Storefront() {
     googleAnalyticsId: restaurant?.googleAnalyticsId,
     googleAdsId: restaurant?.googleAdsId,
   }), [restaurant?.metaPixelId, restaurant?.tiktokPixelId, restaurant?.googleAnalyticsId, restaurant?.googleAdsId]);
+
+  // Fetch delivery zones for this restaurant
+  const { data: deliveryZones = [] } = useQuery<Array<{
+    id: string;
+    country: string | null;
+    city: string | null;
+    neighborhood: string | null;
+  }>>({
+    queryKey: restaurant?.id ? ['/api/storefront/delivery-zones', restaurant.id] : ['no-restaurant'],
+    queryFn: async () => {
+      if (!restaurant?.id) return [];
+      const response = await fetch(`/api/storefront/delivery-zones/${restaurant.id}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!restaurant?.id,
+  });
+
+  // Compute available countries from delivery zones
+  const countries = useMemo(() => {
+    const uniqueCountries = new Set<string>();
+    deliveryZones.forEach(zone => {
+      if (zone.country) {
+        uniqueCountries.add(zone.country);
+      }
+    });
+    return Array.from(uniqueCountries).sort((a, b) => a.localeCompare(b));
+  }, [deliveryZones]);
+
+  // Compute available cities for selected country from delivery zones
+  const cities = useMemo(() => {
+    if (!deliveryCountry) return [];
+    const uniqueCities = new Set<string>();
+    deliveryZones.forEach(zone => {
+      if (zone.country === deliveryCountry && zone.city) {
+        uniqueCities.add(zone.city);
+      }
+    });
+    return Array.from(uniqueCities).sort((a, b) => a.localeCompare(b));
+  }, [deliveryCountry, deliveryZones]);
+
+  // Compute available neighborhoods for selected city from delivery zones
+  const neighborhoods = useMemo(() => {
+    if (!deliveryCountry || !deliveryCity) return [];
+    const uniqueNeighborhoods = new Set<string>();
+    deliveryZones.forEach(zone => {
+      if (zone.country === deliveryCountry && zone.city === deliveryCity && zone.neighborhood) {
+        uniqueNeighborhoods.add(zone.neighborhood);
+      }
+    });
+    return Array.from(uniqueNeighborhoods).sort((a, b) => a.localeCompare(b));
+  }, [deliveryCountry, deliveryCity, deliveryZones]);
 
   const { data: categories } = useQuery<MenuCategory[]>({
     queryKey: ["/api/storefront/categories", restaurant?.id],
@@ -1382,14 +1421,20 @@ export default function Storefront() {
                             }}
                           >
                             <SelectTrigger id="country-select" data-testid="select-delivery-country">
-                              <SelectValue placeholder="Select country" />
+                              <SelectValue placeholder={countries.length > 0 ? "Select country" : "No delivery zones configured"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {countries.map((country) => (
-                                <SelectItem key={country.isoCode} value={country.name}>
-                                  {country.name}
+                              {countries.length > 0 ? (
+                                countries.map((country) => (
+                                  <SelectItem key={country} value={country}>
+                                    {country}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="no-countries" disabled>
+                                  No delivery available
                                 </SelectItem>
-                              ))}
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -1402,13 +1447,13 @@ export default function Storefront() {
                             disabled={!deliveryCountry}
                           >
                             <SelectTrigger id="city-select" data-testid="select-delivery-city">
-                              <SelectValue placeholder={deliveryCountry ? "Select city" : "Select country first"} />
+                              <SelectValue placeholder={deliveryCountry ? (cities.length > 0 ? "Select city" : "No cities available") : "Select country first"} />
                             </SelectTrigger>
                             <SelectContent>
                               {cities.length > 0 ? (
                                 cities.map((city) => (
-                                  <SelectItem key={city.name} value={city.name}>
-                                    {city.name}
+                                  <SelectItem key={city} value={city}>
+                                    {city}
                                   </SelectItem>
                                 ))
                               ) : (
@@ -1420,12 +1465,35 @@ export default function Storefront() {
                           </Select>
                         </div>
 
-                        <Input
-                          placeholder="Neighborhood (optional)"
-                          value={deliveryNeighborhood}
-                          onChange={(e) => setDeliveryNeighborhood(e.target.value)}
-                          data-testid="input-delivery-neighborhood"
-                        />
+                        {neighborhoods.length > 0 ? (
+                          <div className="space-y-2">
+                            <Label htmlFor="neighborhood-select" className="text-sm">Neighborhood (optional)</Label>
+                            <Select
+                              value={deliveryNeighborhood}
+                              onValueChange={setDeliveryNeighborhood}
+                              disabled={!deliveryCity}
+                            >
+                              <SelectTrigger id="neighborhood-select" data-testid="select-delivery-neighborhood">
+                                <SelectValue placeholder={deliveryCity ? "Select neighborhood" : "Select city first"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">No specific neighborhood</SelectItem>
+                                {neighborhoods.map((neighborhood) => (
+                                  <SelectItem key={neighborhood} value={neighborhood}>
+                                    {neighborhood}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <Input
+                            placeholder="Neighborhood (optional)"
+                            value={deliveryNeighborhood}
+                            onChange={(e) => setDeliveryNeighborhood(e.target.value)}
+                            data-testid="input-delivery-neighborhood"
+                          />
+                        )}
 
                         <Input
                           placeholder="Home Address *"
