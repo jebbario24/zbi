@@ -1371,24 +1371,68 @@ export default function Storefront() {
 
                     {orderType === 'delivery' && (
                       <>
+                        <div className="space-y-2">
+                          <Label htmlFor="country-select" className="text-sm">Country *</Label>
+                          <Select
+                            value={deliveryCountry}
+                            onValueChange={(value) => {
+                              setDeliveryCountry(value);
+                              setDeliveryCity("");
+                              setDeliveryNeighborhood("");
+                            }}
+                          >
+                            <SelectTrigger id="country-select" data-testid="select-delivery-country">
+                              <SelectValue placeholder="Select country" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {countries.map((country) => (
+                                <SelectItem key={country.isoCode} value={country.name}>
+                                  {country.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="city-select" className="text-sm">City *</Label>
+                          <Select
+                            value={deliveryCity}
+                            onValueChange={setDeliveryCity}
+                            disabled={!deliveryCountry}
+                          >
+                            <SelectTrigger id="city-select" data-testid="select-delivery-city">
+                              <SelectValue placeholder={deliveryCountry ? "Select city" : "Select country first"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {cities.length > 0 ? (
+                                cities.map((city) => (
+                                  <SelectItem key={city.name} value={city.name}>
+                                    {city.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="no-cities" disabled>
+                                  No cities available
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
                         <Input
-                          placeholder="Country *"
-                          value={deliveryCountry}
-                          onChange={(e) => setDeliveryCountry(e.target.value)}
-                          data-testid="input-delivery-country"
+                          placeholder="Neighborhood (optional)"
+                          value={deliveryNeighborhood}
+                          onChange={(e) => setDeliveryNeighborhood(e.target.value)}
+                          data-testid="input-delivery-neighborhood"
                         />
-                    <Input
-                      placeholder="City *"
-                      value={deliveryCity}
-                      onChange={(e) => setDeliveryCity(e.target.value)}
-                      data-testid="input-delivery-city"
-                    />
-                    <Input
-                      placeholder="Neighborhood (optional)"
-                      value={deliveryNeighborhood}
-                      onChange={(e) => setDeliveryNeighborhood(e.target.value)}
-                      data-testid="input-delivery-neighborhood"
-                    />
+
+                        <Input
+                          placeholder="Home Address *"
+                          value={homeAddress}
+                          onChange={(e) => setHomeAddress(e.target.value)}
+                          data-testid="input-home-address"
+                        />
                     {deliveryFeeLoading && (
                       <p className="text-xs text-muted-foreground">
                         Calculating delivery fee...
