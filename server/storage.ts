@@ -167,7 +167,7 @@ export interface IStorage {
   getDriverPerformance(): Promise<{ driverId: string; driver: DriverProfile; deliveries: number; earnings: string; rating: string }[]>;
   
   // Driver Delivery operations
-  getAvailableDeliveryOrders(driverId?: string): Promise<(Order & { restaurant: Restaurant })[]>;
+  getAvailableDeliveryOrders(driverId?: string): Promise<(Order & { restaurant: Restaurant; deliveryZone?: any })[]>;
   createDriverDeliveryStatus(data: { orderId: string; driverId: string; restaurantId: string }): Promise<DriverDeliveryStatus>;
   updateDriverDeliveryStatus(orderId: string, data: Partial<DriverDeliveryStatus>): Promise<DriverDeliveryStatus>;
   getDriverDeliveryStatus(orderId: string): Promise<DriverDeliveryStatus | undefined>;
@@ -1200,13 +1200,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Driver Delivery operations
-  async getAvailableDeliveryOrders(driverId?: string): Promise<(Order & { restaurant: Restaurant })[]> {
+  async getAvailableDeliveryOrders(driverId?: string): Promise<(Order & { restaurant: Restaurant; deliveryZone?: any })[]> {
     // If no driver ID provided, return all available orders (for admin view)
     if (!driverId) {
       const availableOrders = await db
         .select()
         .from(orders)
         .innerJoin(restaurants, eq(orders.restaurantId, restaurants.id))
+        .leftJoin(deliveryZones, eq(orders.deliveryZoneId, deliveryZones.id))
         .where(and(
           eq(orders.status, 'confirmed'),
           eq(orders.orderType, 'delivery'),
@@ -1217,7 +1218,8 @@ export class DatabaseStorage implements IStorage {
       
       return availableOrders.map(row => ({
         ...row.orders,
-        restaurant: row.restaurants
+        restaurant: row.restaurants,
+        deliveryZone: row.delivery_zones || undefined
       }));
     }
 
@@ -1237,6 +1239,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(orders)
       .innerJoin(restaurants, eq(orders.restaurantId, restaurants.id))
+      .leftJoin(deliveryZones, eq(orders.deliveryZoneId, deliveryZones.id))
       .where(and(
         eq(orders.status, 'confirmed'),
         eq(orders.orderType, 'delivery'),
@@ -1248,7 +1251,8 @@ export class DatabaseStorage implements IStorage {
     
     return availableOrders.map(row => ({
       ...row.orders,
-      restaurant: row.restaurants
+      restaurant: row.restaurants,
+      deliveryZone: row.delivery_zones || undefined
     }));
   }
 
