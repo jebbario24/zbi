@@ -611,6 +611,7 @@ export class DatabaseStorage implements IStorage {
       .update(orders)
       .set({
         status: 'confirmed',
+        paymentStatus: 'paid',
         paymentProvider,
         platformCaptureStatus: 'captured',
         paymentIntentId,

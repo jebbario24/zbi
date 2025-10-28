@@ -3784,7 +3784,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deliveryCity: data.deliveryCity || null,
         deliveryAddress: data.deliveryAddress || null,
         deliveryFee: data.deliveryFee || '0',
-        deliveryStatus: data.orderType === 'delivery' ? 'pending_assignment' : null,
         paymentMethod: data.paymentMethod || null,
         subtotal: data.subtotal,
         promoCode: data.promoCode || null,
@@ -3811,6 +3810,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (data.paymentMethod === 'cash') {
         // Cash on delivery - mark order as confirmed, payment will be collected on delivery
+        await storage.confirmOrderWithPayment(
+          order.id,
+          'cash',
+          `cash-${order.orderNumber}`,
+          parseFloat(data.total),
+          parseFloat(data.deliveryFee || '0')
+        );
         res.json({ orderId: order.id, paymentMethod: 'cash', success: true });
       } else if (data.paymentMethod === 'paypal') {
         res.json({ orderId: order.id, paymentMethod: 'paypal' });
