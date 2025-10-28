@@ -3784,6 +3784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deliveryCity: data.deliveryCity || null,
         deliveryAddress: data.deliveryAddress || null,
         deliveryFee: data.deliveryFee || '0',
+        deliveryStatus: data.orderType === 'delivery' ? 'pending_assignment' : null,
         paymentMethod: data.paymentMethod || null,
         subtotal: data.subtotal,
         promoCode: data.promoCode || null,
