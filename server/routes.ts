@@ -1369,6 +1369,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Translation routes
+  app.get('/api/translations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const { entityType, entityId, locale } = req.query;
+      if (!entityType || !entityId) {
+        return res.status(400).json({ message: "entityType and entityId are required" });
+      }
+
+      const translations = await storage.getTranslations(
+        restaurant.id,
+        entityType as string,
+        entityId as string,
+        locale as string | undefined
+      );
+      res.json(translations);
+    } catch (error) {
+      console.error("Error fetching translations:", error);
+      res.status(500).json({ message: "Failed to fetch translations" });
+    }
+  });
+
+  app.get('/api/translations/locale/:locale', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const translations = await storage.getTranslationsByLocale(restaurant.id, req.params.locale);
+      res.json(translations);
+    } catch (error) {
+      console.error("Error fetching translations by locale:", error);
+      res.status(500).json({ message: "Failed to fetch translations" });
+    }
+  });
+
+  app.post('/api/translations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const { entityType, entityId, locale, field, value } = req.body;
+      if (!entityType || !entityId || !locale || !field || value === undefined) {
+        return res.status(400).json({ message: "entityType, entityId, locale, field, and value are required" });
+      }
+
+      const translation = await storage.createOrUpdateTranslation(restaurant.id, {
+        entityType,
+        entityId,
+        locale,
+        field,
+        value,
+        lastUpdatedBy: userId,
+      });
+      res.json(translation);
+    } catch (error) {
+      console.error("Error creating/updating translation:", error);
+      res.status(500).json({ message: "Failed to save translation" });
+    }
+  });
+
+  app.post('/api/translations/bulk', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      const { translations } = req.body;
+      if (!Array.isArray(translations)) {
+        return res.status(400).json({ message: "translations must be an array" });
+      }
+
+      await storage.bulkUpsertTranslations(restaurant.id, translations);
+      res.json({ success: true, count: translations.length });
+    } catch (error) {
+      console.error("Error bulk upserting translations:", error);
+      res.status(500).json({ message: "Failed to save translations" });
+    }
+  });
+
+  app.delete('/api/translations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+
+      // Get the translation to verify ownership
+      const translation = await storage.getTranslationById(req.params.id);
+      if (!translation || translation.restaurantId !== restaurant.id) {
+        return res.status(404).json({ message: "Translation not found" });
+      }
+
+      await storage.deleteTranslation(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting translation:", error);
+      res.status(500).json({ message: "Failed to delete translation" });
+    }
+  });
+
   // Promo routes
   app.get('/api/promos', isAuthenticated, async (req: any, res) => {
     try {

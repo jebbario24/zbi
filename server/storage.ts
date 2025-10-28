@@ -23,6 +23,7 @@ import {
   bundles as bundlesTable,
   upsellRules as upsellRulesTable,
   activityLogs,
+  translationRecords,
   type User,
   type UpsertUser,
   type Restaurant,
@@ -56,6 +57,8 @@ import {
   type Bundle,
   type ActivityLog,
   type InsertActivityLog,
+  type TranslationRecord,
+  type InsertTranslationRecord,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, like, sql } from "drizzle-orm";
@@ -218,6 +221,15 @@ export interface IStorage {
   // Admin Activity Logs operations
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   getAllActivityLogs(filters?: { actionCategory?: string; userId?: string; startDate?: string; endDate?: string }): Promise<ActivityLog[]>;
+  
+  // Translation operations
+  getTranslationById(id: string): Promise<any | undefined>;
+  getTranslations(restaurantId: string, entityType: string, entityId: string, locale?: string): Promise<any[]>;
+  getTranslationsByLocale(restaurantId: string, locale: string): Promise<any[]>;
+  createOrUpdateTranslation(restaurantId: string, data: { entityType: string; entityId: string; locale: string; field: string; value: string; lastUpdatedBy?: string }): Promise<any>;
+  bulkUpsertTranslations(restaurantId: string, translations: Array<{ entityType: string; entityId: string; locale: string; field: string; value: string }>): Promise<void>;
+  deleteTranslation(id: string): Promise<void>;
+  markTranslationsAsNeedingReview(restaurantId: string, entityType: string, entityId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1994,6 +2006,135 @@ export class DatabaseStorage implements IStorage {
     
     const logs = await query.orderBy(desc(activityLogs.createdAt));
     return logs;
+  }
+
+  // Translation operations
+  async getTranslationById(id: string): Promise<TranslationRecord | undefined> {
+    const [translation] = await db
+      .select()
+      .from(translationRecords)
+      .where(eq(translationRecords.id, id));
+    return translation;
+  }
+
+  async getTranslations(restaurantId: string, entityType: string, entityId: string, locale?: string): Promise<TranslationRecord[]> {
+    const conditions = [
+      eq(translationRecords.restaurantId, restaurantId),
+      eq(translationRecords.entityType, entityType),
+      eq(translationRecords.entityId, entityId)
+    ];
+    
+    if (locale) {
+      conditions.push(eq(translationRecords.locale, locale));
+    }
+    
+    return await db
+      .select()
+      .from(translationRecords)
+      .where(and(...conditions));
+  }
+
+  async getTranslationsByLocale(restaurantId: string, locale: string): Promise<TranslationRecord[]> {
+    return await db
+      .select()
+      .from(translationRecords)
+      .where(
+        and(
+          eq(translationRecords.restaurantId, restaurantId),
+          eq(translationRecords.locale, locale)
+        )
+      );
+  }
+
+  async createOrUpdateTranslation(
+    restaurantId: string,
+    data: { entityType: string; entityId: string; locale: string; field: string; value: string; lastUpdatedBy?: string }
+  ): Promise<TranslationRecord> {
+    const [result] = await db
+      .insert(translationRecords)
+      .values({
+        restaurantId,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        locale: data.locale,
+        field: data.field,
+        value: data.value,
+        lastUpdatedBy: data.lastUpdatedBy,
+        status: 'current',
+      })
+      .onConflictDoUpdate({
+        target: [
+          translationRecords.restaurantId,
+          translationRecords.entityType,
+          translationRecords.entityId,
+          translationRecords.locale,
+          translationRecords.field,
+        ],
+        set: {
+          value: data.value,
+          lastUpdatedBy: data.lastUpdatedBy,
+          status: 'current',
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  async bulkUpsertTranslations(
+    restaurantId: string,
+    translations: Array<{ entityType: string; entityId: string; locale: string; field: string; value: string }>
+  ): Promise<void> {
+    if (translations.length === 0) return;
+
+    const values = translations.map(t => ({
+      restaurantId,
+      entityType: t.entityType,
+      entityId: t.entityId,
+      locale: t.locale,
+      field: t.field,
+      value: t.value,
+      status: 'current' as const,
+    }));
+
+    await db
+      .insert(translationRecords)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          translationRecords.restaurantId,
+          translationRecords.entityType,
+          translationRecords.entityId,
+          translationRecords.locale,
+          translationRecords.field,
+        ],
+        set: {
+          value: sql`EXCLUDED.value`,
+          status: 'current',
+          updatedAt: new Date(),
+        },
+      });
+  }
+
+  async deleteTranslation(id: string): Promise<void> {
+    await db.delete(translationRecords).where(eq(translationRecords.id, id));
+  }
+
+  async markTranslationsAsNeedingReview(restaurantId: string, entityType: string, entityId: string): Promise<void> {
+    await db
+      .update(translationRecords)
+      .set({
+        status: 'needs_review',
+        sourceUpdatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(translationRecords.restaurantId, restaurantId),
+          eq(translationRecords.entityType, entityType),
+          eq(translationRecords.entityId, entityId)
+        )
+      );
   }
 }
 
