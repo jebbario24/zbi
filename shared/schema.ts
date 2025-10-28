@@ -113,6 +113,7 @@ export const restaurants = pgTable("restaurants", {
   timezone: varchar("timezone", { length: 100 }).default('UTC'),
   platformLanguage: varchar("platform_language", { length: 10 }).default('en'),
   storefrontLanguage: varchar("storefront_language", { length: 10 }).default('en'),
+  enabledLanguages: text("enabled_languages").array().default(sql`ARRAY['en']`), // Languages enabled for storefront
   taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default('0.00'),
   taxIncludedInPrice: boolean("tax_included_in_price").default(false),
   taxLabel: varchar("tax_label", { length: 50 }).default('Tax'),
@@ -633,6 +634,28 @@ export const inboxMessages = pgTable("inbox_messages", {
   index("idx_inbox_restaurant").on(table.restaurantId),
   index("idx_inbox_status").on(table.restaurantId, table.status),
   index("idx_inbox_customer").on(table.customerId),
+]);
+
+// Translation Records - Multilingual content for storefront
+export const translationRecords = pgTable("translation_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  entityType: varchar("entity_type", { length: 50 }).notNull(), // 'menu_item', 'category', 'menu', 'restaurant', 'item_option'
+  entityId: varchar("entity_id", { length: 255 }).notNull(), // ID of the entity being translated
+  locale: varchar("locale", { length: 10 }).notNull(), // Language code: en, ar, fr, es, etc.
+  field: varchar("field", { length: 100 }).notNull(), // Field name: 'name', 'description', etc.
+  value: text("value").notNull(), // The translated text
+  status: varchar("status", { length: 20 }).notNull().default('current'), // 'current', 'needs_review', 'outdated'
+  lastUpdatedBy: varchar("last_updated_by"), // User ID who last updated this translation
+  sourceUpdatedAt: timestamp("source_updated_at"), // When the source content was last changed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_translation_restaurant").on(table.restaurantId),
+  index("idx_translation_entity").on(table.entityType, table.entityId),
+  index("idx_translation_locale").on(table.restaurantId, table.locale),
+  // Ensure only one translation per restaurant+entity+locale+field combination (creates index automatically)
+  unique("unique_translation").on(table.restaurantId, table.entityType, table.entityId, table.locale, table.field),
 ]);
 
 // Item Options - Modifiers for menu items (sizes, add-ons, extras)
@@ -1718,3 +1741,11 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
 });
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
+
+export const insertTranslationRecordSchema = createInsertSchema(translationRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertTranslationRecord = z.infer<typeof insertTranslationRecordSchema>;
+export type TranslationRecord = typeof translationRecords.$inferSelect;
