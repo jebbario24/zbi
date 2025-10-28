@@ -1,6 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
+import RestaurantTranslationsBackend from './lib/restaurantBackend';
 
 import en from './locales/en.json';
 import es from './locales/es.json';
@@ -18,23 +19,26 @@ import ja from './locales/ja.json';
 const RTL_LANGUAGES = ['ar', 'he', 'fa', 'ur'];
 
 i18n
+  .use(RestaurantTranslationsBackend)
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
-      en: { translation: en },
-      es: { translation: es },
-      fr: { translation: fr },
-      de: { translation: de },
-      ar: { translation: ar },
-      he: { translation: he },
-      fa: { translation: fa },
-      ur: { translation: ur },
-      pt: { translation: pt },
-      it: { translation: it },
-      zh: { translation: zh },
-      ja: { translation: ja },
+      en: { translation: en, restaurant: {} },
+      es: { translation: es, restaurant: {} },
+      fr: { translation: fr, restaurant: {} },
+      de: { translation: de, restaurant: {} },
+      ar: { translation: ar, restaurant: {} },
+      he: { translation: he, restaurant: {} },
+      fa: { translation: fa, restaurant: {} },
+      ur: { translation: ur, restaurant: {} },
+      pt: { translation: pt, restaurant: {} },
+      it: { translation: it, restaurant: {} },
+      zh: { translation: zh, restaurant: {} },
+      ja: { translation: ja, restaurant: {} },
     },
+    ns: ['translation', 'restaurant'],
+    defaultNS: 'translation',
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false,
@@ -42,6 +46,9 @@ i18n
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
+    },
+    backend: {
+      restaurantSlug: null,
     },
   });
 

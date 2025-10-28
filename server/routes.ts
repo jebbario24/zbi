@@ -1266,6 +1266,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Restaurant not found" });
       }
       
+      // Get the original item before updating to check for content changes
+      const originalItem = await storage.getMenuItem(req.params.id);
+      if (!originalItem) {
+        return res.status(404).json({ message: "Menu item not found" });
+      }
+      if (originalItem.restaurantId !== restaurant.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
       // Handle price conversion if priceCents is not provided but price is
       let requestData = { ...req.body };
       if (!requestData.priceCents && requestData.price) {
@@ -1291,6 +1300,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedItem = await storage.updateMenuItem(req.params.id, data);
+      
+      // Check if name or description changed - if so, mark translations as needing review
+      const nameChanged = data.name !== undefined && data.name !== originalItem.name;
+      const descriptionChanged = data.description !== undefined && data.description !== originalItem.description;
+      
+      if (nameChanged || descriptionChanged) {
+        await storage.markTranslationsAsNeedingReview(restaurant.id, 'menu_item', req.params.id);
+        console.log(`[TRANSLATION SYNC] Marked translations for menu item ${req.params.id} as needing review`);
+      }
+      
       res.json(updatedItem);
     } catch (error) {
       console.error("Error updating menu item:", error);

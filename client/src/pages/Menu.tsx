@@ -32,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit, TrendingUp, AlertTriangle, Users, Zap, X, Copy, ListChecks, ChevronDown, ChevronUp } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Plus, Pencil, Trash2, Upload, UtensilsCrossed, FileText, DollarSign, Clock, Tag, ImagePlus, Edit, TrendingUp, AlertTriangle, Users, Zap, X, Copy, ListChecks, ChevronDown, ChevronUp, Languages } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -99,6 +100,7 @@ export default function Menu() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
+  const [translations, setTranslations] = useState<Record<string, {name: string, description: string}>>({});
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -119,6 +121,10 @@ export default function Menu() {
 
   const { data: items, isLoading: itemsLoading } = useQuery<MenuItem[]>({
     queryKey: ["/api/menu/items"],
+  });
+
+  const { data: restaurant } = useQuery<{ enabledLanguages: string[] }>({
+    queryKey: ["/api/restaurants/me"],
   });
 
   const categoryForm = useForm({
@@ -183,6 +189,33 @@ export default function Menu() {
         options: (editingMenuItem.options as any) || [],
       });
       setItemDialogOpen(true);
+
+      // Load translations for the menu item
+      fetch(`/api/translations?entityType=menu_item&entityId=${editingMenuItem.id}`, {
+        credentials: "include",
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          // Parse translations into state object grouped by locale
+          const translationsByLocale: Record<string, {name: string, description: string}> = {};
+          if (Array.isArray(data)) {
+            data.forEach((translation: any) => {
+              if (!translationsByLocale[translation.locale]) {
+                translationsByLocale[translation.locale] = { name: "", description: "" };
+              }
+              if (translation.field === "name") {
+                translationsByLocale[translation.locale].name = translation.value;
+              } else if (translation.field === "description") {
+                translationsByLocale[translation.locale].description = translation.value;
+              }
+            });
+          }
+          setTranslations(translationsByLocale);
+        })
+        .catch((error) => {
+          console.error("Failed to load translations:", error);
+          setTranslations({});
+        });
     }
   }, [editingMenuItem, itemForm]);
 
@@ -285,10 +318,50 @@ export default function Menu() {
       console.log("[FRONTEND] Sending menu item create request:", requestBody);
       return await apiRequest("/api/menu/items", "POST", requestBody);
     },
-    onSuccess: () => {
+    onSuccess: async (response: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
+      
+      // Save translations if any exist
+      const itemId = response.id;
+      const translationsToSave = [];
+      
+      for (const [locale, fields] of Object.entries(translations)) {
+        if (fields.name) {
+          translationsToSave.push({
+            entityType: 'menu_item',
+            entityId: itemId,
+            locale,
+            field: 'name',
+            value: fields.name,
+          });
+        }
+        if (fields.description) {
+          translationsToSave.push({
+            entityType: 'menu_item',
+            entityId: itemId,
+            locale,
+            field: 'description',
+            value: fields.description,
+          });
+        }
+      }
+      
+      if (translationsToSave.length > 0) {
+        try {
+          await apiRequest("/api/translations/bulk", "POST", translationsToSave);
+        } catch (error) {
+          console.error("Failed to save translations:", error);
+          toast({ 
+            title: "Warning", 
+            description: "Menu item created but translations failed to save",
+            variant: "destructive" 
+          });
+        }
+      }
+      
       toast({ title: "Menu item created successfully" });
       setItemDialogOpen(false);
+      setTranslations({});
       itemForm.reset();
     },
     onError: (error: Error) => {
@@ -321,11 +394,51 @@ export default function Menu() {
         preparationTime: data.preparationTime ? parseInt(data.preparationTime) : null,
       });
     },
-    onSuccess: () => {
+    onSuccess: async (_response: any, variables: { id: string; data: z.infer<typeof itemSchema> }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
+      
+      // Save translations if any exist
+      const itemId = variables.id;
+      const translationsToSave = [];
+      
+      for (const [locale, fields] of Object.entries(translations)) {
+        if (fields.name) {
+          translationsToSave.push({
+            entityType: 'menu_item',
+            entityId: itemId,
+            locale,
+            field: 'name',
+            value: fields.name,
+          });
+        }
+        if (fields.description) {
+          translationsToSave.push({
+            entityType: 'menu_item',
+            entityId: itemId,
+            locale,
+            field: 'description',
+            value: fields.description,
+          });
+        }
+      }
+      
+      if (translationsToSave.length > 0) {
+        try {
+          await apiRequest("/api/translations/bulk", "POST", translationsToSave);
+        } catch (error) {
+          console.error("Failed to save translations:", error);
+          toast({ 
+            title: "Warning", 
+            description: "Menu item updated but translations failed to save",
+            variant: "destructive" 
+          });
+        }
+      }
+      
       toast({ title: "Menu item updated successfully" });
       setItemDialogOpen(false);
       setEditingMenuItem(null);
+      setTranslations({});
       itemForm.reset();
     },
     onError: (error: Error) => {
@@ -518,6 +631,7 @@ export default function Menu() {
               setItemDialogOpen(open);
               if (!open) {
                 setEditingMenuItem(null);
+                setTranslations({});
                 itemForm.reset();
               }
             }}
@@ -546,6 +660,33 @@ export default function Menu() {
                     createItemMutation.mutate(data);
                   }
                 })} className="space-y-6">
+                  <Tabs defaultValue="main" className="w-full">
+                    <TabsList className="w-full justify-start">
+                      <TabsTrigger value="main" data-testid="tab-main" className="gap-2">
+                        <UtensilsCrossed className="h-4 w-4" />
+                        Main
+                      </TabsTrigger>
+                      {restaurant?.enabledLanguages && restaurant.enabledLanguages.length > 1 && 
+                        restaurant.enabledLanguages
+                          .filter(lang => lang !== 'en')
+                          .map(locale => (
+                            <TabsTrigger 
+                              key={locale} 
+                              value={locale} 
+                              data-testid={`tab-${locale}`}
+                              className="gap-2"
+                            >
+                              <Languages className="h-4 w-4" />
+                              {locale.toUpperCase()}
+                              {translations[locale]?.name || translations[locale]?.description ? (
+                                <Badge variant="secondary" className="ml-1 text-xs">1</Badge>
+                              ) : null}
+                            </TabsTrigger>
+                          ))
+                      }
+                    </TabsList>
+
+                    <TabsContent value="main" className="space-y-6 mt-6">
                   {/* Basic Information */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -1306,6 +1447,64 @@ export default function Menu() {
                       </div>
                     ))}
                   </div>
+                    </TabsContent>
+
+                    {/* Translation tabs for each enabled language */}
+                    {restaurant?.enabledLanguages && restaurant.enabledLanguages.length > 1 && 
+                      restaurant.enabledLanguages
+                        .filter(lang => lang !== 'en')
+                        .map(locale => (
+                          <TabsContent key={locale} value={locale} className="space-y-6 mt-6">
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                <Languages className="h-4 w-4" />
+                                <span>Translate the menu item into {locale}</span>
+                              </div>
+                              
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Name ({locale.toUpperCase()})</label>
+                                  <Input
+                                    value={translations[locale]?.name || ""}
+                                    onChange={(e) => {
+                                      setTranslations(prev => ({
+                                        ...prev,
+                                        [locale]: {
+                                          ...prev[locale],
+                                          name: e.target.value,
+                                          description: prev[locale]?.description || "",
+                                        }
+                                      }));
+                                    }}
+                                    placeholder={`Enter ${locale} translation for item name`}
+                                    data-testid={`input-translation-name-${locale}`}
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Description ({locale.toUpperCase()})</label>
+                                  <Textarea
+                                    value={translations[locale]?.description || ""}
+                                    onChange={(e) => {
+                                      setTranslations(prev => ({
+                                        ...prev,
+                                        [locale]: {
+                                          name: prev[locale]?.name || "",
+                                          description: e.target.value,
+                                        }
+                                      }));
+                                    }}
+                                    placeholder={`Enter ${locale} translation for item description`}
+                                    className="min-h-[100px]"
+                                    data-testid={`input-translation-description-${locale}`}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </TabsContent>
+                        ))
+                    }
+                  </Tabs>
 
                   <DialogFooter className="gap-2 sm:gap-0">
                     <Button 

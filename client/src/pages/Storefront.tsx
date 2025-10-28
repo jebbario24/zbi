@@ -33,6 +33,8 @@ import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard, Banknote, 
 import { SiPaypal, SiApple, SiGoogle } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+import { getTranslatedMenuItem } from "@/lib/translationHelpers";
 import { FrequentlyBoughtTogether } from "@/components/marketing/FrequentlyBoughtTogether";
 import { CountdownTimer } from "@/components/marketing/CountdownTimer";
 import { LivePurchaseNotifications } from "@/components/marketing/LivePurchaseNotifications";
@@ -41,6 +43,7 @@ import { BundlesSection } from "@/components/marketing/storefront/BundlesSection
 import { ActivePromosBanner } from "@/components/marketing/storefront/ActivePromosBanner";
 import { ReferralCTA } from "@/components/marketing/storefront/ReferralCTA";
 import { BoostedItemsBadge } from "@/components/marketing/storefront/BoostedItemsBadge";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface StorefrontPromo {
   id: string;
@@ -206,6 +209,24 @@ export default function Storefront() {
       i18n.changeLanguage(restaurant.storefrontLanguage);
     }
   }, [restaurant?.storefrontLanguage, i18n]);
+
+  // Set restaurant slug in i18n backend and reload restaurant namespace
+  useEffect(() => {
+    if (restaurant?.slug) {
+      const backend = i18n.services.backendConnector?.backend as any;
+      if (backend && backend.setRestaurantSlug) {
+        backend.setRestaurantSlug(restaurant.slug);
+        i18n.reloadResources(i18n.language, 'restaurant');
+      }
+    }
+  }, [restaurant?.slug]);
+
+  // Reload restaurant translations when language changes
+  useEffect(() => {
+    if (restaurant?.slug) {
+      i18n.reloadResources(i18n.language, 'restaurant');
+    }
+  }, [i18n.language, restaurant?.slug]);
 
   // Create pixel config from restaurant settings
   const pixelConfig = useMemo(() => ({
@@ -886,7 +907,13 @@ export default function Storefront() {
             <span className="font-display font-bold text-lg">{restaurant.name}</span>
           </div>
           
-          <Sheet>
+          <div className="flex items-center gap-2">
+            <LanguageSelector 
+              enabledLanguages={restaurant?.enabledLanguages || ['en']} 
+              restaurantId={restaurant?.id}
+            />
+            
+            <Sheet>
             <SheetTrigger asChild>
               <Button variant="default" className="relative" data-testid="button-cart">
                 <ShoppingCart className="h-5 w-5 mr-2" />
@@ -968,6 +995,7 @@ export default function Storefront() {
                           );
                         } else if (item.menuItem) {
                           // Render regular menu item
+                          const translatedCartItem = getTranslatedMenuItem(item.menuItem, t);
                           const optionsTotal = (item.selectedOptions || []).reduce(
                             (sum, group) => sum + group.choices.reduce((s, c) => s + c.priceCents, 0),
                             0
@@ -979,12 +1007,12 @@ export default function Storefront() {
                             {item.menuItem.imageUrl && (
                               <img
                                 src={item.menuItem.imageUrl}
-                                alt={item.menuItem.name}
+                                alt={translatedCartItem.name}
                                 className="h-20 w-20 object-cover rounded-md"
                               />
                             )}
                             <div className="flex-1">
-                              <h4 className="font-medium mb-1">{item.menuItem.name}</h4>
+                              <h4 className="font-medium mb-1">{translatedCartItem.name}</h4>
                               {item.selectedOptions && item.selectedOptions.length > 0 && (
                                 <div className="text-xs text-muted-foreground mb-1 space-y-1">
                                   {item.selectedOptions.map((optionGroup, idx) => (
@@ -1374,6 +1402,7 @@ export default function Storefront() {
               )}
             </SheetContent>
           </Sheet>
+          </div>
         </div>
       </div>
 
@@ -1554,8 +1583,9 @@ export default function Storefront() {
                 </div>
                 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {group.items.map((item) => (
-                    <div key={item.id} className="space-y-4">
+                  {group.items.map((item) => {
+                    const translatedItem = getTranslatedMenuItem(item, t);
+                    return (<div key={item.id} className="space-y-4">
                       <Card 
                         className="overflow-hidden hover-elevate transition-all cursor-pointer group" 
                         onClick={() => item.isAvailable && addToCart(item)}
@@ -1565,7 +1595,7 @@ export default function Storefront() {
                           {item.imageUrl ? (
                             <img
                               src={item.imageUrl}
-                              alt={item.name}
+                              alt={translatedItem.name}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -1635,9 +1665,9 @@ export default function Storefront() {
                         </div>
                         
                         <CardContent className="p-4">
-                          <h3 className="font-bold text-lg mb-1 line-clamp-1">{item.name}</h3>
-                          {item.description && (
-                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+                          <h3 className="font-bold text-lg mb-1 line-clamp-1">{translatedItem.name}</h3>
+                          {translatedItem.description && (
+                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{translatedItem.description}</p>
                           )}
                           <div className="flex items-center justify-between">
                             <span className="text-lg font-bold text-primary">
@@ -1700,7 +1730,8 @@ export default function Storefront() {
                         />
                       )}
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               </div>
             ))}
@@ -1708,8 +1739,9 @@ export default function Storefront() {
         ) : filteredItems && filteredItems.length > 0 ? (
           // Showing single category
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredItems.map((item) => (
-              <div key={item.id} className="space-y-4">
+            {filteredItems.map((item) => {
+              const translatedItem = getTranslatedMenuItem(item, t);
+              return (<div key={item.id} className="space-y-4">
                 <Card 
                   className="overflow-hidden hover-elevate transition-all cursor-pointer group" 
                   onClick={() => item.isAvailable && addToCart(item)}
@@ -1719,7 +1751,7 @@ export default function Storefront() {
                     {item.imageUrl ? (
                       <img
                         src={item.imageUrl}
-                        alt={item.name}
+                        alt={translatedItem.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -1789,9 +1821,9 @@ export default function Storefront() {
                   </div>
                   
                   <CardContent className="p-4">
-                    <h3 className="font-bold text-lg mb-1 line-clamp-1">{item.name}</h3>
-                    {item.description && (
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+                    <h3 className="font-bold text-lg mb-1 line-clamp-1">{translatedItem.name}</h3>
+                    {translatedItem.description && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{translatedItem.description}</p>
                     )}
                     <div className="flex items-center justify-between">
                       <span className="text-lg font-bold text-primary">
@@ -1854,7 +1886,8 @@ export default function Storefront() {
                   />
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12">
