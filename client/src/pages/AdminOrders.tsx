@@ -319,8 +319,8 @@ export default function AdminOrders() {
                         {formatCurrency(order.total, order.currency || "USD")}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {new Date(order.createdAt).toLocaleDateString()}<br />
-                        {new Date(order.createdAt).toLocaleTimeString()}
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "N/A"}<br />
+                        {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : ""}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -465,7 +465,7 @@ export default function AdminOrders() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Created:</span>
-                    <span className="ml-2">{new Date(selectedOrder.createdAt).toLocaleString()}</span>
+                    <span className="ml-2">{selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString() : "N/A"}</span>
                   </div>
                 </div>
               </div>
