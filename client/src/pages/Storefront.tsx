@@ -732,7 +732,7 @@ export default function Storefront() {
       
       // Build shipping address from components or use the legacy field
       const fullAddress = deliveryCountry && deliveryCity
-        ? `${deliveryNeighborhood ? deliveryNeighborhood + ', ' : ''}${deliveryCity}, ${deliveryCountry}`
+        ? `${homeAddress ? homeAddress + ', ' : ''}${deliveryNeighborhood ? deliveryNeighborhood + ', ' : ''}${deliveryCity}, ${deliveryCountry}`
         : shippingAddress;
       
       return await fetch(endpoint, {
@@ -1564,7 +1564,7 @@ export default function Storefront() {
                           <Button
                             variant="outline"
                             className="h-16 bg-black hover:bg-black/90 text-white border-black flex flex-col items-center justify-center gap-1"
-                            disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
+                            disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !homeAddress || !deliveryAvailable)) || checkoutMutation.isPending}
                             onClick={() => {
                               setPaymentMethod('apple');
                               setCurrentOrderId(null);
@@ -1582,7 +1582,7 @@ export default function Storefront() {
                           <Button
                             variant="outline"
                             className="h-16 bg-white hover:bg-gray-50 text-gray-800 border-gray-300 flex flex-col items-center justify-center gap-1"
-                            disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
+                            disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !homeAddress || !deliveryAvailable)) || checkoutMutation.isPending}
                             onClick={() => {
                               setPaymentMethod('google');
                               setCurrentOrderId(null);
@@ -1601,7 +1601,7 @@ export default function Storefront() {
                         <Button
                           variant="outline"
                           className="w-full h-16 bg-black hover:bg-black/90 text-white border-black flex items-center justify-center gap-2"
-                          disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
+                          disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !homeAddress || !deliveryAvailable)) || checkoutMutation.isPending}
                           onClick={() => {
                             setPaymentMethod('stripe');
                             setCurrentOrderId(null);
@@ -1619,7 +1619,7 @@ export default function Storefront() {
                         <Button
                           variant="outline"
                           className="w-full h-16 bg-[#0070BA] hover:bg-[#005EA6] text-white border-[#0070BA] flex items-center justify-center gap-2"
-                          disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
+                          disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !homeAddress || !deliveryAvailable)) || checkoutMutation.isPending}
                           onClick={() => {
                             setPaymentMethod('paypal');
                             setCurrentOrderId(null);
@@ -1643,7 +1643,7 @@ export default function Storefront() {
                         <Button
                           variant="outline"
                           className="w-full h-16 flex items-center justify-center gap-2"
-                          disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !deliveryAvailable)) || checkoutMutation.isPending}
+                          disabled={!customerName || !customerPhone || (orderType === 'delivery' && (!deliveryCountry || !deliveryCity || !homeAddress || !deliveryAvailable)) || checkoutMutation.isPending}
                           onClick={() => {
                             setPaymentMethod('cash');
                             setCurrentOrderId(null);
