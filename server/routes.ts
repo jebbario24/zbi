@@ -4174,6 +4174,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/restaurant/brand-colors", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+    const { primaryColor, secondaryColor, accentColor } = req.body;
+
+    try {
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "Restaurant not found" });
+      }
+
+      await storage.updateRestaurant(restaurant.id, {
+        primaryColor,
+        secondaryColor,
+        accentColor
+      });
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error updating brand colors:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.put("/api/restaurant/opening-hours", isAuthenticated, async (req: any, res) => {
     const userId = req.user.id;
     if (!req.body.openingHours) {
