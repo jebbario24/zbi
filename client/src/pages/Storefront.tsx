@@ -2426,6 +2426,91 @@ export default function Storefront() {
             </div>
           )}
           
+          {/* Marketing Suggestions - Frequently Bought Together */}
+          {selectedItem && (() => {
+            const upsellIds = (selectedItem.upsellItemIds as string[]) || [];
+            const crossSellIds = (selectedItem.crossSellItemIds as string[]) || [];
+            const downsellIds = (selectedItem.downsellItemIds as string[]) || [];
+            
+            let suggestedItemIds: string[] = [];
+            let suggestionType = '';
+            
+            if (crossSellIds.length > 0) {
+              suggestedItemIds = crossSellIds;
+              suggestionType = 'Frequently Bought Together';
+            } else if (upsellIds.length > 0) {
+              suggestedItemIds = upsellIds;
+              suggestionType = 'You Might Also Like';
+            } else if (downsellIds.length > 0) {
+              suggestedItemIds = downsellIds;
+              suggestionType = 'More Options';
+            }
+            
+            const suggestedItems = menuItems.filter((item: MenuItem) => 
+              suggestedItemIds.includes(item.id)
+            );
+            
+            if (suggestedItems.length === 0) return null;
+            
+            return (
+              <>
+                <Separator className="my-4" />
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    {suggestionType}
+                  </h3>
+                  <div className="space-y-2">
+                    {suggestedItems.map((item: MenuItem) => (
+                      <div 
+                        key={item.id} 
+                        className="flex items-start gap-3 p-3 border rounded-lg hover-elevate"
+                      >
+                        <Checkbox
+                          id={`suggestion-${item.id}`}
+                          checked={selectedMarketingSuggestions.includes(item.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedMarketingSuggestions(prev => [...prev, item.id]);
+                            } else {
+                              setSelectedMarketingSuggestions(prev => 
+                                prev.filter(id => id !== item.id)
+                              );
+                            }
+                          }}
+                          data-testid={`checkbox-suggestion-${item.id}`}
+                        />
+                        <label 
+                          htmlFor={`suggestion-${item.id}`}
+                          className="flex-1 cursor-pointer flex items-start gap-3"
+                        >
+                          {item.imageUrl && (
+                            <img 
+                              src={item.imageUrl} 
+                              alt={item.name}
+                              className="w-16 h-16 rounded-md object-cover flex-shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium">{item.name}</div>
+                            {item.description && (
+                              <div className="text-sm text-muted-foreground line-clamp-1">
+                                {item.description}
+                              </div>
+                            )}
+                            <div className="text-sm font-semibold text-primary mt-1">
+                              {formatPrice(item.price)}
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+          
           <DialogFooter>
             <Button variant="outline" onClick={() => setItemModalOpen(false)}>
               Cancel
