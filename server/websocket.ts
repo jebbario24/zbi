@@ -293,8 +293,11 @@ class WebSocketManager {
     const clients = this.clients.get('driver:all');
     if (!clients) return;
 
+    // Convert Set to Array for iteration
+    const clientsArray = Array.from(clients);
+
     // For each connected driver, check if they serve this zone
-    for (const client of clients) {
+    for (const client of clientsArray) {
       if (!client.driverId) continue;
 
       try {

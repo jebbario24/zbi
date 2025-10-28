@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CheckCircle2, XCircle, Clock, Upload, ExternalLink, FileText, CreditCard, User, Car } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Upload, ExternalLink, FileText, CreditCard, User, Car, MapPin } from "lucide-react";
 
 const personalInfoSchema = z.object({
   phone: z.string()
@@ -45,6 +45,168 @@ const vehicleDetailsSchema = z.object({
 
 type PersonalInfoForm = z.infer<typeof personalInfoSchema>;
 type VehicleDetailsForm = z.infer<typeof vehicleDetailsSchema>;
+
+// Service Zones Manager Component
+function ServiceZonesManager() {
+  const { toast } = useToast();
+  const [selectedZones, setSelectedZones] = useState<string[]>([]);
+
+  // Fetch available zones
+  const { data: availableZones = [], isLoading: zonesLoading } = useQuery<any[]>({
+    queryKey: ["/api/driver/available-zones"],
+  });
+
+  // Fetch driver's current service zones
+  const { data: driverZones } = useQuery<{ serviceZones: string[] }>({
+    queryKey: ["/api/driver/service-zones"],
+  });
+
+  // Update selected zones when driver zones are loaded
+  useEffect(() => {
+    if (driverZones) {
+      setSelectedZones(driverZones.serviceZones || []);
+    }
+  }, [driverZones]);
+
+  // Update service zones mutation
+  const updateZonesMutation = useMutation({
+    mutationFn: async (zoneIds: string[]) => {
+      const res = await apiRequest("/api/driver/service-zones", "PUT", { zoneIds });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Service zones updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver/service-zones"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver/available-orders"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update service zones",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleToggleZone = (zoneId: string) => {
+    setSelectedZones(prev => 
+      prev.includes(zoneId)
+        ? prev.filter(id => id !== zoneId)
+        : [...prev, zoneId]
+    );
+  };
+
+  const handleSaveZones = () => {
+    updateZonesMutation.mutate(selectedZones);
+  };
+
+  // Group zones by country and city
+  const groupedZones = availableZones.reduce((acc: any, zone: any) => {
+    const country = zone.country || "Unknown";
+    const city = zone.city || "Unknown";
+    
+    if (!acc[country]) acc[country] = {};
+    if (!acc[country][city]) acc[country][city] = [];
+    
+    acc[country][city].push(zone);
+    return acc;
+  }, {});
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Service Zones</CardTitle>
+        <CardDescription>
+          Select the delivery zones where you want to accept orders. You will only receive notifications for orders in your selected zones.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {zonesLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : availableZones.length === 0 ? (
+          <div className="text-center p-8 text-muted-foreground">
+            No delivery zones available yet. Please check back later.
+          </div>
+        ) : (
+          <>
+            <div className="space-y-6">
+              {Object.entries(groupedZones).map(([country, cities]: [string, any]) => (
+                <div key={country} className="space-y-3">
+                  <h3 className="font-semibold text-lg">{country}</h3>
+                  {Object.entries(cities).map(([city, zones]: [string, any]) => (
+                    <div key={city} className="ml-4 space-y-2">
+                      <h4 className="font-medium text-muted-foreground">{city}</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 ml-4">
+                        {zones.map((zone: any) => {
+                          const isSelected = selectedZones.includes(zone.id);
+                          return (
+                            <div
+                              key={zone.id}
+                              onClick={() => handleToggleZone(zone.id)}
+                              className={`
+                                p-3 rounded-lg border cursor-pointer transition-all
+                                ${isSelected 
+                                  ? 'border-primary bg-primary/10' 
+                                  : 'border-border hover-elevate active-elevate-2'
+                                }
+                              `}
+                              data-testid={`zone-${zone.id}`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1">
+                                  <div className="font-medium flex items-center gap-2">
+                                    <MapPin className="w-4 h-4" />
+                                    {zone.neighborhood || city}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground mt-1">
+                                    {zone.restaurantName}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Delivery Fee: ${zone.deliveryFee} • Min Order: ${zone.minimumOrder}
+                                  </div>
+                                </div>
+                                <div className={`
+                                  w-5 h-5 rounded border-2 flex items-center justify-center
+                                  ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground'}
+                                `}>
+                                  {isSelected && (
+                                    <CheckCircle2 className="w-4 h-4 text-primary-foreground" />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                {selectedZones.length} zone{selectedZones.length !== 1 ? 's' : ''} selected
+              </div>
+              <Button
+                onClick={handleSaveZones}
+                disabled={updateZonesMutation.isPending}
+                data-testid="button-save-zones"
+              >
+                {updateZonesMutation.isPending ? "Saving..." : "Save Service Zones"}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DriverSettings() {
   const { user } = useAuth();
@@ -304,7 +466,7 @@ export default function DriverSettings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-6" data-testid="tabs-driver-settings">
+        <TabsList className="grid w-full grid-cols-6 mb-6" data-testid="tabs-driver-settings">
           <TabsTrigger value="personal" data-testid="tab-personal-info">
             <User className="w-4 h-4 mr-2" />
             Personal
@@ -316,6 +478,10 @@ export default function DriverSettings() {
           <TabsTrigger value="documents" data-testid="tab-documents">
             <FileText className="w-4 h-4 mr-2" />
             Documents
+          </TabsTrigger>
+          <TabsTrigger value="zones" data-testid="tab-service-zones">
+            <MapPin className="w-4 h-4 mr-2" />
+            Service Zones
           </TabsTrigger>
           <TabsTrigger value="bank" data-testid="tab-bank-account">
             <CreditCard className="w-4 h-4 mr-2" />
@@ -678,6 +844,11 @@ export default function DriverSettings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Service Zones Tab */}
+        <TabsContent value="zones">
+          <ServiceZonesManager />
         </TabsContent>
 
         {/* Bank Account Tab */}
