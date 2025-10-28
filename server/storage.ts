@@ -61,7 +61,7 @@ import {
   type InsertTranslationRecord,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, asc, like, sql } from "drizzle-orm";
+import { eq, and, desc, asc, like, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -1241,12 +1241,15 @@ export class DatabaseStorage implements IStorage {
       .from(driverProfiles)
       .where(eq(driverProfiles.id, driverId));
 
-    if (!driver || !driver.serviceZones || driver.serviceZones.length === 0) {
+    // Safely handle service zones - default to empty array if undefined/null
+    const serviceZones = driver?.serviceZones || [];
+    
+    if (serviceZones.length === 0) {
       // If driver has no zones selected, return empty array
       return [];
     }
 
-    // Get available orders in driver's service zones
+    // Get available orders in driver's service zones using inArray
     const availableOrders = await db
       .select()
       .from(orders)
@@ -1257,7 +1260,7 @@ export class DatabaseStorage implements IStorage {
         eq(orders.orderType, 'delivery'),
         sql`${orders.assignedDriverId} IS NULL`,
         eq(orders.paymentStatus, 'paid'),
-        sql`${orders.deliveryZoneId} = ANY(${driver.serviceZones})`
+        inArray(orders.deliveryZoneId, serviceZones)
       ))
       .orderBy(desc(orders.createdAt));
     
