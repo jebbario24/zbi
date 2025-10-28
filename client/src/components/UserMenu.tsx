@@ -53,7 +53,10 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setLocation('/settings')} data-testid="menu-settings">
+        <DropdownMenuItem 
+          onClick={() => setLocation(user.role === 'driver' ? '/driver/settings' : '/settings')} 
+          data-testid="menu-settings"
+        >
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
