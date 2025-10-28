@@ -1077,7 +1077,7 @@ export default function DriverSettings() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {stripeStatus?.payoutsEnabled ? (
+                    {completionStatus?.bankAccountConnected ? (
                       <CheckCircle2 className="w-5 h-5 text-green-500" />
                     ) : (
                       <XCircle className="w-5 h-5 text-gray-400" />

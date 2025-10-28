@@ -2352,7 +2352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       user.licenseExpiry &&
       user.idProofUrl &&
       user.insuranceUrl &&
-      user.stripeAccountId
+      user.stripeConnectAccountId
     );
 
     if (user.profileComplete !== isComplete) {
@@ -2490,8 +2490,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Check if all required fields are filled
-      const isComplete = !!(
+      // Step 1: Personal Information (20%)
+      const personalInfoComplete = !!(
         user.phone &&
         user.dateOfBirth &&
         user.address &&
@@ -2499,7 +2499,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user.country &&
         user.postalCode &&
         user.emergencyContactName &&
-        user.emergencyContactPhone &&
+        user.emergencyContactPhone
+      );
+
+      // Step 2: Vehicle Details (40%)
+      const vehicleInfoComplete = !!(
         user.vehicleType &&
         user.vehicleMake &&
         user.vehicleModel &&
@@ -2507,11 +2511,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user.vehiclePlate &&
         user.vehicleColor &&
         user.licenseNumber &&
-        user.licenseExpiry &&
-        user.idProofUrl &&
-        user.insuranceUrl &&
-        user.stripeAccountId // Must have connected bank account
+        user.licenseExpiry
       );
+
+      // Step 3: Documents (60%)
+      const documentsComplete = !!(
+        user.idProofUrl &&
+        user.insuranceUrl
+      );
+
+      // Step 4: Bank Account (100%)
+      const bankAccountConnected = !!user.stripeConnectAccountId;
+
+      // Calculate completion percentage
+      let completionPercentage = 0;
+      if (personalInfoComplete) completionPercentage = 20;
+      if (vehicleInfoComplete) completionPercentage = 40;
+      if (documentsComplete) completionPercentage = 60;
+      if (bankAccountConnected) completionPercentage = 100;
+
+      // Profile is fully complete when all 4 steps are done
+      const isComplete = completionPercentage === 100;
 
       // Update profile completion status if changed
       if (user.profileComplete !== isComplete) {
@@ -2520,6 +2540,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ 
         profileComplete: isComplete,
+        completionPercentage,
+        personalInfoComplete,
+        vehicleInfoComplete,
+        documentsComplete,
+        bankAccountConnected,
         adminApproved: user.adminApproved || false,
       });
     } catch (error) {
