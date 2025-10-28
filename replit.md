@@ -21,6 +21,11 @@ Preferred communication style: Simple, everyday language.
 - **Backend:** Express.js on Node.js with TypeScript.
 - **Authentication:** Session-based authentication using Replit Auth (OpenID Connect/Passport) with httpOnly cookies and PostgreSQL session store, supporting role-based access control.
 - **Multi-Tenancy:** Single database with `restaurant_id` separation and hostname-based routing.
+- **Domain Management:** Restaurant owners can configure both subdomain (e.g., `myrestaurant.eatout.app`) and custom domain (e.g., `www.myrestaurant.com`) options. Settings page includes:
+  - Subdomain input with live preview and `.eatout.app` suffix
+  - Custom domain input for optional custom domain
+  - DNS configuration instructions (CNAME record) displayed automatically when both subdomain and custom domain are set
+  - Backend validation for subdomain format (lowercase letters, numbers, hyphens only) and uniqueness checks
 - **Platform-Managed Payments:** Centralized payment model via platform-owned Stripe and PayPal accounts; platform collects payments, charges a 2% commission, and distributes shares.
 - **Automated Payout System:** UberEats-style automated payouts using Stripe Connect Express and Stripe Transfers API, processed daily/weekly via a cron scheduler with a minimum threshold of $10.
 - **Tax & Currency:** Per-restaurant configurable tax rates and multi-currency support for 170+ currencies and 195+ countries.

@@ -1109,6 +1109,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (data.customDomain === '') data.customDomain = null;
       if (data.subdomain === '') data.subdomain = null;
       
+      // Validate subdomain format if provided
+      if (data.subdomain && !/^[a-z0-9-]+$/.test(data.subdomain)) {
+        return res.status(400).json({ message: "Subdomain can only contain lowercase letters, numbers, and hyphens" });
+      }
+      
+      // Check subdomain uniqueness if provided and different from current
+      if (data.subdomain && data.subdomain !== restaurant.subdomain) {
+        const existing = await storage.getRestaurantBySubdomain(data.subdomain);
+        if (existing && existing.id !== restaurant.id) {
+          return res.status(400).json({ message: "This subdomain is already taken" });
+        }
+      }
+      
+      // Check custom domain uniqueness if provided and different from current
+      if (data.customDomain && data.customDomain !== restaurant.customDomain) {
+        const existing = await storage.getRestaurantByCustomDomain(data.customDomain);
+        if (existing && existing.id !== restaurant.id) {
+          return res.status(400).json({ message: "This custom domain is already in use" });
+        }
+      }
+      
       const updated = await storage.updateRestaurant(req.params.id, data);
       res.json(updated);
     } catch (error) {
@@ -5864,10 +5885,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Subdomain can only contain lowercase letters, numbers, and hyphens" });
       }
       
-      // Check if subdomain is already taken
-      if (subdomain) {
+      // Check if subdomain is already taken (compare against restaurant.id, not id param for security)
+      if (subdomain && subdomain !== restaurant.subdomain) {
         const existing = await storage.getRestaurantBySubdomain(subdomain);
-        if (existing && existing.id !== id) {
+        if (existing && existing.id !== restaurant.id) {
           return res.status(400).json({ message: "This subdomain is already taken" });
         }
       }
@@ -5899,10 +5920,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { customDomain } = req.body;
       
-      // Check if custom domain is already taken
-      if (customDomain) {
+      // Check if custom domain is already taken (compare against restaurant.id, not id param for security)
+      if (customDomain && customDomain !== restaurant.customDomain) {
         const existing = await storage.getRestaurantByCustomDomain(customDomain);
-        if (existing && existing.id !== id) {
+        if (existing && existing.id !== restaurant.id) {
           return res.status(400).json({ message: "This custom domain is already in use" });
         }
       }
