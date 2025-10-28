@@ -494,6 +494,9 @@ export default function Storefront() {
   const addToCartWithOptions = () => {
     if (!selectedItem) return;
     
+    console.log('🔍 DEBUG addToCartWithOptions called for:', selectedItem.name);
+    console.log('🔍 skipMarketingTriggersForCurrentItem:', skipMarketingTriggersForCurrentItem);
+    
     // Close the toppings modal first
     setItemModalOpen(false);
     
@@ -502,6 +505,12 @@ export default function Storefront() {
       const upsellIds = (selectedItem.upsellItemIds as string[]) || [];
       const crossSellIds = (selectedItem.crossSellItemIds as string[]) || [];
       const downsellIds = (selectedItem.downsellItemIds as string[]) || [];
+      
+      console.log('🔍 Marketing trigger IDs:');
+      console.log('  - upsellIds:', upsellIds);
+      console.log('  - crossSellIds:', crossSellIds);
+      console.log('  - downsellIds:', downsellIds);
+      console.log('  - menuItems.length:', menuItems.length);
       
       // Determine which type of trigger to show (prioritize cross-sell, then upsell, then downsell)
       let triggerIds: string[] = [];
@@ -518,8 +527,11 @@ export default function Storefront() {
         triggerType = 'downsell';
       }
       
+      console.log('🔍 Selected trigger type:', triggerType, 'with', triggerIds.length, 'items');
+      
       // If there are marketing triggers, show the modal
       if (triggerIds.length > 0 && menuItems.length > 0) {
+        console.log('✅ OPENING MARKETING TRIGGERS MODAL');
         setPendingCartItem({
           menuItem: selectedItem,
           selectedOptions: selectedItemOptions
@@ -532,7 +544,11 @@ export default function Storefront() {
         setSelectedItemOptions([]);
         setSkipMarketingTriggersForCurrentItem(false);
         return;
+      } else {
+        console.log('❌ NOT opening marketing triggers modal - no triggers or no menu items');
       }
+    } else {
+      console.log('⏭️ SKIPPING marketing triggers check (skipMarketingTriggersForCurrentItem = true)');
     }
     
     // No marketing triggers or skipping - add directly to cart
