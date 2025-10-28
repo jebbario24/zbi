@@ -3824,8 +3824,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data: confirmedOrder
         });
         
-        // If delivery order, broadcast to all online drivers
-        if (data.orderType === 'delivery') {
+        // ONLY broadcast to drivers if this is a delivery order
+        if (confirmedOrder.orderType === 'delivery') {
           wsManager.broadcastToAllDrivers({
             type: 'new_delivery_order',
             data: {
@@ -3833,8 +3833,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               orderNumber: confirmedOrder.orderNumber,
               restaurantId: restaurant.id,
               restaurantName: restaurant.name,
-              deliveryFee: confirmedOrder.deliveryFee,
               deliveryAddress: confirmedOrder.deliveryAddress,
+              customerName: confirmedOrder.customerName,
+              customerPhone: confirmedOrder.customerPhone,
+              deliveryFee: confirmedOrder.deliveryFee,
               total: confirmedOrder.total,
               estimatedEarnings: (parseFloat(confirmedOrder.deliveryFee || '0') * 0.8).toFixed(2),
             }
@@ -4587,7 +4589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             data: confirmedOrder
           });
           
-          // If delivery order, broadcast to all online drivers
+          // ONLY broadcast to drivers if this is a delivery order
           if (confirmedOrder.orderType === 'delivery') {
             wsManager.broadcastToAllDrivers({
               type: 'new_delivery_order',
@@ -4596,8 +4598,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 orderNumber: confirmedOrder.orderNumber,
                 restaurantId: restaurant.id,
                 restaurantName: restaurant.name,
-                deliveryFee: confirmedOrder.deliveryFee,
                 deliveryAddress: confirmedOrder.deliveryAddress,
+                customerName: confirmedOrder.customerName,
+                customerPhone: confirmedOrder.customerPhone,
+                deliveryFee: confirmedOrder.deliveryFee,
                 total: confirmedOrder.total,
                 estimatedEarnings: (parseFloat(confirmedOrder.deliveryFee || '0') * 0.8).toFixed(2),
               }

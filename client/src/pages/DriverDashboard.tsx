@@ -236,10 +236,14 @@ export default function DriverDashboard() {
           
           // Show notification for new delivery orders
           if (message.type === 'new_delivery_order') {
+            const deliveryAddress = message.data?.deliveryAddress || 'Address not available';
+            const earnings = message.data?.estimatedEarnings || '0';
+            const restaurantName = message.data?.restaurantName || 'restaurant';
+            
             toast({
-              title: "New Delivery Available! 🚗",
-              description: `Order from ${message.data?.restaurantName || 'restaurant'}. Estimated earnings: $${message.data?.estimatedEarnings || '0'}`,
-              duration: 8000,
+              title: "🚗 New Delivery Available!",
+              description: `From ${restaurantName} to ${deliveryAddress}. Earn $${earnings}`,
+              duration: 10000,
             });
           }
         }
