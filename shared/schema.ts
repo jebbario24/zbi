@@ -307,6 +307,7 @@ export const orders = pgTable("orders", {
   driverShare: decimal("driver_share", { precision: 10, scale: 2 }),
   platformFee: decimal("platform_fee", { precision: 10, scale: 2 }),
   assignedDriverId: varchar("assigned_driver_id").references(() => driverProfiles.id, { onDelete: 'set null' }),
+  deliveryZoneId: varchar("delivery_zone_id").references(() => deliveryZones.id, { onDelete: 'set null' }),
   // Delivery Tracking
   driverAcceptedAt: timestamp("driver_accepted_at"),
   pickupTime: timestamp("pickup_time"),
@@ -435,6 +436,8 @@ export const driverProfiles = pgTable("driver_profiles", {
   city: varchar("city", { length: 100 }),
   country: varchar("country", { length: 100 }),
   postalCode: varchar("postal_code", { length: 20 }),
+  // Service Zones - Array of delivery zone IDs this driver serves
+  serviceZones: text("service_zones").array().default(sql`ARRAY[]::text[]`),
   // Emergency Contact
   emergencyContactName: varchar("emergency_contact_name", { length: 255 }),
   emergencyContactPhone: varchar("emergency_contact_phone", { length: 50 }),
