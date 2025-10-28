@@ -37,7 +37,13 @@ Preferred communication style: Simple, everyday language.
 - **QR Code Generation:** For printable table ordering QR codes.
 - **Printable Order Tickets:** "Print Ticket" functionality for printer-friendly order tickets.
 - **Bulk Order Management:** Bulk operations in the Orders page for status changes, printing, and deletion.
-- **Driver Delivery Portal:** A web-based Progressive Web App (PWA) for delivery drivers, including an application system, order management, delivery tracking, and earnings calculation. Features a progressive profile completion system, dual authentication, and integration with Stripe Connect for payouts.
+- **Driver Delivery Portal:** A web-based Progressive Web App (PWA) for delivery drivers, including an application system, order management, delivery tracking, and earnings calculation. Features:
+  - **Progressive Profile Completion:** 20% Personal Info → 40% Vehicle Details → 60% Documents → 100% Bank Account (Stripe Connect) with real-time percentage tracking
+  - **Navigation System:** Consistent header across dashboard and settings with quick links to Dashboard, Service Zones (with zone count badge), Settings, and Earnings
+  - **Zone Count Badge:** Displays number of selected service zones (red/destructive when 0, secondary when configured) for at-a-glance status
+  - **Driver Status Toggle:** Online/offline availability control in dashboard header
+  - **Accessible Navigation:** Uses `<Button asChild>` pattern with wouter `<Link>` for valid HTML semantics and keyboard/mouse accessibility
+  - Dual authentication and integration with Stripe Connect for payouts
 - **Real-Time Delivery System:** Complete driver delivery workflow with 7 secured APIs and WebSocket-based real-time synchronization across driver/restaurant/admin dashboards.
 - **Comprehensive Admin Controls:** Platform administrators have centralized access to payout management, content moderation, user management, subscription controls, financial dashboard, platform settings, and a synchronized dashboard.
 
