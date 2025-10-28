@@ -117,6 +117,7 @@ class WebSocketManager {
         
         if (ws.driverId) {
           this.addClient(`driver:${ws.driverId}`, ws);
+          this.addClient('driver:all', ws); // Add to all drivers channel for broadcasts
         }
         
         if (ws.role === 'admin') {
@@ -274,6 +275,14 @@ class WebSocketManager {
   // Broadcast to all admins
   broadcastToAdmins(message: WebSocketMessage) {
     const clients = this.clients.get('admin:all');
+    if (clients) {
+      clients.forEach(client => this.sendToClient(client, message));
+    }
+  }
+
+  // Broadcast to all drivers
+  broadcastToAllDrivers(message: WebSocketMessage) {
+    const clients = this.clients.get('driver:all');
     if (clients) {
       clients.forEach(client => this.sendToClient(client, message));
     }

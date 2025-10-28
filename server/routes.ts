@@ -3810,13 +3810,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (data.paymentMethod === 'cash') {
         // Cash on delivery - mark order as confirmed, payment will be collected on delivery
-        await storage.confirmOrderWithPayment(
+        const confirmedOrder = await storage.confirmOrderWithPayment(
           order.id,
           'cash',
           `cash-${order.orderNumber}`,
           parseFloat(data.total),
           parseFloat(data.deliveryFee || '0')
         );
+        
+        // Broadcast to restaurant
+        wsManager.broadcastToRestaurant(restaurant.id, {
+          type: 'new_order',
+          data: confirmedOrder
+        });
+        
+        // If delivery order, broadcast to all online drivers
+        if (data.orderType === 'delivery') {
+          wsManager.broadcastToAllDrivers({
+            type: 'new_delivery_order',
+            data: {
+              orderId: confirmedOrder.id,
+              orderNumber: confirmedOrder.orderNumber,
+              restaurantId: restaurant.id,
+              restaurantName: restaurant.name,
+              deliveryFee: confirmedOrder.deliveryFee,
+              deliveryAddress: confirmedOrder.deliveryAddress,
+              total: confirmedOrder.total,
+              estimatedEarnings: (parseFloat(confirmedOrder.deliveryFee || '0') * 0.8).toFixed(2),
+            }
+          });
+        }
+        
         res.json({ orderId: order.id, paymentMethod: 'cash', success: true });
       } else if (data.paymentMethod === 'paypal') {
         res.json({ orderId: order.id, paymentMethod: 'paypal' });
@@ -4547,13 +4571,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const captureId = capture.result.purchaseUnits?.[0]?.payments?.captures?.[0]?.id || paypalOrderId;
         
         // Confirm order with payment tracking and ledger entry creation
-        await storage.confirmOrderWithPayment(
+        const confirmedOrder = await storage.confirmOrderWithPayment(
           orderId,
           'paypal',
           captureId,
           parseFloat(totalAmount) || 0,
           parseFloat(deliveryFee) || 0
         );
+        
+        // Broadcast to restaurant
+        const restaurant = await storage.getRestaurant(confirmedOrder.restaurantId);
+        if (restaurant) {
+          wsManager.broadcastToRestaurant(restaurant.id, {
+            type: 'new_order',
+            data: confirmedOrder
+          });
+          
+          // If delivery order, broadcast to all online drivers
+          if (confirmedOrder.orderType === 'delivery') {
+            wsManager.broadcastToAllDrivers({
+              type: 'new_delivery_order',
+              data: {
+                orderId: confirmedOrder.id,
+                orderNumber: confirmedOrder.orderNumber,
+                restaurantId: restaurant.id,
+                restaurantName: restaurant.name,
+                deliveryFee: confirmedOrder.deliveryFee,
+                deliveryAddress: confirmedOrder.deliveryAddress,
+                total: confirmedOrder.total,
+                estimatedEarnings: (parseFloat(confirmedOrder.deliveryFee || '0') * 0.8).toFixed(2),
+              }
+            });
+          }
+        }
         
         res.json({ 
           success: true,

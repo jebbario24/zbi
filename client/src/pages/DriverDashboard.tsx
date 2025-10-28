@@ -231,8 +231,17 @@ export default function DriverDashboard() {
         }
         
         // Handle new orders becoming available
-        if (message.type === 'new_order_available') {
+        if (message.type === 'new_order_available' || message.type === 'new_delivery_order') {
           queryClient.invalidateQueries({ queryKey: ['/api/driver/available-orders'] });
+          
+          // Show notification for new delivery orders
+          if (message.type === 'new_delivery_order') {
+            toast({
+              title: "New Delivery Available! 🚗",
+              description: `Order from ${message.data?.restaurantName || 'restaurant'}. Estimated earnings: $${message.data?.estimatedEarnings || '0'}`,
+              duration: 8000,
+            });
+          }
         }
         
         // Handle delivery status updates
