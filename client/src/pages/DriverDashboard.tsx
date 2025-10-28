@@ -111,17 +111,30 @@ export default function DriverDashboard() {
 
   // Bypass for test account
   const isTestAccount = user?.email === 'drivertest28697@gmail.com';
+  const isApproved = completionStatus?.adminApproved === true || isTestAccount;
 
   // Fetch driver stats
   const { data: stats, isLoading: loadingStats } = useQuery<DriverStats>({
     queryKey: ['/api/driver/stats'],
-    enabled: !!user && user.role === 'driver' && (isTestAccount || completionStatus?.adminApproved === true),
+    enabled: !!user && user.role === 'driver' && isApproved,
   });
 
   // Fetch active delivery
   const { data: activeDelivery, isLoading: loadingActiveDelivery } = useQuery<ActiveDelivery | null>({
     queryKey: ['/api/driver/active-delivery'],
-    enabled: !!user && user.role === 'driver' && (isTestAccount || completionStatus?.adminApproved === true),
+    enabled: !!user && user.role === 'driver' && isApproved,
+  });
+
+  // Fetch service zones
+  const { data: serviceZonesData } = useQuery<{ serviceZones: string[] }>({
+    queryKey: ['/api/driver/service-zones'],
+    enabled: !!user && user.role === 'driver' && isApproved,
+  });
+
+  // Fetch all available zones to map IDs to names
+  const { data: allZones = [] } = useQuery<any[]>({
+    queryKey: ['/api/driver/available-zones'],
+    enabled: !!user && user.role === 'driver' && isApproved,
   });
 
   // Fetch available orders
@@ -298,7 +311,6 @@ export default function DriverDashboard() {
   };
 
   const profileStatus = getProfileCompletionMessage();
-  const isApproved = completionStatus?.adminApproved === true || isTestAccount;
   const canToggleStatus = isTestAccount ? true : (completionStatus?.profileComplete && completionStatus?.adminApproved);
 
   if (loadingStatus) {
@@ -350,6 +362,53 @@ export default function DriverDashboard() {
           </Card>
         )}
       </div>
+
+      {/* Service Zones Indicator */}
+      {isApproved && serviceZonesData && (
+        <Card data-testid="card-service-zones">
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <MapPin className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <div className="font-medium">Service Zones</div>
+                <div className="text-sm text-muted-foreground">
+                  {serviceZonesData.serviceZones.length === 0 ? (
+                    "No zones selected"
+                  ) : (
+                    `Serving ${serviceZonesData.serviceZones.length} zone${serviceZonesData.serviceZones.length !== 1 ? 's' : ''}`
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {serviceZonesData.serviceZones.length === 0 ? (
+                <Link href="/driver/settings?tab=zones">
+                  <Button size="sm" variant="outline" data-testid="button-select-zones">
+                    <MapPin className="w-4 h-4 mr-2" />
+                    Select Zones
+                  </Button>
+                </Link>
+              ) : (
+                <div className="flex flex-wrap gap-1 max-w-md">
+                  {serviceZonesData.serviceZones.slice(0, 3).map((zoneId: string) => {
+                    const zone = allZones.find((z: any) => z.id === zoneId);
+                    return zone ? (
+                      <Badge key={zoneId} variant="secondary" data-testid={`badge-zone-${zoneId}`}>
+                        {zone.neighborhood || zone.city}
+                      </Badge>
+                    ) : null;
+                  })}
+                  {serviceZonesData.serviceZones.length > 3 && (
+                    <Badge variant="secondary">
+                      +{serviceZonesData.serviceZones.length - 3} more
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Profile Completion Alert */}
       {!completionStatus?.adminApproved && (
