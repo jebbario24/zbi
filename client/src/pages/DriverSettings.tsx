@@ -15,7 +15,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CheckCircle2, XCircle, Clock, Upload, ExternalLink, FileText, CreditCard, User, Car, MapPin } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Upload, ExternalLink, FileText, CreditCard, User, Car, MapPin, Truck, LayoutDashboard, Settings as SettingsIcon, TrendingUp } from "lucide-react";
+import { Link } from "wouter";
 
 const personalInfoSchema = z.object({
   phone: z.string()
@@ -560,14 +561,74 @@ export default function DriverSettings() {
     );
   }
 
+  // Fetch service zones for navigation badge
+  const { data: serviceZonesData } = useQuery<{ serviceZones: string[] }>({
+    queryKey: ['/api/driver/service-zones'],
+    enabled: !!user && user.role === 'driver',
+  });
+
   return (
-    <div className="container mx-auto p-6 max-w-5xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold" data-testid="text-page-title">Driver Settings</h1>
-        <p className="text-muted-foreground">Complete your profile to start accepting deliveries</p>
+    <div className="min-h-screen bg-background">
+      {/* Navigation Header */}
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Truck className="h-6 w-6 text-primary" />
+              <span className="text-lg font-semibold">Driver Portal</span>
+            </div>
+          </div>
+          
+          {/* Navigation Menu */}
+          <nav className="flex items-center gap-1" data-testid="driver-nav-menu-settings">
+            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-dashboard-settings">
+              <Link href="/driver/dashboard">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
+            
+            <Button asChild variant="ghost" size="sm" className="gap-2 relative" data-testid="nav-service-zones-settings">
+              <Link href="/driver/settings?tab=zones">
+                <MapPin className="h-4 w-4" />
+                Service Zones
+                {serviceZonesData && (
+                  <Badge 
+                    variant={serviceZonesData.serviceZones.length === 0 ? "destructive" : "secondary"}
+                    className="ml-1 text-xs h-5 px-1.5"
+                    data-testid="badge-zone-count-nav-settings"
+                  >
+                    {serviceZonesData.serviceZones.length}
+                  </Badge>
+                )}
+              </Link>
+            </Button>
+            
+            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-settings-active">
+              <Link href="/driver/settings">
+                <SettingsIcon className="h-4 w-4" />
+                Settings
+              </Link>
+            </Button>
+            
+            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-earnings-settings">
+              <Link href="/driver/dashboard#earnings">
+                <TrendingUp className="h-4 w-4" />
+                Earnings
+              </Link>
+            </Button>
+          </nav>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      {/* Main Content */}
+      <div className="container mx-auto p-6 max-w-5xl">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">Settings</h1>
+          <p className="text-muted-foreground text-sm">Complete your profile to start accepting deliveries</p>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-6 mb-6" data-testid="tabs-driver-settings">
           <TabsTrigger value="personal" data-testid="tab-personal-info">
             <User className="w-4 h-4 mr-2" />
@@ -1128,6 +1189,7 @@ export default function DriverSettings() {
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

@@ -24,7 +24,9 @@ import {
   Power,
   ArrowRight,
   Store,
-  Home
+  Home,
+  Settings,
+  LayoutDashboard
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -346,46 +348,95 @@ export default function DriverDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Welcome Header */}
-      <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-background">
+      {/* Navigation Header */}
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Truck className="h-6 w-6 text-primary" />
+              <span className="text-lg font-semibold">Driver Portal</span>
+            </div>
+            
+            {/* Driver Status Toggle */}
+            {isApproved && (
+              <div className="flex items-center gap-3" data-testid="header-driver-status">
+                <div className="flex items-center gap-2">
+                  <Power className={`h-4 w-4 ${stats?.isAvailable ? 'text-green-600' : 'text-muted-foreground'}`} />
+                  <Label htmlFor="header-status-toggle" className="text-sm font-medium">
+                    {stats?.isAvailable ? 'Online' : 'Offline'}
+                  </Label>
+                </div>
+                <Switch
+                  id="header-status-toggle"
+                  data-testid="switch-driver-status-header"
+                  checked={stats?.isAvailable || false}
+                  onCheckedChange={(checked) => statusMutation.mutate(checked)}
+                  disabled={!canToggleStatus || statusMutation.isPending}
+                />
+                <Badge 
+                  variant={stats?.isAvailable ? "default" : "secondary"}
+                  className="text-xs"
+                >
+                  {stats?.isAvailable ? 'Available' : 'Offline'}
+                </Badge>
+              </div>
+            )}
+          </div>
+          
+          {/* Navigation Menu */}
+          <nav className="flex items-center gap-1" data-testid="driver-nav-menu">
+            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-dashboard">
+              <Link href="/driver/dashboard">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
+            
+            <Button asChild variant="ghost" size="sm" className="gap-2 relative" data-testid="nav-service-zones">
+              <Link href="/driver/settings?tab=zones">
+                <MapPin className="h-4 w-4" />
+                Service Zones
+                {serviceZonesData && (
+                  <Badge 
+                    variant={serviceZonesData.serviceZones.length === 0 ? "destructive" : "secondary"}
+                    className="ml-1 text-xs h-5 px-1.5"
+                    data-testid="badge-zone-count-nav"
+                  >
+                    {serviceZonesData.serviceZones.length}
+                  </Badge>
+                )}
+              </Link>
+            </Button>
+            
+            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-settings">
+              <Link href="/driver/settings">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </Button>
+            
+            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-earnings">
+              <Link href="/driver/dashboard#earnings">
+                <TrendingUp className="h-4 w-4" />
+                Earnings
+              </Link>
+            </Button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Welcome Header */}
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Truck className="h-8 w-8" />
-            Driver Dashboard
-          </h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold">
             Welcome back, {user?.firstName || 'Driver'}!
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Manage your deliveries and earnings
           </p>
         </div>
-
-        {/* Driver Status Toggle */}
-        {isApproved && (
-          <Card className="w-auto" data-testid="card-driver-status">
-            <CardContent className="flex items-center gap-4 py-4">
-              <div className="flex items-center gap-2">
-                <Power className={`h-5 w-5 ${stats?.isAvailable ? 'text-green-600' : 'text-muted-foreground'}`} />
-                <Label htmlFor="status-toggle" className="text-sm font-medium">
-                  {stats?.isAvailable ? 'Online' : 'Offline'}
-                </Label>
-              </div>
-              <Switch
-                id="status-toggle"
-                data-testid="switch-driver-status"
-                checked={stats?.isAvailable || false}
-                onCheckedChange={(checked) => statusMutation.mutate(checked)}
-                disabled={!canToggleStatus || statusMutation.isPending}
-              />
-              <Badge 
-                variant={stats?.isAvailable ? "default" : "secondary"}
-                data-testid="badge-driver-status"
-              >
-                {stats?.isAvailable ? 'Available' : 'Unavailable'}
-              </Badge>
-            </CardContent>
-          </Card>
-        )}
-      </div>
 
       {/* Service Zones Indicator */}
       {isApproved && serviceZonesData && (
@@ -858,6 +909,7 @@ export default function DriverDashboard() {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }
