@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   DollarSign, 
   CheckCircle, 
@@ -110,6 +111,7 @@ const deliveryStatusSteps = [
 export default function DriverDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>("all");
 
   // Fetch profile completion status
   const { data: completionStatus, isLoading: loadingStatus } = useQuery<CompletionStatus>({
@@ -150,6 +152,20 @@ export default function DriverDashboard() {
     queryKey: ['/api/driver/available-orders'],
     enabled: !!user && user.role === 'driver' && (isTestAccount || completionStatus?.adminApproved === true) && !activeDelivery,
   });
+
+  // Filter orders by selected zone
+  const filteredOrders = selectedZoneFilter === "all" 
+    ? availableOrders 
+    : availableOrders.filter(order => order.deliveryZone?.id === selectedZoneFilter);
+
+  // Get unique zones from available orders for filter dropdown
+  const uniqueZones = Array.from(
+    new Map(
+      availableOrders
+        .filter(order => order.deliveryZone)
+        .map(order => [order.deliveryZone!.id, order.deliveryZone!])
+    ).values()
+  );
 
   // Toggle driver online/offline status
   const statusMutation = useMutation({
@@ -688,13 +704,32 @@ export default function DriverDashboard() {
       {isApproved && !activeDelivery && stats?.isAvailable && (
         <Card data-testid="card-available-orders">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Available Orders
-            </CardTitle>
-            <CardDescription>
-              Accept orders and start delivering
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Available Orders
+                </CardTitle>
+                <CardDescription>
+                  Accept orders and start delivering
+                </CardDescription>
+              </div>
+              {uniqueZones.length > 1 && (
+                <Select value={selectedZoneFilter} onValueChange={setSelectedZoneFilter}>
+                  <SelectTrigger className="w-[200px]" data-testid="select-zone-filter">
+                    <SelectValue placeholder="Filter by zone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Zones ({availableOrders.length})</SelectItem>
+                    {uniqueZones.map((zone) => (
+                      <SelectItem key={zone.id} value={zone.id}>
+                        {zone.city}{zone.neighborhood ? ` - ${zone.neighborhood}` : ''} ({availableOrders.filter(o => o.deliveryZone?.id === zone.id).length})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {loadingAvailableOrders ? (
@@ -723,7 +758,7 @@ export default function DriverDashboard() {
               </div>
             ) : (
               <div className="space-y-4" data-testid="list-available-orders">
-                {availableOrders.map((order) => (
+                {filteredOrders.map((order) => (
                   <Card key={order.id} data-testid={`card-order-${order.id}`}>
                     <CardContent className="pt-6 space-y-4">
                       <div className="flex items-start justify-between">
