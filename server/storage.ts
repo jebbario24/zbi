@@ -516,6 +516,35 @@ export class DatabaseStorage implements IStorage {
     } as any));
   }
 
+  async getAllOrders(): Promise<Order[]> {
+    const results = await db
+      .select({
+        order: orders,
+        restaurant: restaurants,
+        deliveryStatus: driverDeliveryStatus,
+        driverProfile: driverProfiles,
+        driverUser: users,
+      })
+      .from(orders)
+      .leftJoin(restaurants, eq(orders.restaurantId, restaurants.id))
+      .leftJoin(driverDeliveryStatus, eq(orders.id, driverDeliveryStatus.orderId))
+      .leftJoin(driverProfiles, eq(driverDeliveryStatus.driverId, driverProfiles.id))
+      .leftJoin(users, eq(driverProfiles.userId, users.id))
+      .orderBy(desc(orders.createdAt));
+
+    return results.map(result => ({
+      ...result.order,
+      restaurantName: result.restaurant?.name || null,
+      driverId: result.driverProfile?.id || null,
+      driverName: result.driverUser
+        ? `${result.driverUser.firstName || ''} ${result.driverUser.lastName || ''}`.trim()
+        : null,
+      driverPhone: result.driverProfile?.phone || null,
+      deliveryStatus: result.deliveryStatus?.status || null,
+      deliveryUpdatedAt: result.deliveryStatus?.updatedAt || null,
+    } as any));
+  }
+
   async createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order> {
     const [newOrder] = await db.insert(orders).values(order).returning();
     
