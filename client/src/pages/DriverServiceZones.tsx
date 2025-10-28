@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,13 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CheckCircle2, Clock, MapPin, Truck, LayoutDashboard, Settings, TrendingUp } from "lucide-react";
+import { CheckCircle2, Clock, MapPin, Truck, LayoutDashboard, Settings, TrendingUp, Filter, X } from "lucide-react";
 import { Link } from "wouter";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function DriverServiceZones() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<string>("all");
+  const [selectedCity, setSelectedCity] = useState<string>("all");
 
   // Fetch available zones
   const { data: availableZones = [], isLoading: zonesLoading } = useQuery<any[]>({
@@ -67,8 +76,45 @@ export default function DriverServiceZones() {
     updateZonesMutation.mutate(selectedZones);
   };
 
-  // Group zones by country and city
-  const groupedZones = availableZones.reduce((acc: any, zone: any) => {
+  // Get unique countries and cities from available zones
+  const countries = useMemo(() => {
+    const uniqueCountries = Array.from(new Set(availableZones.map(z => z.country || "Unknown")));
+    return uniqueCountries.sort();
+  }, [availableZones]);
+
+  const cities = useMemo(() => {
+    if (selectedCountry === "all") {
+      return Array.from(new Set(availableZones.map(z => z.city || "Unknown"))).sort();
+    }
+    return Array.from(
+      new Set(
+        availableZones
+          .filter(z => (z.country || "Unknown") === selectedCountry)
+          .map(z => z.city || "Unknown")
+      )
+    ).sort();
+  }, [availableZones, selectedCountry]);
+
+  // Reset city filter when country changes
+  useEffect(() => {
+    setSelectedCity("all");
+  }, [selectedCountry]);
+
+  // Filter zones based on selected country and city
+  const filteredZones = useMemo(() => {
+    return availableZones.filter(zone => {
+      const zoneCountry = zone.country || "Unknown";
+      const zoneCity = zone.city || "Unknown";
+      
+      const matchesCountry = selectedCountry === "all" || zoneCountry === selectedCountry;
+      const matchesCity = selectedCity === "all" || zoneCity === selectedCity;
+      
+      return matchesCountry && matchesCity;
+    });
+  }, [availableZones, selectedCountry, selectedCity]);
+
+  // Group filtered zones by country and city
+  const groupedZones = filteredZones.reduce((acc: any, zone: any) => {
     const country = zone.country || "Unknown";
     const city = zone.city || "Unknown";
     
@@ -80,6 +126,13 @@ export default function DriverServiceZones() {
   }, {});
 
   const hasUnsavedChanges = JSON.stringify([...selectedZones].sort()) !== JSON.stringify([...(driverZones?.serviceZones || [])].sort());
+  
+  const hasActiveFilters = selectedCountry !== "all" || selectedCity !== "all";
+  
+  const clearFilters = () => {
+    setSelectedCountry("all");
+    setSelectedCity("all");
+  };
 
   if (!user) {
     return (
@@ -178,6 +231,81 @@ export default function DriverServiceZones() {
               </div>
             ) : (
               <>
+                {/* Filter Section */}
+                <div className="p-4 bg-muted/30 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Filter Zones</span>
+                    {hasActiveFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="ml-auto h-7 gap-1"
+                        data-testid="button-clear-filters"
+                      >
+                        <X className="h-3 w-3" />
+                        Clear filters
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Country</label>
+                      <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                        <SelectTrigger data-testid="select-country-filter" className="h-9">
+                          <SelectValue placeholder="All countries" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All countries ({availableZones.length} zones)</SelectItem>
+                          {countries.map(country => {
+                            const count = availableZones.filter(z => (z.country || "Unknown") === country).length;
+                            return (
+                              <SelectItem key={country} value={country}>
+                                {country} ({count} zones)
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">City</label>
+                      <Select 
+                        value={selectedCity} 
+                        onValueChange={setSelectedCity}
+                        disabled={selectedCountry === "all"}
+                      >
+                        <SelectTrigger data-testid="select-city-filter" className="h-9">
+                          <SelectValue placeholder={selectedCountry === "all" ? "Select country first" : "All cities"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">
+                            All cities ({selectedCountry === "all" ? availableZones.length : availableZones.filter(z => (z.country || "Unknown") === selectedCountry).length} zones)
+                          </SelectItem>
+                          {cities.map(city => {
+                            const count = availableZones.filter(z => {
+                              const matchesCountry = selectedCountry === "all" || (z.country || "Unknown") === selectedCountry;
+                              const matchesCity = (z.city || "Unknown") === city;
+                              return matchesCountry && matchesCity;
+                            }).length;
+                            return (
+                              <SelectItem key={city} value={city}>
+                                {city} ({count} zones)
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {hasActiveFilters && (
+                    <div className="text-xs text-muted-foreground">
+                      Showing {filteredZones.length} of {availableZones.length} zones
+                    </div>
+                  )}
+                </div>
+
                 {/* Selection Summary */}
                 <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-3">
@@ -198,33 +326,52 @@ export default function DriverServiceZones() {
                       </div>
                     </div>
                   </div>
-                  {availableZones.length > 0 && (
+                  {filteredZones.length > 0 && (
                     <div className="flex gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setSelectedZones(availableZones.map(z => z.id))}
-                        disabled={selectedZones.length === availableZones.length}
+                        onClick={() => setSelectedZones(prev => {
+                          const filteredIds = filteredZones.map(z => z.id);
+                          const newSelection = new Set([...prev, ...filteredIds]);
+                          return Array.from(newSelection);
+                        })}
+                        disabled={filteredZones.every(z => selectedZones.includes(z.id))}
                         data-testid="button-select-all-zones"
                       >
-                        Select All
+                        Select {hasActiveFilters ? 'Filtered' : 'All'}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setSelectedZones([])}
-                        disabled={selectedZones.length === 0}
+                        onClick={() => setSelectedZones(prev => {
+                          const filteredIds = new Set(filteredZones.map(z => z.id));
+                          return prev.filter(id => !filteredIds.has(id));
+                        })}
+                        disabled={!filteredZones.some(z => selectedZones.includes(z.id))}
                         data-testid="button-clear-all-zones"
                       >
-                        Clear All
+                        Clear {hasActiveFilters ? 'Filtered' : 'All'}
                       </Button>
                     </div>
                   )}
                 </div>
 
                 {/* Zone List */}
-                <div className="space-y-6">
-                  {Object.entries(groupedZones).map(([country, cities]: [string, any]) => (
+                {filteredZones.length === 0 ? (
+                  <div className="text-center p-12">
+                    <Filter className="h-12 w-12 mx-auto mb-4 opacity-50 text-muted-foreground" />
+                    <div className="text-lg font-medium mb-2">No zones match your filters</div>
+                    <div className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+                      Try adjusting your country or city filters to see available zones.
+                    </div>
+                    <Button variant="outline" onClick={clearFilters} data-testid="button-clear-filters-empty">
+                      Clear filters
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {Object.entries(groupedZones).map(([country, cities]: [string, any]) => (
                     <div key={country} className="space-y-3">
                       <div className="flex items-center gap-2 pb-2 border-b">
                         <h3 className="font-semibold text-lg">{country}</h3>
@@ -291,7 +438,8 @@ export default function DriverServiceZones() {
                       ))}
                     </div>
                   ))}
-                </div>
+                  </div>
+                )}
 
                 {/* Save Section */}
                 <div className="flex items-center justify-between pt-6 border-t">
