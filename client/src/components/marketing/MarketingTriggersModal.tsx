@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X } from "lucide-react";
+import { Plus, ArrowUp, Sparkles, Lightbulb } from "lucide-react";
 import type { MenuItem } from "@shared/schema";
 
 interface MarketingTriggersModalProps {
@@ -23,21 +23,21 @@ const getTriggerConfig = (type: 'upsell' | 'crossSell' | 'downsell') => {
       return {
         title: 'Upgrade Your Order',
         subtitle: 'Consider these premium options',
-        icon: '⬆️',
+        Icon: ArrowUp,
         badgeVariant: 'default' as const,
       };
     case 'crossSell':
       return {
         title: 'Perfect Pairings',
         subtitle: 'Customers also loved these items',
-        icon: '🤝',
+        Icon: Sparkles,
         badgeVariant: 'secondary' as const,
       };
     case 'downsell':
       return {
         title: 'Similar Items',
         subtitle: 'Check out these alternatives',
-        icon: '💡',
+        Icon: Lightbulb,
         badgeVariant: 'outline' as const,
       };
   }
@@ -55,6 +55,7 @@ export function MarketingTriggersModal({
   selectedLanguage,
 }: MarketingTriggersModalProps) {
   const config = getTriggerConfig(triggerType);
+  const Icon = config.Icon;
 
   if (!originalItem || suggestedItems.length === 0) {
     return null;
@@ -65,7 +66,7 @@ export function MarketingTriggersModal({
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="dialog-marketing-triggers">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span>{config.icon}</span>
+            <Icon className="h-5 w-5" />
             {config.title}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">{config.subtitle}</p>

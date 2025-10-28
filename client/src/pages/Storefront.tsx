@@ -191,6 +191,7 @@ export default function Storefront() {
       choices: Array<{ label: string; priceCents: number }>;
     }>;
   } | null>(null);
+  const [skipMarketingTriggersForCurrentItem, setSkipMarketingTriggersForCurrentItem] = useState(false);
 
   const mockReferral = {
     referralLink: `${window.location.origin}/store/${slug}?ref=USER123`,
@@ -409,6 +410,7 @@ export default function Storefront() {
     if (itemOptions.length > 0) {
       setSelectedItem(item);
       setSelectedItemOptions([]);
+      setSkipMarketingTriggersForCurrentItem(skipMarketingTriggers);
       setItemModalOpen(true);
       return;
     }
@@ -495,42 +497,45 @@ export default function Storefront() {
     // Close the toppings modal first
     setItemModalOpen(false);
     
-    // Check for marketing trigger items (upsell/cross-sell/downsell)
-    const upsellIds = (selectedItem.upsellItemIds as string[]) || [];
-    const crossSellIds = (selectedItem.crossSellItemIds as string[]) || [];
-    const downsellIds = (selectedItem.downsellItemIds as string[]) || [];
-    
-    // Determine which type of trigger to show (prioritize cross-sell, then upsell, then downsell)
-    let triggerIds: string[] = [];
-    let triggerType: 'upsell' | 'crossSell' | 'downsell' = 'crossSell';
-    
-    if (crossSellIds.length > 0) {
-      triggerIds = crossSellIds;
-      triggerType = 'crossSell';
-    } else if (upsellIds.length > 0) {
-      triggerIds = upsellIds;
-      triggerType = 'upsell';
-    } else if (downsellIds.length > 0) {
-      triggerIds = downsellIds;
-      triggerType = 'downsell';
-    }
-    
-    // If there are marketing triggers, show the modal
-    if (triggerIds.length > 0 && menuItems.length > 0) {
-      setPendingCartItem({
-        menuItem: selectedItem,
-        selectedOptions: selectedItemOptions
-      });
-      setMarketingTriggerType(triggerType);
-      setMarketingTriggersModalOpen(true);
+    // Check for marketing trigger items only if not skipping
+    if (!skipMarketingTriggersForCurrentItem) {
+      const upsellIds = (selectedItem.upsellItemIds as string[]) || [];
+      const crossSellIds = (selectedItem.crossSellItemIds as string[]) || [];
+      const downsellIds = (selectedItem.downsellItemIds as string[]) || [];
       
-      // Clear the toppings modal state
-      setSelectedItem(null);
-      setSelectedItemOptions([]);
-      return;
+      // Determine which type of trigger to show (prioritize cross-sell, then upsell, then downsell)
+      let triggerIds: string[] = [];
+      let triggerType: 'upsell' | 'crossSell' | 'downsell' = 'crossSell';
+      
+      if (crossSellIds.length > 0) {
+        triggerIds = crossSellIds;
+        triggerType = 'crossSell';
+      } else if (upsellIds.length > 0) {
+        triggerIds = upsellIds;
+        triggerType = 'upsell';
+      } else if (downsellIds.length > 0) {
+        triggerIds = downsellIds;
+        triggerType = 'downsell';
+      }
+      
+      // If there are marketing triggers, show the modal
+      if (triggerIds.length > 0 && menuItems.length > 0) {
+        setPendingCartItem({
+          menuItem: selectedItem,
+          selectedOptions: selectedItemOptions
+        });
+        setMarketingTriggerType(triggerType);
+        setMarketingTriggersModalOpen(true);
+        
+        // Clear the toppings modal state
+        setSelectedItem(null);
+        setSelectedItemOptions([]);
+        setSkipMarketingTriggersForCurrentItem(false);
+        return;
+      }
     }
     
-    // No marketing triggers - add directly to cart
+    // No marketing triggers or skipping - add directly to cart
     setCart([...cart, { 
       menuItem: selectedItem, 
       quantity: 1,
@@ -540,6 +545,7 @@ export default function Storefront() {
     toast({ title: `${selectedItem.name} added to cart` });
     setSelectedItem(null);
     setSelectedItemOptions([]);
+    setSkipMarketingTriggersForCurrentItem(false);
   };
 
   const handleUpsellAccept = () => {
@@ -587,6 +593,15 @@ export default function Storefront() {
     // Close modal and reset state
     setMarketingTriggersModalOpen(false);
     setPendingCartItem(null);
+  };
+
+  // Handle marketing triggers modal dismissal
+  const handleMarketingTriggersModalChange = (open: boolean) => {
+    setMarketingTriggersModalOpen(open);
+    // Clear pending item if modal is manually dismissed
+    if (!open && pendingCartItem) {
+      setPendingCartItem(null);
+    }
   };
 
   const updateQuantity = (index: number, delta: number) => {
@@ -2497,7 +2512,7 @@ export default function Storefront() {
       {/* Marketing Triggers Modal */}
       <MarketingTriggersModal
         open={marketingTriggersModalOpen}
-        onOpenChange={setMarketingTriggersModalOpen}
+        onOpenChange={handleMarketingTriggersModalChange}
         originalItem={pendingCartItem?.menuItem || null}
         suggestedItems={suggestedMarketingItems}
         triggerType={marketingTriggerType}
