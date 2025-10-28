@@ -167,7 +167,7 @@ export interface IStorage {
   getDriverPerformance(): Promise<{ driverId: string; driver: DriverProfile; deliveries: number; earnings: string; rating: string }[]>;
   
   // Driver Delivery operations
-  getAvailableDeliveryOrders(): Promise<(Order & { restaurant: Restaurant })[]>;
+  getAvailableDeliveryOrders(driverId?: string): Promise<(Order & { restaurant: Restaurant })[]>;
   createDriverDeliveryStatus(data: { orderId: string; driverId: string; restaurantId: string }): Promise<DriverDeliveryStatus>;
   updateDriverDeliveryStatus(orderId: string, data: Partial<DriverDeliveryStatus>): Promise<DriverDeliveryStatus>;
   getDriverDeliveryStatus(orderId: string): Promise<DriverDeliveryStatus | undefined>;
@@ -710,6 +710,74 @@ export class DatabaseStorage implements IStorage {
     await db.delete(deliveryZones).where(eq(deliveryZones.id, id));
   }
 
+  // Find matching delivery zone based on delivery address (city/neighborhood)
+  async findMatchingDeliveryZone(restaurantId: string, deliveryCity: string | null, deliveryAddress: string | null): Promise<DeliveryZone | null> {
+    if (!deliveryCity && !deliveryAddress) {
+      return null;
+    }
+
+    const zones = await db
+      .select()
+      .from(deliveryZones)
+      .where(and(
+        eq(deliveryZones.restaurantId, restaurantId),
+        eq(deliveryZones.isActive, true)
+      ));
+
+    if (zones.length === 0) {
+      return null;
+    }
+
+    // Try to match by city first (case-insensitive)
+    if (deliveryCity) {
+      const cityMatch = zones.find(zone => 
+        zone.city?.toLowerCase() === deliveryCity.toLowerCase()
+      );
+      if (cityMatch) {
+        return cityMatch;
+      }
+    }
+
+    // Try to match by neighborhood if address contains it
+    if (deliveryAddress) {
+      const addressLower = deliveryAddress.toLowerCase();
+      const neighborhoodMatch = zones.find(zone => 
+        zone.neighborhood && addressLower.includes(zone.neighborhood.toLowerCase())
+      );
+      if (neighborhoodMatch) {
+        return neighborhoodMatch;
+      }
+    }
+
+    // Return first active zone as fallback (if restaurant has zones configured)
+    return zones[0] || null;
+  }
+
+  // Get all active delivery zones across all restaurants
+  async getAllActiveDeliveryZones(): Promise<(DeliveryZone & { restaurantName: string })[]> {
+    const result = await db
+      .select({
+        zone: deliveryZones,
+        restaurantName: restaurants.name,
+      })
+      .from(deliveryZones)
+      .innerJoin(restaurants, eq(deliveryZones.restaurantId, restaurants.id))
+      .where(eq(deliveryZones.isActive, true));
+
+    return result.map(row => ({
+      ...row.zone,
+      restaurantName: row.restaurantName,
+    }));
+  }
+
+  // Update driver's service zones
+  async updateDriverServiceZones(driverId: string, zoneIds: string[]): Promise<void> {
+    await db
+      .update(driverProfiles)
+      .set({ serviceZones: zoneIds })
+      .where(eq(driverProfiles.id, driverId));
+  }
+
   async getPayoutAccount(restaurantId: string): Promise<RestaurantPayoutAccount | undefined> {
     const [account] = await db
       .select()
@@ -1132,7 +1200,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Driver Delivery operations
-  async getAvailableDeliveryOrders(): Promise<(Order & { restaurant: Restaurant })[]> {
+  async getAvailableDeliveryOrders(driverId?: string): Promise<(Order & { restaurant: Restaurant })[]> {
+    // If no driver ID provided, return all available orders (for admin view)
+    if (!driverId) {
+      const availableOrders = await db
+        .select()
+        .from(orders)
+        .innerJoin(restaurants, eq(orders.restaurantId, restaurants.id))
+        .where(and(
+          eq(orders.status, 'confirmed'),
+          eq(orders.orderType, 'delivery'),
+          sql`${orders.assignedDriverId} IS NULL`,
+          eq(orders.paymentStatus, 'paid')
+        ))
+        .orderBy(desc(orders.createdAt));
+      
+      return availableOrders.map(row => ({
+        ...row.orders,
+        restaurant: row.restaurants
+      }));
+    }
+
+    // Get driver's service zones
+    const [driver] = await db
+      .select()
+      .from(driverProfiles)
+      .where(eq(driverProfiles.id, driverId));
+
+    if (!driver || !driver.serviceZones || driver.serviceZones.length === 0) {
+      // If driver has no zones selected, return empty array
+      return [];
+    }
+
+    // Get available orders in driver's service zones
     const availableOrders = await db
       .select()
       .from(orders)
@@ -1141,7 +1241,8 @@ export class DatabaseStorage implements IStorage {
         eq(orders.status, 'confirmed'),
         eq(orders.orderType, 'delivery'),
         sql`${orders.assignedDriverId} IS NULL`,
-        eq(orders.paymentStatus, 'paid')
+        eq(orders.paymentStatus, 'paid'),
+        sql`${orders.deliveryZoneId} = ANY(${driver.serviceZones})`
       ))
       .orderBy(desc(orders.createdAt));
     

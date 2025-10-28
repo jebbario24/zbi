@@ -2528,6 +2528,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Driver Zone Management APIs
+  // GET /api/driver/available-zones - Get all delivery zones across all restaurants
+  app.get('/api/driver/available-zones', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can access this endpoint" });
+      }
+
+      // Get all active delivery zones from all restaurants
+      const zones = await storage.getAllActiveDeliveryZones();
+      res.json(zones);
+    } catch (error) {
+      console.error("Error fetching available zones:", error);
+      res.status(500).json({ message: "Failed to fetch available zones" });
+    }
+  });
+
+  // GET /api/driver/service-zones - Get driver's selected service zones
+  app.get('/api/driver/service-zones', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can access this endpoint" });
+      }
+
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      res.json({ serviceZones: driver.serviceZones || [] });
+    } catch (error) {
+      console.error("Error fetching driver service zones:", error);
+      res.status(500).json({ message: "Failed to fetch service zones" });
+    }
+  });
+
+  // PUT /api/driver/service-zones - Update driver's service zones
+  app.put('/api/driver/service-zones', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can update service zones" });
+      }
+
+      const { zoneIds } = req.body;
+      if (!Array.isArray(zoneIds)) {
+        return res.status(400).json({ message: "zoneIds must be an array" });
+      }
+
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      await storage.updateDriverServiceZones(driver.id, zoneIds);
+      res.json({ message: "Service zones updated successfully", serviceZones: zoneIds });
+    } catch (error) {
+      console.error("Error updating driver service zones:", error);
+      res.status(500).json({ message: "Failed to update service zones" });
+    }
+  });
+
   // Driver Order Routes
   app.get('/api/driver/my-orders', isAuthenticated, async (req: any, res) => {
     try {
@@ -2848,8 +2909,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Driver account not approved" });
       }
 
-      // Get available orders
-      const availableOrders = await storage.getAvailableDeliveryOrders();
+      // Get available orders filtered by driver's service zones
+      const availableOrders = await storage.getAvailableDeliveryOrders(driver.id);
 
       // Calculate estimated earnings for each order (80% of delivery fee)
       const ordersWithEarnings = availableOrders.map(order => {
@@ -3772,6 +3833,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = onlineOrderSchema.parse(req.body);
       const orderNumber = await generateOrderNumber(restaurant.id, 'WEB');
       
+      // Find matching delivery zone for delivery orders
+      let deliveryZoneId: string | null = null;
+      if (data.orderType === 'delivery') {
+        const matchingZone = await storage.findMatchingDeliveryZone(
+          restaurant.id,
+          data.deliveryCity || null,
+          data.deliveryAddress || null
+        );
+        deliveryZoneId = matchingZone?.id || null;
+      }
+      
       const order = await storage.createOrder({
         restaurantId: restaurant.id,
         orderNumber,
@@ -3784,6 +3856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deliveryCity: data.deliveryCity || null,
         deliveryAddress: data.deliveryAddress || null,
         deliveryFee: data.deliveryFee || '0',
+        deliveryZoneId,
         paymentMethod: data.paymentMethod || null,
         subtotal: data.subtotal,
         promoCode: data.promoCode || null,
