@@ -750,11 +750,19 @@ export default function DriverDashboard() {
                   </Link>
                 </AlertDescription>
               </Alert>
-            ) : availableOrders.length === 0 ? (
+            ) : filteredOrders.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p data-testid="text-no-orders">No orders available in your selected zones</p>
-                <p className="text-sm">Check back soon for delivery opportunities</p>
+                <p data-testid="text-no-orders">
+                  {selectedZoneFilter === "all" 
+                    ? "No orders available in your selected zones" 
+                    : "No orders available in this zone"}
+                </p>
+                <p className="text-sm">
+                  {selectedZoneFilter === "all"
+                    ? "Check back soon for delivery opportunities"
+                    : "Try selecting 'All Zones' or check back later"}
+                </p>
               </div>
             ) : (
               <div className="space-y-4" data-testid="list-available-orders">
