@@ -4178,6 +4178,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = req.user.id;
     const { primaryColor, secondaryColor, accentColor } = req.body;
 
+    // Validate hex color format
+    const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
+    
+    if (primaryColor && !hexColorRegex.test(primaryColor)) {
+      return res.status(400).json({ error: "Invalid primary color format. Must be a hex color (e.g., #ff0000)" });
+    }
+    if (secondaryColor && !hexColorRegex.test(secondaryColor)) {
+      return res.status(400).json({ error: "Invalid secondary color format. Must be a hex color (e.g., #ff0000)" });
+    }
+    if (accentColor && !hexColorRegex.test(accentColor)) {
+      return res.status(400).json({ error: "Invalid accent color format. Must be a hex color (e.g., #ff0000)" });
+    }
+
     try {
       const restaurant = await storage.getRestaurantByOwnerId(userId);
       if (!restaurant) {
