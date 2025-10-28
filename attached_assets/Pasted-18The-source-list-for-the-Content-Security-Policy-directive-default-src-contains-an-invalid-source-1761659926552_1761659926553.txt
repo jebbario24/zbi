@@ -1,0 +1,118 @@
+18The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.Understand this error
+18The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?Understand this error
+18The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.Understand this error
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+EatOutManager:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.Understand this error
+EatOutManager:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?Understand this error
+EatOutManager:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.Understand this error
+_app-72ccde1adae661ed.js:13 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+_app-72ccde1adae661ed.js:13 [LaunchDarkly] LaunchDarkly client initialized
+7Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.Understand this error
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'battery'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'layout-animations'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'navigation-override'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'oversized-images'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'publickey-credentials'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'speaker-selection'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'unoptimized-images'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'unsized-media'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Unrecognized feature: 'pointer-lock'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+framework-feb12df8fd4c4694.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-feb12df8fd4c4694.js:1Understand this warning
+stallwart.build.js:1 stallwart: failed ping 1
+8_app-72ccde1adae661ed.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-72ccde1adae661ed.js:13Understand this warning
+EatOutManager:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+2_app-72ccde1adae661ed.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-72ccde1adae661ed.js:13Understand this warning
+t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://80017db5-cd42-43a6-9358-ff5c68488175-00-1ko5ytn8p9be0.spock.replit.dev/&size=32:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://80017db5-cd42-43a6-9358-ff5c68488175-00-1ko5ytn8p9be0.spock.replit.dev/&size=32:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://80017db5-cd42-43a6-9358-ff5c68488175-00-1ko5ytn8p9be0.spock.replit.dev&size=32:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+6_app-72ccde1adae661ed.js:13 If you do not provide children, you must specify an aria-label for accessibility
+(anonymous) @ _app-72ccde1adae661ed.js:13Understand this warning
+stallwart.build.js:1 stallwart: failed ping 1
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'ambient-light-sensor'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'battery'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'execution-while-not-rendered'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'execution-while-out-of-viewport'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'layout-animations'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'legacy-image-formats'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'navigation-override'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'oversized-images'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'publickey-credentials'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'speaker-selection'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'unoptimized-images'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Unrecognized feature: 'unsized-media'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Allow attribute will take precedence over 'allowfullscreen'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=%3Ar12f%3A:32 Allow attribute will take precedence over 'allowpaymentrequest'.Understand this warning
+client:536 WebSocket connection to 'wss://80017db5-cd42-43a6-9358-ff5c68488175-00-1ko5ytn8p9be0.spock.replit.dev/?token=6aR4jT0N7HFu' failed: 
+setupWebSocket @ client:536Understand this error
+client:536 Uncaught (in promise) SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=6aR4jT0N7HFu' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)Understand this error
+main.tsx:13 Service Worker registered successfully: https://80017db5-cd42-43a6-9358-ff5c68488175-00-1ko5ytn8p9be0.spock.replit.dev/
+DriverDashboard.tsx:210 WebSocket connected for driver dashboard
+service-worker.js:14 Opened cache
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+Node cannot be found in the current page.Understand this warning
+DriverDashboard.tsx:256 WebSocket disconnected
+queryClient.ts:32  GET https://80017db5-cd42-43a6-9358-ff5c68488175-00-1ko5ytn8p9be0.spock.replit.dev/api/driver/connect/status 401 (Unauthorized)
+(anonymous) @ queryClient.ts:32
+fetchFn @ @tanstack_react-query.js?v=2a62cf59:840
+run @ @tanstack_react-query.js?v=2a62cf59:494
+start @ @tanstack_react-query.js?v=2a62cf59:536
+fetch @ @tanstack_react-query.js?v=2a62cf59:926
+executeFetch_fn @ @tanstack_react-query.js?v=2a62cf59:2211
+onSubscribe @ @tanstack_react-query.js?v=2a62cf59:1898
+subscribe @ @tanstack_react-query.js?v=2a62cf59:24
+(anonymous) @ @tanstack_react-query.js?v=2a62cf59:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=2a62cf59:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=2a62cf59:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=2a62cf59:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=2a62cf59:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=2a62cf59:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=2a62cf59:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=2a62cf59:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=2a62cf59:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=2a62cf59:19416
+commitRoot @ chunk-RPCDYKBN.js?v=2a62cf59:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=2a62cf59:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=2a62cf59:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=2a62cf59:18627Understand this error

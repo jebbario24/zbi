@@ -101,7 +101,7 @@ export default function DriverSettings() {
   // Stripe Connect status
   const { data: stripeStatus } = useQuery<any>({
     queryKey: ["/api/driver/connect/status"],
-    enabled: !!user,
+    enabled: !!user && user.role === 'driver',
   });
 
   // Personal Info Mutation

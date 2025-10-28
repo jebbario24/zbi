@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Receipt, DollarSign, CheckCircle, Clock, XCircle, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Payout {
   id: string;
@@ -22,12 +23,16 @@ interface ConnectStatus {
 }
 
 export default function DriverPayouts() {
+  const { user } = useAuth();
+
   const { data: payouts = [], isLoading: loadingPayouts } = useQuery<Payout[]>({
     queryKey: ['/api/driver/payouts'],
+    enabled: !!user && user.role === 'driver',
   });
 
   const { data: connectStatus, isLoading: loadingStatus } = useQuery<ConnectStatus>({
     queryKey: ['/api/driver/connect/status'],
+    enabled: !!user && user.role === 'driver',
   });
 
   const getStatusBadge = (status: string) => {

@@ -19,9 +19,10 @@ export default function DriverServiceZones() {
     queryKey: ["/api/driver/available-zones"],
   });
 
-  // Fetch driver's current service zones
+  // Fetch driver's current service zones (single query for both data and badge)
   const { data: driverZones } = useQuery<{ serviceZones: string[] }>({
     queryKey: ["/api/driver/service-zones"],
+    enabled: !!user && user.role === 'driver',
   });
 
   // Update selected zones when driver zones are loaded
@@ -80,12 +81,6 @@ export default function DriverServiceZones() {
 
   const hasUnsavedChanges = JSON.stringify([...selectedZones].sort()) !== JSON.stringify([...(driverZones?.serviceZones || [])].sort());
 
-  // Fetch service zones for navigation badge
-  const { data: serviceZonesData } = useQuery<{ serviceZones: string[] }>({
-    queryKey: ['/api/driver/service-zones'],
-    enabled: !!user && user.role === 'driver',
-  });
-
   if (!user) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -119,13 +114,13 @@ export default function DriverServiceZones() {
               <Link href="/driver/service-zones">
                 <MapPin className="h-4 w-4" />
                 Service Zones
-                {serviceZonesData && (
+                {driverZones && (
                   <Badge 
-                    variant={serviceZonesData.serviceZones.length === 0 ? "destructive" : "secondary"}
+                    variant={driverZones.serviceZones.length === 0 ? "destructive" : "secondary"}
                     className="ml-1 text-xs h-5 px-1.5"
                     data-testid="badge-zone-count-nav-service-zones"
                   >
-                    {serviceZonesData.serviceZones.length}
+                    {driverZones.serviceZones.length}
                   </Badge>
                 )}
               </Link>
