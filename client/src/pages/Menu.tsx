@@ -320,6 +320,7 @@ export default function Menu() {
     },
     onSuccess: async (response: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/storefront/items"] });
       
       // Save translations if any exist
       const itemId = response.id;
@@ -396,6 +397,7 @@ export default function Menu() {
     },
     onSuccess: async (_response: any, variables: { id: string; data: z.infer<typeof itemSchema> }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/storefront/items"] });
       
       // Save translations if any exist
       const itemId = variables.id;
@@ -461,6 +463,7 @@ export default function Menu() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/storefront/items"] });
       toast({ title: "Menu item deleted successfully" });
     },
     onError: (error: Error) => {
@@ -483,6 +486,7 @@ export default function Menu() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/storefront/items"] });
       toast({ title: "Menu item duplicated successfully" });
     },
     onError: (error: Error) => {
