@@ -61,6 +61,7 @@ import DriverDashboard from "@/pages/DriverDashboard";
 import DriverLogin from "@/pages/DriverLogin";
 import DriverSettings from "@/pages/DriverSettings";
 import DriverAvailableOrders from "@/pages/DriverAvailableOrders";
+import DriverServiceZones from "@/pages/DriverServiceZones";
 import DriverEarnings from "@/pages/DriverEarnings";
 import DriverHistory from "@/pages/DriverHistory";
 import DriverPayouts from "@/pages/DriverPayouts";
@@ -116,6 +117,7 @@ function AuthenticatedRouter() {
         <Route path="/driver" component={DriverDashboard} />
         <Route path="/driver/dashboard" component={DriverDashboard} />
         <Route path="/driver/available-orders" component={DriverAvailableOrders} />
+        <Route path="/driver/service-zones" component={DriverServiceZones} />
         <Route path="/driver/earnings" component={DriverEarnings} />
         <Route path="/driver/history" component={DriverHistory} />
         <Route path="/driver/payouts" component={DriverPayouts} />
