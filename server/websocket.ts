@@ -288,6 +288,30 @@ class WebSocketManager {
     }
   }
 
+  // Broadcast to drivers serving a specific delivery zone
+  async broadcastToDriversInZone(zoneId: string, message: WebSocketMessage) {
+    const clients = this.clients.get('driver:all');
+    if (!clients) return;
+
+    // For each connected driver, check if they serve this zone
+    for (const client of clients) {
+      if (!client.driverId) continue;
+
+      try {
+        // Get driver's service zones
+        const driver = await storage.getDriver(client.driverId);
+        if (!driver || !driver.serviceZones) continue;
+
+        // Check if driver serves this zone
+        if (driver.serviceZones.includes(zoneId)) {
+          this.sendToClient(client, message);
+        }
+      } catch (error) {
+        log(`[WebSocket] Error checking driver zones for broadcast: ${error}`);
+      }
+    }
+  }
+
   // Broadcast to specific user
   broadcastToUser(userId: string, message: WebSocketMessage) {
     const clients = this.clients.get(`user:${userId}`);

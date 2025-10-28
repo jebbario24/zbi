@@ -3897,9 +3897,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data: confirmedOrder
         });
         
-        // ONLY broadcast to drivers if this is a delivery order
-        if (confirmedOrder.orderType === 'delivery') {
-          wsManager.broadcastToAllDrivers({
+        // ONLY broadcast to drivers if this is a delivery order and has a zone
+        if (confirmedOrder.orderType === 'delivery' && confirmedOrder.deliveryZoneId) {
+          wsManager.broadcastToDriversInZone(confirmedOrder.deliveryZoneId, {
             type: 'new_delivery_order',
             data: {
               orderId: confirmedOrder.id,
@@ -4662,9 +4662,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             data: confirmedOrder
           });
           
-          // ONLY broadcast to drivers if this is a delivery order
-          if (confirmedOrder.orderType === 'delivery') {
-            wsManager.broadcastToAllDrivers({
+          // ONLY broadcast to drivers if this is a delivery order and has a zone
+          if (confirmedOrder.orderType === 'delivery' && confirmedOrder.deliveryZoneId) {
+            wsManager.broadcastToDriversInZone(confirmedOrder.deliveryZoneId, {
               type: 'new_delivery_order',
               data: {
                 orderId: confirmedOrder.id,
