@@ -178,6 +178,11 @@ export default function OnlineStore() {
     country: "",
     payoutSchedule: "weekly" as "daily" | "weekly",
   });
+  const [brandColors, setBrandColors] = useState({
+    primaryColor: "",
+    secondaryColor: "",
+    accentColor: "",
+  });
 
   const { data: restaurant, isLoading } = useQuery<Restaurant>({
     queryKey: ["/api/restaurants/me"],
@@ -206,6 +211,19 @@ export default function OnlineStore() {
     },
     onError: () => {
       toast({ title: "Failed to upload cover photo", variant: "destructive" });
+    },
+  });
+
+  const brandColorsMutation = useMutation({
+    mutationFn: async (colors: { primaryColor?: string; secondaryColor?: string; accentColor?: string }) => {
+      return apiRequest("/api/restaurant/brand-colors", "PUT", colors);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants/me"] });
+      toast({ title: "Brand colors updated successfully!" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update brand colors", variant: "destructive" });
     },
   });
 
@@ -466,6 +484,17 @@ export default function OnlineStore() {
     }
   }, [restaurant?.taxRate, restaurant?.taxIncludedInPrice, restaurant?.taxLabel]);
 
+  // Load existing brand colors
+  useEffect(() => {
+    if (restaurant) {
+      setBrandColors({
+        primaryColor: restaurant.primaryColor || "",
+        secondaryColor: restaurant.secondaryColor || "",
+        accentColor: restaurant.accentColor || "",
+      });
+    }
+  }, [restaurant?.primaryColor, restaurant?.secondaryColor, restaurant?.accentColor]);
+
   // Fetch payout schedule
   const { data: payoutData } = useQuery<{ payoutSchedule: "daily" | "weekly" }>({
     queryKey: ["/api/restaurant/payout-settings"],
@@ -603,6 +632,91 @@ export default function OnlineStore() {
               )}
               <p className="text-xs text-muted-foreground">Recommended: 1200x400px, max 5MB</p>
             </div>
+          </div>
+
+          <div className="space-y-4 pt-6 border-t">
+            <div>
+              <h3 className="font-semibold mb-2">Brand Colors</h3>
+              <p className="text-sm text-muted-foreground">Customize your storefront colors to match your brand identity</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="primaryColor">Primary Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="primaryColor"
+                    type="color"
+                    value={brandColors.primaryColor || "#f97316"}
+                    onChange={(e) => setBrandColors(prev => ({ ...prev, primaryColor: e.target.value }))}
+                    className="h-10 w-20 cursor-pointer"
+                    data-testid="input-primary-color"
+                  />
+                  <Input
+                    type="text"
+                    value={brandColors.primaryColor || "#f97316"}
+                    onChange={(e) => setBrandColors(prev => ({ ...prev, primaryColor: e.target.value }))}
+                    placeholder="#f97316"
+                    className="flex-1"
+                    data-testid="input-primary-color-text"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Used for buttons and links</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="secondaryColor">Secondary Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="secondaryColor"
+                    type="color"
+                    value={brandColors.secondaryColor || "#fb923c"}
+                    onChange={(e) => setBrandColors(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                    className="h-10 w-20 cursor-pointer"
+                    data-testid="input-secondary-color"
+                  />
+                  <Input
+                    type="text"
+                    value={brandColors.secondaryColor || "#fb923c"}
+                    onChange={(e) => setBrandColors(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                    placeholder="#fb923c"
+                    className="flex-1"
+                    data-testid="input-secondary-color-text"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Used for backgrounds</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="accentColor">Accent Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="accentColor"
+                    type="color"
+                    value={brandColors.accentColor || "#fdba74"}
+                    onChange={(e) => setBrandColors(prev => ({ ...prev, accentColor: e.target.value }))}
+                    className="h-10 w-20 cursor-pointer"
+                    data-testid="input-accent-color"
+                  />
+                  <Input
+                    type="text"
+                    value={brandColors.accentColor || "#fdba74"}
+                    onChange={(e) => setBrandColors(prev => ({ ...prev, accentColor: e.target.value }))}
+                    placeholder="#fdba74"
+                    className="flex-1"
+                    data-testid="input-accent-color-text"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Used for highlights</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => brandColorsMutation.mutate(brandColors)}
+              disabled={brandColorsMutation.isPending}
+              data-testid="button-save-brand-colors"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {brandColorsMutation.isPending ? "Saving..." : "Save Brand Colors"}
+            </Button>
           </div>
         </CardContent>
       </Card>
