@@ -29,7 +29,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShoppingCart, Plus, Minus, Trash2, Store, Clock, CreditCard, Banknote, Star, Mail, Phone, MessageSquare, Send, AlertCircle, Users } from "lucide-react";
+import { Country, City } from "country-state-city";
 import { SiPaypal, SiApple, SiGoogle } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -140,6 +142,7 @@ export default function Storefront() {
   const [deliveryCountry, setDeliveryCountry] = useState("");
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryNeighborhood, setDeliveryNeighborhood] = useState("");
+  const [homeAddress, setHomeAddress] = useState("");
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
   const [deliveryAvailable, setDeliveryAvailable] = useState<boolean>(true);
@@ -201,6 +204,18 @@ export default function Storefront() {
     totalReferrals: 8,
     referralRevenue: 80.00,
   };
+
+  // Compute available countries and cities
+  const countries = useMemo(() => {
+    return Country.getAllCountries().sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
+
+  const cities = useMemo(() => {
+    if (!deliveryCountry) return [];
+    const selectedCountry = countries.find(c => c.name === deliveryCountry);
+    if (!selectedCountry) return [];
+    return City.getCitiesOfCountry(selectedCountry.isoCode)?.sort((a, b) => a.name.localeCompare(b.name)) || [];
+  }, [deliveryCountry, countries]);
 
   // Try hostname-based lookup first, fallback to slug
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
