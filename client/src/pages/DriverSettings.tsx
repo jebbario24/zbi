@@ -47,260 +47,6 @@ const vehicleDetailsSchema = z.object({
 type PersonalInfoForm = z.infer<typeof personalInfoSchema>;
 type VehicleDetailsForm = z.infer<typeof vehicleDetailsSchema>;
 
-// Service Zones Manager Component
-function ServiceZonesManager() {
-  const { toast } = useToast();
-  const [selectedZones, setSelectedZones] = useState<string[]>([]);
-
-  // Fetch available zones
-  const { data: availableZones = [], isLoading: zonesLoading } = useQuery<any[]>({
-    queryKey: ["/api/driver/available-zones"],
-  });
-
-  // Fetch driver's current service zones
-  const { data: driverZones } = useQuery<{ serviceZones: string[] }>({
-    queryKey: ["/api/driver/service-zones"],
-  });
-
-  // Update selected zones when driver zones are loaded
-  useEffect(() => {
-    if (driverZones) {
-      setSelectedZones(driverZones.serviceZones || []);
-    }
-  }, [driverZones]);
-
-  // Update service zones mutation
-  const updateZonesMutation = useMutation({
-    mutationFn: async (zoneIds: string[]) => {
-      const res = await apiRequest("/api/driver/service-zones", "PUT", { zoneIds });
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Service zones updated successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver/service-zones"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver/available-orders"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update service zones",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleToggleZone = (zoneId: string) => {
-    setSelectedZones(prev => 
-      prev.includes(zoneId)
-        ? prev.filter(id => id !== zoneId)
-        : [...prev, zoneId]
-    );
-  };
-
-  const handleSaveZones = () => {
-    updateZonesMutation.mutate(selectedZones);
-  };
-
-  // Group zones by country and city
-  const groupedZones = availableZones.reduce((acc: any, zone: any) => {
-    const country = zone.country || "Unknown";
-    const city = zone.city || "Unknown";
-    
-    if (!acc[country]) acc[country] = {};
-    if (!acc[country][city]) acc[country][city] = [];
-    
-    acc[country][city].push(zone);
-    return acc;
-  }, {});
-
-  const hasUnsavedChanges = JSON.stringify([...selectedZones].sort()) !== JSON.stringify([...(driverZones?.serviceZones || [])].sort());
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MapPin className="h-5 w-5" />
-          Service Zones
-        </CardTitle>
-        <CardDescription>
-          Select the delivery zones where you want to accept orders. You will only receive notifications for orders in your selected zones.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {zonesLoading ? (
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : availableZones.length === 0 ? (
-          <div className="text-center p-12">
-            <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50 text-muted-foreground" />
-            <div className="text-lg font-medium mb-2">No Delivery Zones Available</div>
-            <div className="text-sm text-muted-foreground max-w-md mx-auto">
-              There are no delivery zones set up yet. Please check back later or contact support at{' '}
-              <a href="mailto:driver@eatout.cloud" className="text-primary hover:underline">
-                driver@eatout.cloud
-              </a>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Selection Summary */}
-            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${selectedZones.length === 0 ? 'bg-orange-100 dark:bg-orange-900/20' : 'bg-green-100 dark:bg-green-900/20'}`}>
-                  <CheckCircle2 className={`h-5 w-5 ${selectedZones.length === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`} />
-                </div>
-                <div>
-                  <div className="font-medium">
-                    {selectedZones.length === 0 ? 'No zones selected' : `${selectedZones.length} zone${selectedZones.length !== 1 ? 's' : ''} selected`}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {selectedZones.length === 0 
-                      ? 'Select at least one zone to start receiving orders'
-                      : hasUnsavedChanges
-                        ? 'You have unsaved changes'
-                        : 'Your zones are saved'
-                    }
-                  </div>
-                </div>
-              </div>
-              {availableZones.length > 0 && (
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedZones(availableZones.map(z => z.id))}
-                    disabled={selectedZones.length === availableZones.length}
-                    data-testid="button-select-all-zones"
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedZones([])}
-                    disabled={selectedZones.length === 0}
-                    data-testid="button-clear-all-zones"
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Zone List */}
-            <div className="space-y-6">
-              {Object.entries(groupedZones).map(([country, cities]: [string, any]) => (
-                <div key={country} className="space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b">
-                    <h3 className="font-semibold text-lg">{country}</h3>
-                    <Badge variant="secondary" className="text-xs">
-                      {Object.values(cities).flat().length} zones
-                    </Badge>
-                  </div>
-                  {Object.entries(cities).map(([city, zones]: [string, any]) => (
-                    <div key={city} className="ml-4 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium text-muted-foreground">{city}</h4>
-                        <Badge variant="outline" className="text-xs">
-                          {zones.length} zones
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 ml-4">
-                        {zones.map((zone: any) => {
-                          const isSelected = selectedZones.includes(zone.id);
-                          return (
-                            <div
-                              key={zone.id}
-                              onClick={() => handleToggleZone(zone.id)}
-                              className={`
-                                p-4 rounded-lg border-2 cursor-pointer transition-all
-                                ${isSelected 
-                                  ? 'border-primary bg-primary/5 shadow-sm' 
-                                  : 'border-border hover-elevate active-elevate-2'
-                                }
-                              `}
-                              data-testid={`zone-${zone.id}`}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium flex items-center gap-2 mb-1">
-                                    <MapPin className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
-                                    <span className="truncate">{zone.neighborhood || city}</span>
-                                  </div>
-                                  <div className="text-sm text-muted-foreground mb-2 truncate">
-                                    {zone.restaurantName}
-                                  </div>
-                                  <div className="flex flex-wrap gap-2">
-                                    <Badge variant="outline" className="text-xs">
-                                      Fee: ${zone.deliveryFee}
-                                    </Badge>
-                                    <Badge variant="outline" className="text-xs">
-                                      Min: ${zone.minimumOrder}
-                                    </Badge>
-                                  </div>
-                                </div>
-                                <div className={`
-                                  w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-                                  ${isSelected ? 'bg-primary border-primary scale-110' : 'border-muted-foreground'}
-                                `}>
-                                  {isSelected && (
-                                    <CheckCircle2 className="w-5 h-5 text-primary-foreground" />
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-
-            {/* Save Section */}
-            <div className="flex items-center justify-between pt-6 border-t">
-              <div className="text-sm">
-                {hasUnsavedChanges ? (
-                  <Badge variant="outline" className="text-orange-600 dark:text-orange-400 border-orange-600 dark:border-orange-400">
-                    <Clock className="h-3 w-3 mr-1" />
-                    Unsaved changes
-                  </Badge>
-                ) : (
-                  <span className="text-muted-foreground">
-                    {selectedZones.length} zone{selectedZones.length !== 1 ? 's' : ''} saved
-                  </span>
-                )}
-              </div>
-              <Button
-                onClick={handleSaveZones}
-                disabled={updateZonesMutation.isPending || !hasUnsavedChanges}
-                data-testid="button-save-zones"
-                size="default"
-              >
-                {updateZonesMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Save Service Zones
-                  </>
-                )}
-              </Button>
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function DriverSettings() {
   const { user } = useAuth();
@@ -311,7 +57,7 @@ export default function DriverSettings() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
-    if (tab && ['personal', 'vehicle', 'documents', 'zones', 'bank', 'status'].includes(tab)) {
+    if (tab && ['personal', 'vehicle', 'documents', 'bank', 'status'].includes(tab)) {
       setActiveTab(tab);
     }
   }, []);
@@ -561,11 +307,6 @@ export default function DriverSettings() {
     );
   }
 
-  // Fetch service zones for navigation badge
-  const { data: serviceZonesData } = useQuery<{ serviceZones: string[] }>({
-    queryKey: ['/api/driver/service-zones'],
-    enabled: !!user && user.role === 'driver',
-  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -588,23 +329,14 @@ export default function DriverSettings() {
               </Link>
             </Button>
             
-            <Button asChild variant="ghost" size="sm" className="gap-2 relative" data-testid="nav-service-zones-settings">
-              <Link href="/driver/settings?tab=zones">
+            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-service-zones-settings">
+              <Link href="/driver/service-zones">
                 <MapPin className="h-4 w-4" />
                 Service Zones
-                {serviceZonesData && (
-                  <Badge 
-                    variant={serviceZonesData.serviceZones.length === 0 ? "destructive" : "secondary"}
-                    className="ml-1 text-xs h-5 px-1.5"
-                    data-testid="badge-zone-count-nav-settings"
-                  >
-                    {serviceZonesData.serviceZones.length}
-                  </Badge>
-                )}
               </Link>
             </Button>
             
-            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-settings-active">
+            <Button asChild variant="default" size="sm" className="gap-2" data-testid="nav-settings-active">
               <Link href="/driver/settings">
                 <SettingsIcon className="h-4 w-4" />
                 Settings
@@ -612,7 +344,7 @@ export default function DriverSettings() {
             </Button>
             
             <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-earnings-settings">
-              <Link href="/driver/dashboard#earnings">
+              <Link href="/driver/earnings">
                 <TrendingUp className="h-4 w-4" />
                 Earnings
               </Link>
@@ -629,7 +361,7 @@ export default function DriverSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6 mb-6" data-testid="tabs-driver-settings">
+        <TabsList className="grid w-full grid-cols-5 mb-6" data-testid="tabs-driver-settings">
           <TabsTrigger value="personal" data-testid="tab-personal-info">
             <User className="w-4 h-4 mr-2" />
             Personal
@@ -641,10 +373,6 @@ export default function DriverSettings() {
           <TabsTrigger value="documents" data-testid="tab-documents">
             <FileText className="w-4 h-4 mr-2" />
             Documents
-          </TabsTrigger>
-          <TabsTrigger value="zones" data-testid="tab-service-zones">
-            <MapPin className="w-4 h-4 mr-2" />
-            Service Zones
           </TabsTrigger>
           <TabsTrigger value="bank" data-testid="tab-bank-account">
             <CreditCard className="w-4 h-4 mr-2" />
@@ -1007,11 +735,6 @@ export default function DriverSettings() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Service Zones Tab */}
-        <TabsContent value="zones">
-          <ServiceZonesManager />
         </TabsContent>
 
         {/* Bank Account Tab */}
