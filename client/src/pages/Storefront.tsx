@@ -44,6 +44,7 @@ import { ActivePromosBanner } from "@/components/marketing/storefront/ActiveProm
 import { ReferralCTA } from "@/components/marketing/storefront/ReferralCTA";
 import { BoostedItemsBadge } from "@/components/marketing/storefront/BoostedItemsBadge";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { MarketingTriggersModal } from "@/components/marketing/MarketingTriggersModal";
 
 interface StorefrontPromo {
   id: string;
@@ -179,6 +180,17 @@ export default function Storefront() {
   // Upsell modal state
   const [upsellModalOpen, setUpsellModalOpen] = useState(false);
   const [upsellSuggestedItem, setUpsellSuggestedItem] = useState<MenuItem | null>(null);
+
+  // Marketing triggers modal state
+  const [marketingTriggersModalOpen, setMarketingTriggersModalOpen] = useState(false);
+  const [marketingTriggerType, setMarketingTriggerType] = useState<'upsell' | 'crossSell' | 'downsell'>('crossSell');
+  const [pendingCartItem, setPendingCartItem] = useState<{
+    menuItem: MenuItem;
+    selectedOptions?: Array<{
+      optionGroupLabel: string;
+      choices: Array<{ label: string; priceCents: number }>;
+    }>;
+  } | null>(null);
 
   const mockReferral = {
     referralLink: `${window.location.origin}/store/${slug}?ref=USER123`,
