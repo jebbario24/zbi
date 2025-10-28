@@ -78,6 +78,9 @@ type ExtendedOrder = Order & {
   driverPhone?: string | null;
   deliveryStatus?: string | null;
   deliveryUpdatedAt?: string | null;
+  currency?: string | null;
+  deliveryInstructions?: string | null;
+  discount?: string | null;
 };
 
 export default function AdminOrders() {

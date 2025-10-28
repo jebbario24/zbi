@@ -33,6 +33,7 @@ import DeliveryZones from "@/pages/DeliveryZones";
 import OnlineStore from "@/pages/OnlineStore";
 import Billing from "@/pages/Billing";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminOrders from "@/pages/AdminOrders";
 import AdminRestaurants from "@/pages/AdminRestaurants";
 import AdminDrivers from "@/pages/AdminDrivers";
 import AdminSubscriptions from "@/pages/AdminSubscriptions";
@@ -94,6 +95,7 @@ function AuthenticatedRouter() {
       <Switch>
         <Route path="/" component={AdminDashboard} />
         <Route path="/admin" component={AdminDashboard} />
+        <Route path="/admin/orders" component={AdminOrders} />
         <Route path="/admin/restaurants" component={AdminRestaurants} />
         <Route path="/admin/drivers" component={AdminDrivers} />
         <Route path="/admin/subscriptions" component={AdminSubscriptions} />
