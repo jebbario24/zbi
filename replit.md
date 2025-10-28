@@ -13,7 +13,7 @@ Preferred communication style: Simple, everyday language.
 - **Key UI Patterns:** Server-side rendering, authenticated and role-based routes, responsive design, toast notifications, sidebar navigation, and sheet/drawer components.
 - **Cart & Payments:** Displays 5 distinct payment buttons (Apple Pay, Google Pay, Credit/Debit Card via Stripe; PayPal; Cash on Delivery) based on restaurant settings.
 - **Notifications:** Real-time order notifications with red badge, audio alerts, and smart polling.
-- **Storefront Customization:** Owners can customize branding, opening hours, and menu item images.
+- **Storefront Customization:** Owners can customize branding, opening hours, menu item images, and brand colors (primary, secondary, accent) with WCAG-compliant automatic text contrast.
 - **Menu Item Display:** "Open"/"Closed" status, "Out of Stock," and "Low Stock" indicators, with custom badges/tags (e.g., Bestseller, New, Spicy, Vegetarian) and color-coded styling.
 
 ### Technical Implementations
