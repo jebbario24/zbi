@@ -498,54 +498,47 @@ export default function Storefront() {
     // Close the toppings modal first
     setItemModalOpen(false);
     
-    // Check for marketing trigger items only if not skipping
-    if (!skipMarketingTriggersForCurrentItem) {
-      const upsellIds = (selectedItem.upsellItemIds as string[]) || [];
-      const crossSellIds = (selectedItem.crossSellItemIds as string[]) || [];
-      const downsellIds = (selectedItem.downsellItemIds as string[]) || [];
-      
-      // Determine which type of trigger to show (prioritize cross-sell, then upsell, then downsell)
-      let triggerIds: string[] = [];
-      let triggerType: 'upsell' | 'crossSell' | 'downsell' = 'crossSell';
-      
-      if (crossSellIds.length > 0) {
-        triggerIds = crossSellIds;
-        triggerType = 'crossSell';
-      } else if (upsellIds.length > 0) {
-        triggerIds = upsellIds;
-        triggerType = 'upsell';
-      } else if (downsellIds.length > 0) {
-        triggerIds = downsellIds;
-        triggerType = 'downsell';
-      }
-      
-      // If there are marketing triggers, show the modal
-      if (triggerIds.length > 0 && menuItems.length > 0) {
-        setPendingCartItem({
-          menuItem: selectedItem,
-          selectedOptions: selectedItemOptions
-        });
-        setMarketingTriggerType(triggerType);
-        setMarketingTriggersModalOpen(true);
-        
-        // Clear the toppings modal state
-        setSelectedItem(null);
-        setSelectedItemOptions([]);
-        setSkipMarketingTriggersForCurrentItem(false);
-        return;
-      }
-    }
+    // Build the new cart items array
+    const newCartItems: CartItem[] = [];
     
-    // No marketing triggers or skipping - add directly to cart
-    setCart([...cart, { 
+    // Add the main item with its options
+    newCartItems.push({ 
       menuItem: selectedItem, 
       quantity: 1,
       selectedOptions: selectedItemOptions
-    }]);
+    });
     
-    toast({ title: `${selectedItem.name} added to cart` });
+    // Add any selected marketing suggestions (without options, as single items)
+    if (selectedMarketingSuggestions.length > 0) {
+      const suggestedMenuItems = menuItems.filter((item: MenuItem) => 
+        selectedMarketingSuggestions.includes(item.id)
+      );
+      
+      suggestedMenuItems.forEach((item: MenuItem) => {
+        newCartItems.push({
+          menuItem: item,
+          quantity: 1,
+          selectedOptions: []
+        });
+      });
+    }
+    
+    // Add all items to cart
+    setCart([...cart, ...newCartItems]);
+    
+    // Show toast message
+    if (selectedMarketingSuggestions.length > 0) {
+      toast({ 
+        title: `${selectedItem.name} and ${selectedMarketingSuggestions.length} more item${selectedMarketingSuggestions.length > 1 ? 's' : ''} added to cart` 
+      });
+    } else {
+      toast({ title: `${selectedItem.name} added to cart` });
+    }
+    
+    // Clear all state
     setSelectedItem(null);
     setSelectedItemOptions([]);
+    setSelectedMarketingSuggestions([]);
     setSkipMarketingTriggersForCurrentItem(false);
   };
 
@@ -2309,7 +2302,13 @@ export default function Storefront() {
       </Dialog>
 
       {/* Item Options Modal */}
-      <Dialog open={itemModalOpen} onOpenChange={setItemModalOpen}>
+      <Dialog open={itemModalOpen} onOpenChange={(open) => {
+        setItemModalOpen(open);
+        if (!open) {
+          // Clear marketing suggestions when modal closes
+          setSelectedMarketingSuggestions([]);
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedItem?.name}</DialogTitle>
