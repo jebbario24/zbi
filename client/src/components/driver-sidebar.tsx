@@ -7,7 +7,8 @@ import {
   Package,
   History,
   HelpCircle,
-  Receipt
+  Receipt,
+  MapPin
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -35,6 +36,11 @@ const driverMenuItems = [
     title: "Available Orders",
     url: "/driver/available-orders",
     icon: Package,
+  },
+  {
+    title: "Service Zones",
+    url: "/driver/service-zones",
+    icon: MapPin,
   },
   {
     title: "Earnings",
