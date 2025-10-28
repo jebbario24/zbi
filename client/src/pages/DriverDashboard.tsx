@@ -26,7 +26,8 @@ import {
   Store,
   Home,
   Settings,
-  LayoutDashboard
+  LayoutDashboard,
+  Download
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -114,6 +115,8 @@ export default function DriverDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>("all");
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallButton, setShowInstallButton] = useState(false);
 
   // Fetch profile completion status
   const { data: completionStatus, isLoading: loadingStatus } = useQuery<CompletionStatus>({
@@ -238,6 +241,55 @@ export default function DriverDashboard() {
     },
   });
 
+  // PWA Install Prompt Handler
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallButton(true);
+    };
+
+    const handleAppInstalled = () => {
+      setShowInstallButton(false);
+      setDeferredPrompt(null);
+      toast({
+        title: "App Installed!",
+        description: "EatOut Driver has been added to your home screen",
+      });
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setShowInstallButton(false);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, [toast]);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    // Hide button regardless of outcome - it will reappear if browser fires beforeinstallprompt again
+    setShowInstallButton(false);
+    setDeferredPrompt(null);
+    
+    if (outcome === 'accepted') {
+      toast({
+        title: "Installing...",
+        description: "The app will be added to your home screen shortly",
+      });
+    }
+  };
+
   // WebSocket listener for real-time updates
   useEffect(() => {
     if (!user || user.role !== 'driver') return;
@@ -358,30 +410,46 @@ export default function DriverDashboard() {
               <span className="text-lg font-semibold">Driver Portal</span>
             </div>
             
-            {/* Driver Status Toggle */}
-            {isApproved && (
-              <div className="flex items-center gap-3" data-testid="header-driver-status">
-                <div className="flex items-center gap-2">
-                  <Power className={`h-4 w-4 ${stats?.isAvailable ? 'text-green-600' : 'text-muted-foreground'}`} />
-                  <Label htmlFor="header-status-toggle" className="text-sm font-medium">
-                    {stats?.isAvailable ? 'Online' : 'Offline'}
-                  </Label>
-                </div>
-                <Switch
-                  id="header-status-toggle"
-                  data-testid="switch-driver-status-header"
-                  checked={stats?.isAvailable || false}
-                  onCheckedChange={(checked) => statusMutation.mutate(checked)}
-                  disabled={!canToggleStatus || statusMutation.isPending}
-                />
-                <Badge 
-                  variant={stats?.isAvailable ? "default" : "secondary"}
-                  className="text-xs"
+            <div className="flex items-center gap-3">
+              {/* PWA Install Button */}
+              {showInstallButton && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleInstallClick}
+                  className="gap-2"
+                  data-testid="button-install-app"
                 >
-                  {stats?.isAvailable ? 'Available' : 'Offline'}
-                </Badge>
-              </div>
-            )}
+                  <Download className="h-4 w-4" />
+                  Install App
+                </Button>
+              )}
+              
+              {/* Driver Status Toggle */}
+              {isApproved && (
+                <div className="flex items-center gap-3" data-testid="header-driver-status">
+                  <div className="flex items-center gap-2">
+                    <Power className={`h-4 w-4 ${stats?.isAvailable ? 'text-green-600' : 'text-muted-foreground'}`} />
+                    <Label htmlFor="header-status-toggle" className="text-sm font-medium">
+                      {stats?.isAvailable ? 'Online' : 'Offline'}
+                    </Label>
+                  </div>
+                  <Switch
+                    id="header-status-toggle"
+                    data-testid="switch-driver-status-header"
+                    checked={stats?.isAvailable || false}
+                    onCheckedChange={(checked) => statusMutation.mutate(checked)}
+                    disabled={!canToggleStatus || statusMutation.isPending}
+                  />
+                  <Badge 
+                    variant={stats?.isAvailable ? "default" : "secondary"}
+                    className="text-xs"
+                  >
+                    {stats?.isAvailable ? 'Available' : 'Offline'}
+                  </Badge>
+                </div>
+              )}
+            </div>
           </div>
           
           {/* Navigation Menu */}
