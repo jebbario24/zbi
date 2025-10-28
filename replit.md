@@ -26,6 +26,13 @@ Preferred communication style: Simple, everyday language.
 - **Tax & Currency:** Per-restaurant configurable tax rates and multi-currency support for 170+ currencies and 195+ countries.
 - **Subscriptions:** $79/month subscription with a 7-day free trial, managed via Stripe webhooks.
 - **Internationalization (i18n):** Multi-language support using i18next with full RTL support.
+- **Multi-Language Translation System:** Complete restaurant content translation system enabling storefronts in multiple languages:
+  - **Translation Management UI:** Translation tabs in menu item edit dialog for managing translations in all enabled languages
+  - **Language Selector:** Storefront dropdown with native language names (العربية, Español, etc.) and locale persistence
+  - **Custom i18next Backend:** Dynamic loading of restaurant-specific translations from API with fallback to original content
+  - **RTL Support:** Automatic bidirectional text support for Arabic, Hebrew, Persian, and Urdu
+  - **Auto-Sync:** Automatic marking of translations as "needs review" when source content changes
+  - **Database Schema:** `translation_records` table with status tracking (current/needs_review/outdated) and multi-tenant isolation
 - **Analytics:** Real-time analytics dashboard with batched queries and date-based filtering.
 - **Delivery Zones:** Location-based delivery zones with fees and minimum order validation.
 - **Marketing Features:** Storefront includes "Frequently Bought Together," "Countdown Timer," "Live Purchase Notifications," customer reviews/ratings, and a contact form.
