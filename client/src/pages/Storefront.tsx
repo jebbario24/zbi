@@ -434,9 +434,16 @@ export default function Storefront() {
     
     // Check for marketing trigger items if not skipping
     if (!skipMarketingTriggers) {
+      console.log('🔍 DEBUG: Checking marketing triggers for item:', item.name);
+      console.log('🔍 DEBUG: item.upsellItemIds:', item.upsellItemIds);
+      console.log('🔍 DEBUG: item.crossSellItemIds:', item.crossSellItemIds);
+      console.log('🔍 DEBUG: item.downsellItemIds:', item.downsellItemIds);
+      
       const upsellIds = (item.upsellItemIds as string[]) || [];
       const crossSellIds = (item.crossSellItemIds as string[]) || [];
       const downsellIds = (item.downsellItemIds as string[]) || [];
+      
+      console.log('🔍 DEBUG: Parsed arrays - upsell:', upsellIds, 'cross:', crossSellIds, 'down:', downsellIds);
       
       // Determine which type of trigger to show
       let triggerIds: string[] = [];
@@ -453,14 +460,19 @@ export default function Storefront() {
         triggerType = 'downsell';
       }
       
+      console.log('🔍 DEBUG: Final trigger decision - type:', triggerType, 'ids:', triggerIds);
+      
       // If there are marketing triggers, show the modal
       if (triggerIds.length > 0 && menuItems.length > 0) {
+        console.log('✅ DEBUG: Should show marketing triggers modal!');
         setPendingCartItem({
           menuItem: item
         });
         setMarketingTriggerType(triggerType);
         setMarketingTriggersModalOpen(true);
         return;
+      } else {
+        console.log('❌ DEBUG: No marketing triggers to show');
       }
     }
     
