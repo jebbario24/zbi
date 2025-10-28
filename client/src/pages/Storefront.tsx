@@ -157,6 +157,7 @@ export default function Storefront() {
     optionGroupLabel: string;
     choices: Array<{ label: string; priceCents: number }>;
   }>>([]);
+  const [selectedMarketingSuggestions, setSelectedMarketingSuggestions] = useState<string[]>([]);
   
   // Review form state
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
