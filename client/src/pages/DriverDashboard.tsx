@@ -80,6 +80,13 @@ interface ActiveDelivery {
   customerPhone: string;
 }
 
+interface DeliveryZone {
+  id: string;
+  country: string;
+  city: string;
+  neighborhood: string;
+}
+
 interface AvailableOrder {
   id: string;
   orderNumber: string;
@@ -88,6 +95,7 @@ interface AvailableOrder {
   estimatedEarnings: string;
   restaurant: Restaurant;
   createdAt: string;
+  deliveryZone?: DeliveryZone;
 }
 
 const deliveryStatusSteps = [
@@ -693,10 +701,24 @@ export default function DriverDashboard() {
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
               </div>
+            ) : serviceZonesData && serviceZonesData.serviceZones.length === 0 ? (
+              <Alert className="mb-4" data-testid="alert-no-zones">
+                <MapPin className="h-4 w-4" />
+                <AlertDescription>
+                  <p className="font-medium mb-2">No Service Zones Selected</p>
+                  <p className="mb-4">You need to select at least one delivery zone to start receiving orders.</p>
+                  <Link href="/driver/settings?tab=zones">
+                    <Button size="sm" data-testid="button-configure-zones">
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Select Your Service Zones
+                    </Button>
+                  </Link>
+                </AlertDescription>
+              </Alert>
             ) : availableOrders.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p data-testid="text-no-orders">No orders available at the moment</p>
+                <p data-testid="text-no-orders">No orders available in your selected zones</p>
                 <p className="text-sm">Check back soon for delivery opportunities</p>
               </div>
             ) : (
@@ -706,9 +728,17 @@ export default function DriverDashboard() {
                     <CardContent className="pt-6 space-y-4">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
-                          <p className="font-semibold" data-testid={`text-order-number-${order.id}`}>
-                            Order #{order.orderNumber}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold" data-testid={`text-order-number-${order.id}`}>
+                              Order #{order.orderNumber}
+                            </p>
+                            {order.deliveryZone && (
+                              <Badge variant="secondary" className="text-xs" data-testid={`badge-zone-${order.id}`}>
+                                <MapPin className="h-3 w-3 mr-1" />
+                                {order.deliveryZone.city}{order.deliveryZone.neighborhood ? ` - ${order.deliveryZone.neighborhood}` : ''}
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-${order.id}`}>
                             <Store className="inline h-3 w-3 mr-1" />
                             {order.restaurant.name}
