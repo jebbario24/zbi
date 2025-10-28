@@ -160,6 +160,11 @@ const adminMenuItems = [
     icon: LayoutDashboard,
   },
   {
+    titleKey: "All Orders",
+    url: "/admin/orders",
+    icon: ShoppingCart,
+  },
+  {
     titleKey: "navigation.allRestaurants",
     url: "/admin/restaurants",
     icon: Building2,
