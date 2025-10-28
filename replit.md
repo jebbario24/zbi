@@ -41,6 +41,14 @@ Preferred communication style: Simple, everyday language.
 - **Promo Code System:** Comprehensive system for various promotions (percentage, fixed amount, free delivery, BOGO) with admin CRUD and storefront integration.
 - **Marketing Suite:** Full CRUD for marketing pages (Promos, Loyalty, Boosts, Upsells, Messages, Social, Bundles, and Campaigns), including scheduling and tracking.
 - **Smart Upsell System:** Admin-configured upsell rules trigger "Perfect Pairing" modals.
+- **Marketing Triggers Modal:** Post-toppings selection modal system displaying upsell/cross-sell/downsell suggestions with:
+  - **Priority System:** Cross-sell → Upsell → Downsell trigger prioritization
+  - **Flow Integration:** Displays after toppings selection, before cart addition
+  - **Interactive Grid:** Suggested items with images, names, descriptions, prices, and quick-add buttons
+  - **Infinite Loop Prevention:** `skipMarketingTriggersForCurrentItem` flag prevents retrigger when suggested items have toppings
+  - **Smart Dismissal:** Manual modal closure clears pending item (prevents unintended cart additions)
+  - **Icon System:** Lucide-react icons (ArrowUp for upsell, Sparkles for cross-sell, Lightbulb for downsell)
+  - **Data Model:** Menu items have `upsellItemIds`, `crossSellItemIds`, `downsellItemIds` arrays for trigger configuration
 - **QR Code Generation:** For printable table ordering QR codes.
 - **Printable Order Tickets:** "Print Ticket" functionality for printer-friendly order tickets.
 - **Bulk Order Management:** Bulk operations in the Orders page for status changes, printing, and deletion.
