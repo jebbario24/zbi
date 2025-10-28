@@ -113,6 +113,7 @@ function AuthenticatedRouter() {
     return (
       <Switch>
         <Route path="/" component={DriverDashboard} />
+        <Route path="/driver" component={DriverDashboard} />
         <Route path="/driver/dashboard" component={DriverDashboard} />
         <Route path="/driver/available-orders" component={DriverAvailableOrders} />
         <Route path="/driver/earnings" component={DriverEarnings} />
