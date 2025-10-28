@@ -390,45 +390,53 @@ export default function DriverDashboard() {
       {/* Service Zones Indicator */}
       {isApproved && serviceZonesData && (
         <Card data-testid="card-service-zones">
-          <CardContent className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-3">
-              <MapPin className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="font-medium">Service Zones</div>
-                <div className="text-sm text-muted-foreground">
+          <CardContent className="py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3 flex-1">
+                <div className={`p-2 rounded-lg ${serviceZonesData.serviceZones.length === 0 ? 'bg-orange-100 dark:bg-orange-900/20' : 'bg-green-100 dark:bg-green-900/20'}`}>
+                  <MapPin className={`h-5 w-5 ${serviceZonesData.serviceZones.length === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`} />
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-base mb-1">Service Zones</div>
                   {serviceZonesData.serviceZones.length === 0 ? (
-                    "No zones selected"
+                    <div className="text-sm text-muted-foreground mb-3">
+                      No zones selected - You won't receive any orders
+                    </div>
                   ) : (
-                    `Serving ${serviceZonesData.serviceZones.length} zone${serviceZonesData.serviceZones.length !== 1 ? 's' : ''}`
+                    <>
+                      <div className="text-sm text-muted-foreground mb-2">
+                        Serving {serviceZonesData.serviceZones.length} zone{serviceZonesData.serviceZones.length !== 1 ? 's' : ''}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {serviceZonesData.serviceZones.slice(0, 4).map((zoneId: string) => {
+                          const zone = allZones.find((z: any) => z.id === zoneId);
+                          return zone ? (
+                            <Badge key={zoneId} variant="secondary" className="text-xs" data-testid={`badge-zone-${zoneId}`}>
+                              <MapPin className="h-3 w-3 mr-1" />
+                              {zone.city}{zone.neighborhood ? ` - ${zone.neighborhood}` : ''}
+                            </Badge>
+                          ) : null;
+                        })}
+                        {serviceZonesData.serviceZones.length > 4 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{serviceZonesData.serviceZones.length - 4} more
+                          </Badge>
+                        )}
+                      </div>
+                    </>
                   )}
+                  <Link href="/driver/settings?tab=zones">
+                    <Button 
+                      size="sm" 
+                      variant={serviceZonesData.serviceZones.length === 0 ? "default" : "outline"}
+                      data-testid="button-manage-zones"
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      {serviceZonesData.serviceZones.length === 0 ? "Select Zones" : "Manage Zones"}
+                    </Button>
+                  </Link>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {serviceZonesData.serviceZones.length === 0 ? (
-                <Link href="/driver/settings?tab=zones">
-                  <Button size="sm" variant="outline" data-testid="button-select-zones">
-                    <MapPin className="w-4 h-4 mr-2" />
-                    Select Zones
-                  </Button>
-                </Link>
-              ) : (
-                <div className="flex flex-wrap gap-1 max-w-md">
-                  {serviceZonesData.serviceZones.slice(0, 3).map((zoneId: string) => {
-                    const zone = allZones.find((z: any) => z.id === zoneId);
-                    return zone ? (
-                      <Badge key={zoneId} variant="secondary" data-testid={`badge-zone-${zoneId}`}>
-                        {zone.neighborhood || zone.city}
-                      </Badge>
-                    ) : null;
-                  })}
-                  {serviceZonesData.serviceZones.length > 3 && (
-                    <Badge variant="secondary">
-                      +{serviceZonesData.serviceZones.length - 3} more
-                    </Badge>
-                  )}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
