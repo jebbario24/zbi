@@ -34,7 +34,15 @@ Preferred communication style: Simple, everyday language.
   - **Auto-Sync:** Automatic marking of translations as "needs review" when source content changes
   - **Database Schema:** `translation_records` table with status tracking (current/needs_review/outdated) and multi-tenant isolation
 - **Analytics:** Real-time analytics dashboard with batched queries and date-based filtering.
-- **Delivery Zones:** Location-based delivery zones with fees and minimum order validation.
+- **Synchronized Delivery Zones:** Location-based delivery zones with complete synchronization across admin, drivers, and storefront:
+  - **Admin Configuration:** Restaurant owners configure delivery zones with country, city, neighborhood, delivery fee, and minimum order
+  - **Storefront Integration:** Cart dropdowns show only countries, cities, and neighborhoods where delivery is configured (no all-world location library)
+  - **Cascading Selection:** Country selection filters available cities; city selection filters available neighborhoods
+  - **Smart Neighborhood Handling:** Shows dropdown if specific neighborhoods are configured, otherwise text input for flexibility
+  - **Driver Portal Sync:** Drivers see and select from the same delivery zones configured by restaurants
+  - **Real-time Updates:** Adding/removing/activating/deactivating zones in admin instantly reflects in storefront and driver interfaces
+  - **Single Data Source:** All three interfaces (admin, drivers, storefront) use the same `deliveryZones` table for consistency
+  - **API Endpoints:** Public `/api/storefront/delivery-zones/:restaurantId` for storefront, authenticated endpoints for admin and drivers
 - **Marketing Features:** Storefront includes "Frequently Bought Together," "Countdown Timer," "Live Purchase Notifications," customer reviews/ratings, and a contact form.
 - **Admin Inbox:** For customer messages and review management.
 - **Pixel Tracking:** Configuration for Meta, TikTok, Google Analytics, and Google Ads pixels with automatic e-commerce event firing.
