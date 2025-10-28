@@ -50,7 +50,6 @@ const restaurantSchema = z.object({
   name: z.string().min(1, "Restaurant name is required"),
   slug: z.string().min(1, "URL slug is required").regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens allowed"),
   subdomain: z.string().regex(/^[a-z0-9-]*$/, "Only lowercase letters, numbers, and hyphens allowed").optional().or(z.literal("")),
-  customDomain: z.string().optional().or(z.literal("")),
   description: z.string().optional(),
   address: z.string().optional(),
   phone: z.string().optional(),
@@ -132,7 +131,6 @@ export default function Settings() {
       name: "",
       slug: "",
       subdomain: "",
-      customDomain: "",
       description: "",
       address: "",
       phone: "",
@@ -148,7 +146,6 @@ export default function Settings() {
         name: restaurant.name || "",
         slug: restaurant.slug || "",
         subdomain: restaurant.subdomain || "",
-        customDomain: restaurant.customDomain || "",
         description: restaurant.description || "",
         address: restaurant.address || "",
         phone: restaurant.phone || "",
@@ -293,74 +290,29 @@ export default function Settings() {
                 )}
               />
 
-              <div className="space-y-4 p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-semibold mb-2">Domain Settings</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Configure how customers access your restaurant's online storefront
-                  </p>
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="subdomain"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Subdomain</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center gap-2">
-                          <Input {...field} placeholder="myrestaurant" data-testid="input-subdomain" className="flex-1" />
-                          <span className="text-sm text-muted-foreground whitespace-nowrap">.eatout.app</span>
-                        </div>
-                      </FormControl>
-                      <FormDescription>
-                        {field.value ? (
-                          <span>Your storefront will be accessible at: <code className="text-xs bg-muted px-1 py-0.5 rounded">https://{field.value}.eatout.app</code></span>
-                        ) : (
-                          "Choose a unique subdomain for your restaurant (lowercase letters, numbers, and hyphens only)"
-                        )}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="customDomain"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Custom Domain (Optional)</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="www.myrestaurant.com" data-testid="input-custom-domain" />
-                      </FormControl>
-                      <FormDescription>
-                        Use your own domain name instead of the subdomain
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {restaurant?.customDomain && restaurant?.subdomain && (
-                  <Alert>
-                    <AlertTitle>DNS Configuration Required</AlertTitle>
-                    <AlertDescription className="space-y-2">
-                      <p className="text-sm">
-                        To use your custom domain, add this CNAME record in your domain's DNS settings:
-                      </p>
-                      <div className="bg-muted p-3 rounded-md text-xs font-mono space-y-1">
-                        <div><span className="text-muted-foreground">Type:</span> CNAME</div>
-                        <div><span className="text-muted-foreground">Host:</span> {restaurant.customDomain.replace(/^www\./, '')}</div>
-                        <div><span className="text-muted-foreground">Value:</span> {restaurant.subdomain}.eatout.app</div>
+              <FormField
+                control={form.control}
+                name="subdomain"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Subdomain</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center gap-2">
+                        <Input {...field} placeholder="myrestaurant" data-testid="input-subdomain" className="flex-1" />
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">.eatout.app</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        DNS changes may take 24-48 hours to propagate globally
-                      </p>
-                    </AlertDescription>
-                  </Alert>
+                    </FormControl>
+                    <FormDescription>
+                      {field.value ? (
+                        <span>Your storefront will be accessible at: <code className="text-xs bg-muted px-1 py-0.5 rounded">https://{field.value}.eatout.app</code></span>
+                      ) : (
+                        "Choose a unique subdomain for your restaurant (lowercase letters, numbers, and hyphens only)"
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </div>
+              />
 
               <FormField
                 control={form.control}
