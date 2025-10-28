@@ -115,7 +115,7 @@ function ServiceZonesManager() {
     return acc;
   }, {});
 
-  const hasUnsavedChanges = JSON.stringify(selectedZones.sort()) !== JSON.stringify((driverZones?.serviceZones || []).sort());
+  const hasUnsavedChanges = JSON.stringify([...selectedZones].sort()) !== JSON.stringify([...(driverZones?.serviceZones || [])].sort());
 
   return (
     <Card>
