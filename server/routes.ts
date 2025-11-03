@@ -1248,14 +1248,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Handle price conversion if priceCents is not provided but price is
       let requestData = { ...req.body };
+
+      // Handle price conversion in either direction
       if (!requestData.priceCents && requestData.price) {
+        // price exists but priceCents doesn't
         const priceValue = parseFloat(requestData.price);
         if (!isNaN(priceValue)) {
           requestData.priceCents = Math.round(priceValue * 100);
-          requestData.price = priceValue.toFixed(2); // Ensure price is a decimal string with 2 places
-          console.log(`[MENU ITEM CREATE] Converted price ${requestData.price} to priceCents ${requestData.priceCents}`);
+          requestData.price = priceValue.toFixed(2);
         }
+      } else if (requestData.priceCents && !requestData.price) {
+        // priceCents exists but price doesn't - convert back
+        const priceValue = requestData.priceCents / 100;
+        requestData.price = priceValue.toFixed(2);
+        console.log(`[MENU ITEM CREATE] Generated price ${requestData.price} from priceCents ${requestData.priceCents}`);
       }
+
       
       const data = insertMenuItemSchema.parse({ ...requestData, restaurantId: restaurant.id });
       
