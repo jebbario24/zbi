@@ -214,7 +214,7 @@ export async function processScheduledPayouts(storage: any, stripe: any) {
   };
 
   if (!stripe) {
-      logError('[Payout] Stripe is not configured - automated payouts disabled');
+    logError('[Payout] Stripe is not configured - automated payouts disabled');
     return results;
   }
 
@@ -477,7 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(user);
       });
     } catch (error) {
-    logError("Signup error", error);
+      logError("Signup error", error);
       res.status(500).json({ message: "Failed to create account" });
     }
   });
@@ -486,7 +486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/login', authLimiter, (req, res, next) => {
     passport.authenticate('local', (err: any, user: any, info: any) => {
       if (err) {
-       logError("Login error", err);
+        logError("Login error", err);
         return res.status(500).json({ message: "Login failed" });
       }
       if (!user) {
@@ -660,8 +660,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Object Storage Upload URL
-app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async (req: any, res) => {
-  try {
+  app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async (req: any, res) => {
+    try {
       const { objectPath } = req.body;
       
       if (!objectPath) {
@@ -757,7 +757,8 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
 
       // Reuse existing product and price or create if doesn't exist
       let priceId = process.env.STRIPE_PRICE_ID;
-       if (!priceId) {
+      
+      if (!priceId) {
         logError('STRIPE_PRICE_ID not configured - subscription creation will fail');
         return res.status(500).json({ message: 'Subscription service not configured. Please contact support.' });
       }
@@ -1562,16 +1563,16 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
       return res.status(404).json({ message: "Restaurant not found" });
     }
 
- // Validate required fields - match what frontend sends
+    // Validate required fields - match what frontend sends
     const { name, promoCode, promoType, discountValue, scope, redemptionLimit, isActive, startsAt, endsAt, buyItemId, getItemId, buyQuantity, getQuantity, autoApply, perCustomerLimit, priority, description } = req.body;
     
- if (!name || !promoCode) { 
-   return res.status(400).json({ 
+    if (!name || !promoCode) {
+      return res.status(400).json({ 
         message: "Promo name and code are required" 
       });
     }
 
-// Build promo data with correct field names matching database schema
+    // Build promo data with correct field names matching database schema
     const promoData = { 
       restaurantId: restaurant.id,
       name,
@@ -1593,7 +1594,7 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
       priority: priority || 0,
     };
     
-   const promo = await storage.createPromo(promoData);
+    const promo = await storage.createPromo(promoData);
     res.json(promo);
   } catch (error: any) {
     console.error("Error creating promo:", error);
@@ -2980,7 +2981,7 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
         return res.status(400).json({ error: "No Stripe account found. Create one first." });
       }
 
-  const baseUrl = getBaseUrl();
+      const baseUrl = getBaseUrl();
 
       const accountLink = await stripe.accountLinks.create({
         account: driver.stripeConnectAccountId,
@@ -3706,7 +3707,7 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
 
   // Public storefront routes (no auth required)
   
-    // Apply rate limiting to all storefront routes
+  // Apply rate limiting to all storefront routes
   app.use('/api/storefront', storefrontLimiter);
 
   // Get restaurant by current hostname (for subdomain/custom domain)
@@ -4172,7 +4173,7 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
         res.json({ orderId: order.id, paymentMethod: 'cash', success: true });
       } else if (data.paymentMethod === 'paypal') {
         // PayPal payment - require PayPal to be configured
-        if (!paypal) {
+        if (!paypalClient) {
           logError('PayPal payment requested but PayPal is not configured');
           return res.status(503).json({ 
             message: "PayPal payments are not available. Please contact the restaurant or use another payment method." 
@@ -4183,7 +4184,7 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
         res.json({ orderId: order.id, paymentMethod: 'paypal' });
       } else if (data.paymentMethod === 'apple' || data.paymentMethod === 'google' || data.paymentMethod === 'stripe') {
         // Apple Pay, Google Pay, or Stripe payment - all use Stripe
-  if (!stripe) {
+        if (!stripe) {
           logError(`${data.paymentMethod} payment requested but Stripe is not configured`);
           return res.status(503).json({ 
             message: "Online payments are not available. Please contact the restaurant or use cash on delivery." 
@@ -4199,7 +4200,7 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
           message: 'Payment processing not yet implemented. Please use cash on delivery.' 
         });
       } else {
-  // Unknown payment method
+        // Unknown payment method
         logWarn('Unknown payment method requested', { 
           paymentMethod: data.paymentMethod, 
           orderId: order.id 
@@ -4209,7 +4210,7 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
         });
       }
     } catch (error) {
-    logError("Error creating online order", error, { restaurantId: restaurant?.id });
+      logError("Error creating online order", error);
       res.status(400).json({ message: "Failed to create order" });
     }
   });
@@ -4221,15 +4222,15 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
     const userId = req.user?.claims?.sub;
     const objectStorageService = new ObjectStorageService();
     try {
-  const r2Object = await objectStorageService.getObjectEntityFile(req.path);
+      const r2Object = await objectStorageService.getObjectEntityFile(req.path);
       const canAccess = await objectStorageService.canAccessObjectEntity({
-       r2Object,
+        r2Object,
         userId: userId,
       });
       if (!canAccess) {
         return res.sendStatus(401);
       }
-       objectStorageService.downloadObject(r2Object, res);
+      objectStorageService.downloadObject(r2Object, res);
     } catch (error) {
       console.error("Error checking object access:", error);
       if (error instanceof ObjectNotFoundError) {
@@ -4239,7 +4240,7 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
     }
   });
 
-app.post("/api/objects/upload", isAuthenticated, uploadLimiter, async (req, res) => {
+  app.post("/api/objects/upload", isAuthenticated, uploadLimiter, async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     const { uploadURL, objectPath } = await objectStorageService.getObjectEntityUploadURL();
     res.json({ uploadURL, objectPath });
@@ -4390,7 +4391,7 @@ app.post("/api/objects/upload", isAuthenticated, uploadLimiter, async (req, res)
       await storage.updateRestaurant(restaurant.id, { paymentMethods: req.body.paymentMethods });
       res.status(200).json({ success: true });
     } catch (error) {
-     logError("Error updating payment methods", error);
+      logError("Error updating payment methods", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -4502,7 +4503,8 @@ app.post("/api/objects/upload", isAuthenticated, uploadLimiter, async (req, res)
         business_type: 'individual', // Can be made dynamic
         business_profile: {
           name: restaurant.name,
-  url: restaurant.customDomain ? `https://${restaurant.customDomain}` : `${getBaseUrl()}`,        },
+          url: restaurant.customDomain ? `https://${restaurant.customDomain}` : `${getBaseUrl()}`,
+        },
       });
 
       // Save account ID to restaurant
@@ -4538,7 +4540,7 @@ app.post("/api/objects/upload", isAuthenticated, uploadLimiter, async (req, res)
         return res.status(400).json({ error: "No Stripe account found. Create one first." });
       }
 
-  const baseUrl = getBaseUrl();
+      const baseUrl = getBaseUrl();
 
       const accountLink = await stripe.accountLinks.create({
         account: restaurant.stripeAccountId,
@@ -6045,7 +6047,7 @@ app.post("/api/objects/upload", isAuthenticated, uploadLimiter, async (req, res)
         instructions: {
           type: "CNAME",
           host: restaurant.customDomain.replace(/^www\./, ''),
-            value: new URL(getBaseUrl()).hostname,
+          value: new URL(getBaseUrl()).hostname,
           note: "Point your custom domain to this hostname. If using www subdomain, point it to your apex domain."
         }
       });
