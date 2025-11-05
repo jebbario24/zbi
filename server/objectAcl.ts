@@ -1,7 +1,6 @@
-import { File } from "@google-cloud/storage";
-
-const ACL_POLICY_METADATA_KEY = "custom:aclPolicy";
-
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { r2Client } from "./objectStorage";
+const ACL_POLICY_METADATA_KEY = "aclpolicy";
 // The type of the access group.
 export enum ObjectAccessGroupType {}
 
@@ -28,6 +27,10 @@ export interface ObjectAclPolicy {
   aclRules?: Array<ObjectAclRule>;
 }
 
+export interface R2Object {
+  key: string;
+  bucket: string;
+}
 // Check if the requested permission is allowed based on the granted permission.
 function isPermissionAllowed(
   requested: ObjectPermission,
@@ -60,44 +63,73 @@ function createObjectAccessGroup(
 
 // Sets the ACL policy to the object metadata.
 export async function setObjectAclPolicy(
-  objectFile: File,
+  r2Object: R2Object,
   aclPolicy: ObjectAclPolicy,
 ): Promise<void> {
-  const [exists] = await objectFile.exists();
-  if (!exists) {
-    throw new Error(`Object not found: ${objectFile.name}`);
+  try {
+    // First, get the current object to preserve other metadata
+    const getCommand = new GetObjectCommand({
+      Bucket: r2Object.bucket,
+      Key: r2Object.key,
+    });
+    
+    const currentObject = await r2Client.send(getCommand);
+    
+    // Read the object body
+    const bodyBytes = await streamToBuffer(currentObject.Body as any);
+    
+    // Set metadata with ACL policy
+    const putCommand = new PutObjectCommand({
+      Bucket: r2Object.bucket,
+      Key: r2Object.key,
+      Body: bodyBytes,
+      ContentType: currentObject.ContentType,
+      Metadata: {
+        ...currentObject.Metadata,
+        [ACL_POLICY_METADATA_KEY]: JSON.stringify(aclPolicy),
+      },
+    });
+    
+    await r2Client.send(putCommand);
+  } catch (error) {
+    console.error("Error setting ACL policy:", error);
+    throw new Error(`Failed to set ACL policy: ${error}`);
   }
-
-  await objectFile.setMetadata({
-    metadata: {
-      [ACL_POLICY_METADATA_KEY]: JSON.stringify(aclPolicy),
-    },
-  });
-}
 
 // Gets the ACL policy from the object metadata.
 export async function getObjectAclPolicy(
-  objectFile: File,
+  r2Object: R2Object,
 ): Promise<ObjectAclPolicy | null> {
-  const [metadata] = await objectFile.getMetadata();
-  const aclPolicy = metadata?.metadata?.[ACL_POLICY_METADATA_KEY];
-  if (!aclPolicy) {
+  try {
+    const command = new GetObjectCommand({
+      Bucket: r2Object.bucket,
+      Key: r2Object.key,
+    });
+    
+    const response = await r2Client.send(command);
+    const aclPolicy = response.Metadata?.[ACL_POLICY_METADATA_KEY];
+    
+    if (!aclPolicy) {
+      return null;
+    }
+    
+  } catch (error) {
+    console.error("Error getting ACL policy:", error);
     return null;
   }
-  return JSON.parse(aclPolicy as string);
 }
 
 // Checks if the user can access the object.
 export async function canAccessObject({
   userId,
-  objectFile,
+  r2Object,
   requestedPermission,
 }: {
   userId?: string;
-  objectFile: File;
+  r2Object: R2Object;
   requestedPermission: ObjectPermission;
 }): Promise<boolean> {
-  const aclPolicy = await getObjectAclPolicy(objectFile);
+  const aclPolicy = await getObjectAclPolicy(r2Object);
   if (!aclPolicy) {
     return false;
   }
@@ -128,4 +160,14 @@ export async function canAccessObject({
   }
 
   return false;
+}
+
+// Helper function to convert stream to buffer
+async function streamToBuffer(stream: any): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: any[] = [];
+    stream.on('data', (chunk: any) => chunks.push(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+  });
 }
