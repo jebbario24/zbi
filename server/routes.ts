@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import { env, getBaseUrl } from "./env";
 import { storage } from "./storage";
 import { passport, hashPassword } from "./auth";
 import {
@@ -29,6 +30,8 @@ import { db } from "./db";
 import { boostSlots, promoRules } from "@shared/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
 import { wsManager } from "./websocket";
+import { authLimiter, apiLimiter, storefrontLimiter, webhookLimiter, uploadLimiter } from "./rateLimiter";
+import { logError, logWarn, logInfo } from "./logger";
 
 // Initialize Stripe only if credentials are available
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -211,7 +214,7 @@ export async function processScheduledPayouts(storage: any, stripe: any) {
   };
 
   if (!stripe) {
-    console.error('[Payout] Stripe is not configured');
+    logError('[Payout] Stripe is not configured - automated payouts disabled');
     return results;
   }
 
@@ -433,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   
   // Signup with email/password
-  app.post('/api/signup', async (req, res) => {
+  app.post('/api/signup', authLimiter, async (req, res) => {
     try {
       const { email, password, firstName, lastName } = req.body;
       
@@ -474,16 +477,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(user);
       });
     } catch (error) {
-      console.error("Signup error:", error);
+      logError("Signup error", error);
       res.status(500).json({ message: "Failed to create account" });
     }
   });
 
   // Login with email/password
-  app.post('/api/login', (req, res, next) => {
+  app.post('/api/login', authLimiter, (req, res, next) => {
     passport.authenticate('local', (err: any, user: any, info: any) => {
       if (err) {
-        console.error("Login error:", err);
+        logError("Login error", err);
         return res.status(500).json({ message: "Login failed" });
       }
       if (!user) {
@@ -533,7 +536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     lastName: z.string().min(1, "Last name is required"),
   });
 
-  app.post('/api/driver/signup', async (req, res) => {
+  app.post('/api/driver/signup', authLimiter, async (req, res) => {
     try {
       const validatedData = driverSignupSchema.parse(req.body);
       
@@ -591,7 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     password: z.string().min(1, "Password is required"),
   });
 
-  app.post('/api/driver/login', async (req, res) => {
+  app.post('/api/driver/login', authLimiter, async (req, res) => {
     try {
       const validatedData = driverLoginSchema.parse(req.body);
       
@@ -657,7 +660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Object Storage Upload URL
-  app.post('/api/object-storage/upload-url', isAuthenticated, async (req: any, res) => {
+  app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async (req: any, res) => {
     try {
       const { objectPath } = req.body;
       
@@ -754,6 +757,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Reuse existing product and price or create if doesn't exist
       let priceId = process.env.STRIPE_PRICE_ID;
+      
+      if (!priceId) {
+        logError('STRIPE_PRICE_ID not configured - subscription creation will fail');
+        return res.status(500).json({ message: 'Subscription service not configured. Please contact support.' });
+      }
       
       if (!priceId) {
         // Search for existing product
@@ -945,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stripe webhook endpoint for subscription events
-  app.post('/api/webhooks/stripe', async (req, res) => {
+  app.post('/api/webhooks/stripe', webhookLimiter, async (req, res) => {
     if (!stripe) {
       return res.status(503).send('Payment processing is not configured');
     }
@@ -954,7 +962,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     if (!endpointSecret) {
-      console.error('Missing STRIPE_WEBHOOK_SECRET');
+      logError('Missing STRIPE_WEBHOOK_SECRET - webhooks will fail');
       return res.status(500).send('Webhook secret not configured');
     }
 
@@ -963,7 +971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
     } catch (err: any) {
-      console.error('Webhook signature verification failed:', err.message);
+      logError('Webhook signature verification failed', err);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
@@ -2973,9 +2981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No Stripe account found. Create one first." });
       }
 
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? `https://${process.env.REPLIT_DOMAINS}` 
-        : `http://localhost:5000`;
+      const baseUrl = getBaseUrl();
 
       const accountLink = await stripe.accountLinks.create({
         account: driver.stripeConnectAccountId,
@@ -3701,6 +3707,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Public storefront routes (no auth required)
   
+  // Apply rate limiting to all storefront routes
+  app.use('/api/storefront', storefrontLimiter);
+
   // Get restaurant by current hostname (for subdomain/custom domain)
   app.get('/api/storefront/by-hostname', async (req: any, res) => {
     try {
@@ -4163,17 +4172,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json({ orderId: order.id, paymentMethod: 'cash', success: true });
       } else if (data.paymentMethod === 'paypal') {
+        // PayPal payment - require PayPal to be configured
+        if (!paypal) {
+          logError('PayPal payment requested but PayPal is not configured');
+          return res.status(503).json({ 
+            message: "PayPal payments are not available. Please contact the restaurant or use another payment method." 
+          });
+        }
+        
+        logInfo('PayPal payment flow initiated', { orderId: order.id });
         res.json({ orderId: order.id, paymentMethod: 'paypal' });
       } else if (data.paymentMethod === 'apple' || data.paymentMethod === 'google' || data.paymentMethod === 'stripe') {
         // Apple Pay, Google Pay, or Stripe payment - all use Stripe
-        // TODO: Create Stripe checkout session
-        res.json({ orderId: order.id, checkoutUrl: null });
+        if (!stripe) {
+          logError(`${data.paymentMethod} payment requested but Stripe is not configured`);
+          return res.status(503).json({ 
+            message: "Online payments are not available. Please contact the restaurant or use cash on delivery." 
+          });
+        }
+        
+        logWarn(`${data.paymentMethod} payment flow not fully implemented`, { orderId: order.id });
+        // TODO: Create Stripe checkout session or PaymentIntent
+        res.json({ 
+          orderId: order.id, 
+          paymentMethod: data.paymentMethod,
+          checkoutUrl: null,
+          message: 'Payment processing not yet implemented. Please use cash on delivery.' 
+        });
       } else {
-        // Default to stripe for unknown payment methods
-        res.json({ orderId: order.id, checkoutUrl: null });
+        // Unknown payment method
+        logWarn('Unknown payment method requested', { 
+          paymentMethod: data.paymentMethod, 
+          orderId: order.id 
+        });
+        res.status(400).json({ 
+          message: `Payment method '${data.paymentMethod}' is not supported. Please use cash, stripe, or paypal.` 
+        });
       }
     } catch (error) {
-      console.error("Error creating online order:", error);
+      logError("Error creating online order", error, { restaurantId: restaurant?.id });
       res.status(400).json({ message: "Failed to create order" });
     }
   });
@@ -4203,7 +4240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
+  app.post("/api/objects/upload", isAuthenticated, uploadLimiter, async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     const { uploadURL, objectPath } = await objectStorageService.getObjectEntityUploadURL();
     res.json({ uploadURL, objectPath });
@@ -4354,7 +4391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateRestaurant(restaurant.id, { paymentMethods: req.body.paymentMethods });
       res.status(200).json({ success: true });
     } catch (error) {
-      console.error("Error updating payment methods:", error);
+      logError("Error updating payment methods", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -4466,7 +4503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         business_type: 'individual', // Can be made dynamic
         business_profile: {
           name: restaurant.name,
-          url: restaurant.customDomain || `https://${restaurant.subdomain}.${process.env.REPLIT_DOMAINS}`,
+          url: restaurant.customDomain ? `https://${restaurant.customDomain}` : `${getBaseUrl()}`,
         },
       });
 
@@ -4503,9 +4540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No Stripe account found. Create one first." });
       }
 
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? `https://${process.env.REPLIT_DOMAINS}` 
-        : `http://localhost:5000`;
+      const baseUrl = getBaseUrl();
 
       const accountLink = await stripe.accountLinks.create({
         account: restaurant.stripeAccountId,
@@ -6012,8 +6047,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         instructions: {
           type: "CNAME",
           host: restaurant.customDomain.replace(/^www\./, ''),
-          value: `${restaurant.subdomain}.${process.env.REPLIT_DOMAINS || 'eatout.app'}`,
-          note: "If using www subdomain, point it to your apex domain or directly to the subdomain"
+          value: new URL(getBaseUrl()).hostname,
+          note: "Point your custom domain to this hostname. If using www subdomain, point it to your apex domain."
         }
       });
     } catch (error) {
