@@ -1995,15 +1995,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(customerReviews).where(eq(customerReviews.id, reviewId));
   }
 
-  async respondToReview(reviewId: string, response: string): Promise<CustomerReview> {
-    const [updated] = await db
-      .update(customerReviews)
-      .set({ response, respondedAt: new Date(), updatedAt: new Date() })
-      .where(eq(customerReviews.id, reviewId))
-      .returning();
-    return updated;
-  }
-
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
     const [created] = await db
       .insert(activityLogs)

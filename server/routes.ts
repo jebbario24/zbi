@@ -4173,7 +4173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ orderId: order.id, paymentMethod: 'cash', success: true });
       } else if (data.paymentMethod === 'paypal') {
         // PayPal payment - require PayPal to be configured
-        if (!paypal) {
+        if (!paypalClient) {
           logError('PayPal payment requested but PayPal is not configured');
           return res.status(503).json({ 
             message: "PayPal payments are not available. Please contact the restaurant or use another payment method." 
@@ -4210,7 +4210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
     } catch (error) {
-      logError("Error creating online order", error, { restaurantId: restaurant?.id });
+      logError("Error creating online order", error);
       res.status(400).json({ message: "Failed to create order" });
     }
   });
