@@ -173,7 +173,7 @@ const key = `${privateObjectDir}/uploads/${objectId}`;
       const rawObjectPath = url.pathname;
       console.log("[NORMALIZE] URL pathname:", rawObjectPath);
 
-et objectEntityDir = this.getPrivateObjectDir();
+let objectEntityDir = this.getPrivateObjectDir();
       console.log("[NORMALIZE] Private object dir:", objectEntityDir);
       
       if (!objectEntityDir.endsWith("/")) {
