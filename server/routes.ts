@@ -1555,30 +1555,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Restaurant not found" });
     }
 
-    // Validate required fields
-    const { promoName, promoCode, type, discountValue, maxUses, expiresAt } = req.body;
+    // Validate required fields - match what frontend sends
+    const { name, promoCode, promoType, discountValue, scope, redemptionLimit, isActive, startsAt, endsAt, buyItemId, getItemId, buyQuantity, getQuantity, autoApply, perCustomerLimit, priority, description } = req.body;
     
-    if (!promoName || !promoCode) {
+    if (!name || !promoCode) {
       return res.status(400).json({ 
         message: "Promo name and code are required" 
       });
     }
 
-    // Make sure we're sending ALL required fields
-    const data = { 
-      name: promoName,  // ← ADD THIS!
-      code: promoCode,  // ← ADD THIS!
-      type: type || 'percentage',
-      discountValue: discountValue || 0,
-      maxUses: maxUses || null,
-      expiresAt: expiresAt || null,
-      isActive: true,
-      restaurantId: restaurant.id 
+    // Build promo data with correct field names matching database schema
+    const promoData = { 
+      restaurantId: restaurant.id,
+      name,
+      description: description || null,
+      promoCode,
+      promoType: promoType || 'percentage',
+      discountValue: discountValue ? discountValue.toString() : '0',
+      scope: scope || 'order',
+      redemptionLimit: redemptionLimit || null,
+      isActive: isActive !== undefined ? isActive : true,
+      startsAt: startsAt ? new Date(startsAt) : new Date(),
+      endsAt: endsAt ? new Date(endsAt) : null,
+      buyItemId: buyItemId || null,
+      getItemId: getItemId || null,
+      buyQuantity: buyQuantity || null,
+      getQuantity: getQuantity || null,
+      autoApply: autoApply !== undefined ? autoApply : false,
+      perCustomerLimit: perCustomerLimit || 1,
+      priority: priority || 0,
     };
     
-    const promo = await storage.createPromo(data);
+    const promo = await storage.createPromo(promoData);
     res.json(promo);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating promo:", error);
     res.status(400).json({ 
       message: `Failed to create promo: ${error.message}` 
