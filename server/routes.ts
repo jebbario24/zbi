@@ -4228,11 +4228,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: userId,
       });
       if (!canAccess) {
+        logWarn('Object access denied', { 
+          path: req.path, 
+          userId: userId || 'anonymous',
+          key: r2Object.key 
+        });
         return res.sendStatus(401);
       }
       objectStorageService.downloadObject(r2Object, res);
     } catch (error) {
-      console.error("Error checking object access:", error);
+      logError("Error accessing object", error, { path: req.path, userId });
       if (error instanceof ObjectNotFoundError) {
         return res.sendStatus(404);
       }

@@ -135,8 +135,11 @@ export async function canAccessObject({
   requestedPermission: ObjectPermission;
 }): Promise<boolean> {
   const aclPolicy = await getObjectAclPolicy(r2Object);
+  
+  // If no ACL policy exists, allow public read access by default
+  // This handles newly uploaded images that haven't had ACL set yet
   if (!aclPolicy) {
-    return false;
+    return requestedPermission === ObjectPermission.READ;
   }
 
   if (
