@@ -4533,6 +4533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       if (!stripe) {
+        logError("Stripe not configured for connect onboarding");
         return res.status(503).json({ error: "Stripe is not configured" });
       }
 
@@ -4541,24 +4542,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Restaurant not found" });
       }
 
-      if (!restaurant.stripeAccountId) {
-        return res.status(400).json({ error: "No Stripe account found. Create one first." });
+      let stripeAccountId = restaurant.stripeAccountId;
+
+      // Create Stripe account if doesn't exist
+      if (!stripeAccountId) {
+        logInfo("Creating new Stripe Connect account", { restaurantId: restaurant.id });
+        
+        const account = await stripe.accounts.create({
+          type: 'express',
+          country: restaurant.country === 'United States' ? 'US' : 'US', // Default to US
+          email: restaurant.email || req.user.email,
+          capabilities: {
+            card_payments: { requested: true },
+            transfers: { requested: true },
+          },
+          business_type: 'individual',
+          business_profile: {
+            name: restaurant.name,
+            url: restaurant.customDomain ? `https://${restaurant.customDomain}` : `${getBaseUrl()}`,
+          },
+        });
+
+        stripeAccountId = account.id;
+
+        // Save to database
+        await storage.updateRestaurant(restaurant.id, {
+          stripeAccountId: stripeAccountId,
+        });
+
+        logInfo("Stripe Connect account created", { 
+          restaurantId: restaurant.id, 
+          stripeAccountId 
+        });
       }
 
       const baseUrl = getBaseUrl();
 
       const accountLink = await stripe.accountLinks.create({
-        account: restaurant.stripeAccountId,
+        account: stripeAccountId,
         refresh_url: `${baseUrl}/settings?connect=refresh`,
         return_url: `${baseUrl}/settings?connect=success`,
         type: 'account_onboarding',
+      });
+
+      logInfo("Stripe onboarding link generated", { 
+        restaurantId: restaurant.id,
+        stripeAccountId 
       });
 
       res.json({
         url: accountLink.url,
       });
     } catch (error: any) {
-      console.error("Error creating onboarding link:", error);
+      logError("Error creating onboarding link", error, { userId });
       res.status(500).json({ error: error.message || "Internal server error" });
     }
   });
