@@ -4185,15 +4185,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = req.user?.claims?.sub;
     const objectStorageService = new ObjectStorageService();
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const r2Object = await objectStorageService.getObjectEntityFile(req.path);
       const canAccess = await objectStorageService.canAccessObjectEntity({
-        objectFile,
+        r2Object,
         userId: userId,
       });
       if (!canAccess) {
         return res.sendStatus(401);
       }
-      objectStorageService.downloadObject(objectFile, res);
+      objectStorageService.downloadObject(r2Object, res);
     } catch (error) {
       console.error("Error checking object access:", error);
       if (error instanceof ObjectNotFoundError) {
