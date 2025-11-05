@@ -1548,20 +1548,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post('/api/promos', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const restaurant = await storage.getRestaurantByOwnerId(userId);
-      if (!restaurant) {
-        return res.status(404).json({ message: "Restaurant not found" });
-      }
-      const data = { ...req.body, restaurantId: restaurant.id };
-      const promo = await storage.createPromo(data);
-      res.json(promo);
-    } catch (error) {
-      console.error("Error creating promo:", error);
-      res.status(400).json({ message: "Failed to create promo" });
+  try {
+    const userId = req.user.id;
+    const restaurant = await storage.getRestaurantByOwnerId(userId);
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found" });
     }
-  });
+
+    // Validate required fields
+    const { promoName, promoCode, type, discountValue, maxUses, expiresAt } = req.body;
+    
+    if (!promoName || !promoCode) {
+      return res.status(400).json({ 
+        message: "Promo name and code are required" 
+      });
+    }
+
+    const data = { 
+      ...req.body, 
+      restaurantId: restaurant.id 
+    };
+    
+    const promo = await storage.createPromo(data);
+    res.json(promo);
+  } catch (error) {
+    console.error("Error creating promo:", error);
+    res.status(400).json({ 
+      message: `Failed to create promo: ${error.message}` 
+    });
+  }
+});
+
 
   app.put('/api/promos/:id', isAuthenticated, async (req: any, res) => {
     try {
