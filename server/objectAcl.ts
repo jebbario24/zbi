@@ -1,6 +1,8 @@
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { r2Client } from "./objectStorage";
+
 const ACL_POLICY_METADATA_KEY = "aclpolicy";
+
 // The type of the access group.
 export enum ObjectAccessGroupType {}
 
@@ -31,6 +33,7 @@ export interface R2Object {
   key: string;
   bucket: string;
 }
+
 // Check if the requested permission is allowed based on the granted permission.
 function isPermissionAllowed(
   requested: ObjectPermission,
@@ -114,6 +117,7 @@ export async function getObjectAclPolicy(
       return null;
     }
     
+    return JSON.parse(aclPolicy as string);
   } catch (error) {
     console.error("Error getting ACL policy:", error);
     return null;
@@ -131,8 +135,11 @@ export async function canAccessObject({
   requestedPermission: ObjectPermission;
 }): Promise<boolean> {
   const aclPolicy = await getObjectAclPolicy(r2Object);
+  
+  // If no ACL policy exists, allow public read access by default
+  // This handles newly uploaded images that haven't had ACL set yet
   if (!aclPolicy) {
-    return false;
+    return requestedPermission === ObjectPermission.READ;
   }
 
   if (
