@@ -4171,7 +4171,7 @@ app.post('/api/object-storage/upload-url', isAuthenticated, uploadLimiter, async
         
         res.json({ orderId: order.id, paymentMethod: 'cash', success: true });
       } else if (data.paymentMethod === 'paypal') {
-        / PayPal payment - require PayPal to be configured
+        // PayPal payment - require PayPal to be configured
         if (!paypal) {
           logError('PayPal payment requested but PayPal is not configured');
           return res.status(503).json({ 
