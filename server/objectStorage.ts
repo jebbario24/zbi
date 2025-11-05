@@ -15,7 +15,7 @@ export const r2Client = new S3Client({
   region: "auto",
   endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
-       accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
   },
 });
@@ -35,11 +35,12 @@ export interface R2Object {
   key: string;
   bucket: string;
 }
+
 export class ObjectStorageService {
   constructor() {}
 
   getPublicObjectSearchPaths(): Array<string> {
-      // For R2, we'll use the bucket name as the base path
+    // For R2, we'll use the bucket name as the base path
     return [R2_BUCKET_NAME];
   }
 
@@ -83,12 +84,12 @@ export class ObjectStorageService {
       const isPublic = aclPolicy?.visibility === "public";
       
       res.set({
-      "Content-Type": response.ContentType || "application/octet-stream",
+        "Content-Type": response.ContentType || "application/octet-stream",
         "Content-Length": response.ContentLength?.toString() || "0",
         "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${cacheTtlSec}`,
       });
 
-     if (response.Body) {
+      if (response.Body) {
         // @ts-ignore - Body is a readable stream
         response.Body.pipe(res);
       } else {
@@ -105,10 +106,10 @@ export class ObjectStorageService {
   async getObjectEntityUploadURL(): Promise<{ uploadURL: string; objectPath: string }> {
     const privateObjectDir = this.getPrivateObjectDir();
     const objectId = randomUUID();
-const key = `${privateObjectDir}/uploads/${objectId}`;
+    const key = `${privateObjectDir}/uploads/${objectId}`;
     
     const uploadURL = await signObjectURL({
-       bucketName: R2_BUCKET_NAME,
+      bucketName: R2_BUCKET_NAME,
       objectName: key,
       method: "PUT",
       ttlSec: 900,
@@ -135,7 +136,7 @@ const key = `${privateObjectDir}/uploads/${objectId}`;
     if (!entityDir.endsWith("/")) {
       entityDir = `${entityDir}/`;
     }
-   const key = `${entityDir}${entityId}`;
+    const key = `${entityDir}${entityId}`;
     
     try {
       const command = new HeadObjectCommand({
@@ -160,20 +161,18 @@ const key = `${privateObjectDir}/uploads/${objectId}`;
   normalizeObjectEntityPath(rawPath: string): string {
     console.log("[NORMALIZE] Input rawPath:", rawPath);
     
-    if (!rawPath.startsWith("https://storage.googleapis.com/")) {
-      console.log("[NORMALIZE] Not a googleapis URL, returning as-is");
-      // Check if it's an R2 URL
+    // Check if it's an R2 URL
     if (!rawPath.includes(R2_PUBLIC_URL) && !rawPath.includes('.r2.cloudflarestorage.com')) {
       console.log("[NORMALIZE] Not an R2 URL, returning as-is");
       return rawPath;
     }
 
-     try {
+    try {
       const url = new URL(rawPath);
       const rawObjectPath = url.pathname;
       console.log("[NORMALIZE] URL pathname:", rawObjectPath);
 
-let objectEntityDir = this.getPrivateObjectDir();
+      let objectEntityDir = this.getPrivateObjectDir();
       console.log("[NORMALIZE] Private object dir:", objectEntityDir);
       
       if (!objectEntityDir.endsWith("/")) {
@@ -181,12 +180,12 @@ let objectEntityDir = this.getPrivateObjectDir();
       }
       console.log("[NORMALIZE] Private object dir with slash:", objectEntityDir);
 
-    if (!rawObjectPath.startsWith(`/${objectEntityDir}`)) {
+      if (!rawObjectPath.startsWith(`/${objectEntityDir}`)) {
         console.log("[NORMALIZE] Path doesn't start with private dir, returning pathname");
         return rawObjectPath;
       }
 
-     const entityId = rawObjectPath.slice(objectEntityDir.length + 1);
+      const entityId = rawObjectPath.slice(objectEntityDir.length + 1);
       const result = `/objects/${entityId}`;
       console.log("[NORMALIZE] Final result:", result);
       return result;
@@ -205,18 +204,18 @@ let objectEntityDir = this.getPrivateObjectDir();
       return normalizedPath;
     }
 
-  const r2Object = await this.getObjectEntityFile(normalizedPath);
+    const r2Object = await this.getObjectEntityFile(normalizedPath);
     await setObjectAclPolicy(r2Object, aclPolicy);
     return normalizedPath;
   }
 
   async canAccessObjectEntity({
     userId,
-r2Object,
+    r2Object,
     requestedPermission,
   }: {
     userId?: string;
-     r2Object: R2Object;
+    r2Object: R2Object;
     requestedPermission?: ObjectPermission;
   }): Promise<boolean> {
     return canAccessObject({
@@ -259,7 +258,7 @@ export async function signObjectURL({
   method: "GET" | "PUT" | "DELETE" | "HEAD";
   ttlSec: number;
 }): Promise<string> {
-const commandMap = {
+  const commandMap = {
     GET: GetObjectCommand,
     PUT: PutObjectCommand,
     HEAD: HeadObjectCommand,
