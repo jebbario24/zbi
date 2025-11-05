@@ -1564,8 +1564,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
 
+    // Make sure we're sending ALL required fields
     const data = { 
-      ...req.body, 
+      name: promoName,  // ← ADD THIS!
+      code: promoCode,  // ← ADD THIS!
+      type: type || 'percentage',
+      discountValue: discountValue || 0,
+      maxUses: maxUses || null,
+      expiresAt: expiresAt || null,
+      isActive: true,
       restaurantId: restaurant.id 
     };
     
