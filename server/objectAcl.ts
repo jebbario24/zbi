@@ -95,6 +95,7 @@ export async function setObjectAclPolicy(
     console.error("Error setting ACL policy:", error);
     throw new Error(`Failed to set ACL policy: ${error}`);
   }
+}
 
 // Gets the ACL policy from the object metadata.
 export async function getObjectAclPolicy(
