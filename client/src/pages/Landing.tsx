@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { 
   UtensilsCrossed, 
   ShoppingCart, 
@@ -15,13 +16,15 @@ import {
   DollarSign,
   Clock,
   MapPin,
-  Mail
+  Mail,
+  Menu
 } from "lucide-react";
 
 type ViewMode = "restaurant" | "driver";
 
 export default function Landing() {
   const [viewMode, setViewMode] = useState<ViewMode>("restaurant");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const restaurantFeatures = [
     {
@@ -111,45 +114,142 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* View Mode Switcher */}
+      {/* Responsive Navigation Header */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
+            {/* Logo - Always Visible */}
             <div className="flex items-center gap-2">
               <UtensilsCrossed className="h-6 w-6 text-primary" />
               <span className="text-xl font-display font-bold">EatOut</span>
             </div>
             
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-              <TabsList data-testid="view-mode-switcher">
-                <TabsTrigger value="restaurant" data-testid="tab-restaurant">
-                  <ChefHat className="h-4 w-4 mr-2" />
-                  For Restaurants
-                </TabsTrigger>
-                <TabsTrigger value="driver" data-testid="tab-driver">
-                  <Truck className="h-4 w-4 mr-2" />
-                  For Drivers
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Desktop Navigation - Hidden on Mobile */}
+            <div className="hidden md:flex items-center gap-4">
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+                <TabsList data-testid="view-mode-switcher">
+                  <TabsTrigger value="restaurant" data-testid="tab-restaurant">
+                    <ChefHat className="h-4 w-4 mr-2" />
+                    For Restaurants
+                  </TabsTrigger>
+                  <TabsTrigger value="driver" data-testid="tab-driver">
+                    <Truck className="h-4 w-4 mr-2" />
+                    For Drivers
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost"
-                onClick={() => window.location.href = '/login'}
-                data-testid="button-login-header"
-              >
-                Login
-              </Button>
-              
-              <Button 
-                variant="ghost"
-                onClick={() => window.location.href = '/contact'}
-                data-testid="button-contact-header"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Contact Us
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost"
+                  onClick={() => window.location.href = '/login'}
+                  data-testid="button-login-header"
+                >
+                  Login
+                </Button>
+                
+                <Button 
+                  variant="ghost"
+                  onClick={() => window.location.href = '/contact'}
+                  data-testid="button-contact-header"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Contact Us
+                </Button>
+              </div>
+            </div>
+
+            {/* Mobile Hamburger Menu - Visible on Mobile Only */}
+            <div className="md:hidden">
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
+                    <Menu className="h-6 w-6" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+                  <SheetHeader>
+                    <SheetTitle className="flex items-center gap-2">
+                      <UtensilsCrossed className="h-5 w-5 text-primary" />
+                      EatOut Menu
+                    </SheetTitle>
+                  </SheetHeader>
+                  
+                  <div className="mt-8 space-y-6">
+                    {/* View Mode Selection */}
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium text-muted-foreground">I'm interested in:</p>
+                      <div className="space-y-2">
+                        <Button
+                          variant={viewMode === "restaurant" ? "default" : "outline"}
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setViewMode("restaurant");
+                            setMobileMenuOpen(false);
+                          }}
+                          data-testid="mobile-tab-restaurant"
+                        >
+                          <ChefHat className="h-4 w-4 mr-2" />
+                          For Restaurants
+                        </Button>
+                        <Button
+                          variant={viewMode === "driver" ? "default" : "outline"}
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setViewMode("driver");
+                            setMobileMenuOpen(false);
+                          }}
+                          data-testid="mobile-tab-driver"
+                        >
+                          <Truck className="h-4 w-4 mr-2" />
+                          For Drivers
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Navigation Links */}
+                    <div className="space-y-2 pt-6 border-t">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={() => {
+                          window.location.href = '/login';
+                          setMobileMenuOpen(false);
+                        }}
+                        data-testid="mobile-button-login"
+                      >
+                        Login
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={() => {
+                          window.location.href = '/contact';
+                          setMobileMenuOpen(false);
+                        }}
+                        data-testid="mobile-button-contact"
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Contact Us
+                      </Button>
+                    </div>
+
+                    {/* Call to Actions */}
+                    <div className="space-y-2 pt-6 border-t">
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          window.location.href = viewMode === "restaurant" ? '/login' : '/driver/login';
+                          setMobileMenuOpen(false);
+                        }}
+                      >
+                        Get Started
+                      </Button>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>
