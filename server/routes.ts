@@ -6098,6 +6098,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Push Notification Endpoints
+  
+  // Get VAPID public key for push subscription
+  app.get('/api/push/vapid-public-key', isAuthenticated, (req, res) => {
+    // Generate VAPID keys using web-push library
+    // For now, return a placeholder - you'll need to generate real VAPID keys
+    const publicKey = process.env.VAPID_PUBLIC_KEY || '';
+    
+    if (!publicKey) {
+      return res.status(503).json({ 
+        message: 'Push notifications not configured. Set VAPID_PUBLIC_KEY in environment.' 
+      });
+    }
+    
+    res.json({ publicKey });
+  });
+
+  // Subscribe to push notifications
+  app.post('/api/push/subscribe', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const subscription = req.body;
+      
+      // Store subscription in database
+      // For now, we'll just log it - you can add a pushSubscriptions table later
+      console.log('[Push] User subscribed:', userId, subscription);
+      
+      // TODO: Store in database
+      // await storage.savePushSubscription(userId, subscription);
+      
+      res.json({ success: true });
+    } catch (error) {
+      logError('Error saving push subscription', error);
+      res.status(500).json({ message: 'Failed to save subscription' });
+    }
+  });
+
+  // Unsubscribe from push notifications
+  app.post('/api/push/unsubscribe', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Remove subscription from database
+      console.log('[Push] User unsubscribed:', userId);
+      
+      // TODO: Remove from database
+      // await storage.removePushSubscription(userId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      logError('Error removing push subscription', error);
+      res.status(500).json({ message: 'Failed to unsubscribe' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

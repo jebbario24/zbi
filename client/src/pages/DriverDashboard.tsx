@@ -1,6 +1,9 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useBackgroundSync } from "@/hooks/useBackgroundSync";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,6 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { IOSInstallPrompt } from "@/components/IOSInstallPrompt";
 import { 
   DollarSign, 
   CheckCircle, 
@@ -27,7 +32,9 @@ import {
   Home,
   Settings,
   LayoutDashboard,
-  Download
+  Download,
+  Bell,
+  BellOff
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -117,6 +124,11 @@ export default function DriverDashboard() {
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>("all");
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  
+  // PWA Features
+  const { isOnline, wasOffline } = useOnlineStatus();
+  const { queueDeliveryStatusUpdate, isSyncing } = useBackgroundSync();
+  const { isSupported: pushSupported, isSubscribed: pushSubscribed, subscribe: subscribeToPush, unsubscribe: unsubscribeFromPush } = usePushNotifications();
 
   // Fetch profile completion status
   const { data: completionStatus, isLoading: loadingStatus } = useQuery<CompletionStatus>({
@@ -411,6 +423,19 @@ export default function DriverDashboard() {
             </div>
             
             <div className="flex items-center gap-3">
+              {/* Push Notifications Toggle */}
+              {pushSupported && (
+                <Button
+                  variant={pushSubscribed ? "outline" : "default"}
+                  size="sm"
+                  onClick={() => pushSubscribed ? unsubscribeFromPush() : subscribeToPush()}
+                  className="gap-2"
+                >
+                  {pushSubscribed ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                  {pushSubscribed ? "Notifications On" : "Enable Notifications"}
+                </Button>
+              )}
+              
               {/* PWA Install Button */}
               {showInstallButton && (
                 <Button
@@ -505,6 +530,24 @@ export default function DriverDashboard() {
             Manage your deliveries and earnings
           </p>
         </div>
+
+        {/* Offline/Online Indicator */}
+        <OfflineIndicator />
+
+        {/* iOS Install Instructions */}
+        <IOSInstallPrompt />
+
+        {/* Sync Status Indicator */}
+        {isSyncing && (
+          <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200">
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <AlertDescription className="text-blue-900 dark:text-blue-100">
+                Syncing your offline actions...
+              </AlertDescription>
+            </div>
+          </Alert>
+        )}
 
       {/* Service Zones Indicator */}
       {isApproved && serviceZonesData && (

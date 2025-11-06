@@ -16,6 +16,7 @@
     "@hookform/resolvers": "^3.10.0",
     "express-rate-limit": "^7.4.1",
     "winston": "^3.17.0",
+    "web-push": "^3.6.7",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",
     "@paypal/paypal-server-sdk": "^1.1.0",
