@@ -12,6 +12,9 @@ import { Plus, Eye, Clock, CheckCircle, XCircle, ChefHat, Printer, Trash2, Downl
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { RestaurantNotificationHeader } from "@/components/RestaurantNotificationHeader";
+import { useOrderAlert } from "@/hooks/useOrderAlert";
 import {
   Table,
   TableBody,
@@ -105,6 +108,10 @@ export default function Orders() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [previousOrderCount, setPreviousOrderCount] = useState<number>(0);
+  
+  // PWA Features
+  const { playOrderAlert } = useOrderAlert();
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -179,6 +186,25 @@ export default function Orders() {
   const { data: orders, isLoading } = useQuery<ExtendedOrder[]>({
     queryKey: ["/api/orders"],
   });
+
+  // Detect new orders and play sound alert
+  useEffect(() => {
+    if (orders && orders.length > 0) {
+      const pendingOrders = orders.filter(o => o.status === 'pending');
+      
+      if (previousOrderCount > 0 && pendingOrders.length > previousOrderCount) {
+        // New order detected!
+        playOrderAlert();
+        toast({
+          title: "🍕 New Order!",
+          description: `You have ${pendingOrders.length} pending order(s)`,
+          duration: 5000,
+        });
+      }
+      
+      setPreviousOrderCount(pendingOrders.length);
+    }
+  }, [orders, previousOrderCount, playOrderAlert, toast]);
 
   const { data: orderDetails, isLoading: detailsLoading } = useQuery<OrderWithItems>({
     queryKey: ["/api/orders", selectedOrder],
@@ -609,6 +635,9 @@ export default function Orders() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* PWA Features */}
+      <OfflineIndicator />
+      
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold">Orders</h1>
@@ -616,12 +645,15 @@ export default function Orders() {
             Manage all your restaurant orders
           </p>
         </div>
-        <Link href="/pos">
-          <Button data-testid="button-new-order">
-            <Plus className="mr-2 h-4 w-4" />
-            New Order
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <RestaurantNotificationHeader />
+          <Link href="/pos">
+            <Button data-testid="button-new-order">
+              <Plus className="mr-2 h-4 w-4" />
+              New Order
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card>

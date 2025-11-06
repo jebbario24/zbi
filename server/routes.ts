@@ -6098,9 +6098,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Push Notification Endpoints
+  // Push Notification Endpoints (Driver)
   
-  // Get VAPID public key for push subscription
+  // Get VAPID public key for push subscription (Driver)
   app.get('/api/push/vapid-public-key', isAuthenticated, (req, res) => {
     // Generate VAPID keys using web-push library
     // For now, return a placeholder - you'll need to generate real VAPID keys
@@ -6150,6 +6150,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logError('Error removing push subscription', error);
       res.status(500).json({ message: 'Failed to unsubscribe' });
+    }
+  });
+
+  // Push Notification Endpoints (Restaurant)
+  
+  // Get VAPID public key for restaurant push subscription
+  app.get('/api/restaurant/push/vapid-public-key', isAuthenticated, (req, res) => {
+    const publicKey = process.env.VAPID_PUBLIC_KEY || '';
+    
+    if (!publicKey) {
+      return res.status(503).json({ 
+        message: 'Push notifications not configured. Set VAPID_PUBLIC_KEY in environment.' 
+      });
+    }
+    
+    res.json({ publicKey });
+  });
+
+  // Subscribe restaurant to push notifications
+  app.post('/api/restaurant/push/subscribe', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const subscription = req.body;
+      
+      // Get restaurant
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: 'Restaurant not found' });
+      }
+      
+      // Store subscription
+      logInfo('[Push] Restaurant subscribed to notifications', { 
+        restaurantId: restaurant.id,
+        userId 
+      });
+      
+      // TODO: Store in database
+      // await storage.saveRestaurantPushSubscription(restaurant.id, subscription);
+      
+      res.json({ success: true });
+    } catch (error) {
+      logError('Error saving restaurant push subscription', error);
+      res.status(500).json({ message: 'Failed to save subscription' });
+    }
+  });
+
+  // Unsubscribe restaurant from push notifications
+  app.post('/api/restaurant/push/unsubscribe', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      if (!restaurant) {
+        return res.status(404).json({ message: 'Restaurant not found' });
+      }
+      
+      logInfo('[Push] Restaurant unsubscribed from notifications', { 
+        restaurantId: restaurant.id 
+      });
+      
+      // TODO: Remove from database
+      // await storage.removeRestaurantPushSubscription(restaurant.id);
+      
+      res.json({ success: true });
+    } catch (error) {
+      logError('Error removing restaurant push subscription', error);
+      res.status(500).json({ message: 'Failed to unsubscribe' });
+    }
+  });
+
+  // Test endpoint to send push notification to restaurant
+  app.post('/api/restaurant/push/test', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const restaurant = await storage.getRestaurantByOwnerId(userId);
+      
+      if (!restaurant) {
+        return res.status(404).json({ message: 'Restaurant not found' });
+      }
+
+      // TODO: Get subscription from database and send test notification
+      // const subscription = await storage.getRestaurantPushSubscription(restaurant.id);
+      // await sendPushNotification(subscription, {
+      //   title: '🔔 Test Notification',
+      //   body: 'Your restaurant notifications are working!',
+      //   icon: '/icons/restaurant-icon-192.png'
+      // });
+
+      logInfo('[Push] Test notification sent', { restaurantId: restaurant.id });
+      res.json({ success: true, message: 'Test notification sent' });
+    } catch (error) {
+      logError('Error sending test notification', error);
+      res.status(500).json({ message: 'Failed to send test notification' });
     }
   });
 

@@ -17,6 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RestaurantPWAPrompt } from "@/components/RestaurantPWAPrompt";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { RestaurantNotificationHeader } from "@/components/RestaurantNotificationHeader";
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -122,6 +125,11 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* PWA Features */}
+      <OfflineIndicator />
+      
+      <RestaurantPWAPrompt />
+
       {/* Subscription Status Banner */}
       {subscriptionStatus?.isTrialActive && trialDaysLeft <= 3 && (
         <Alert className="border-primary">
