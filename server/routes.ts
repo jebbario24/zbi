@@ -32,6 +32,7 @@ import { eq, and, isNotNull } from "drizzle-orm";
 import { wsManager } from "./websocket";
 import { authLimiter, apiLimiter, storefrontLimiter, webhookLimiter, uploadLimiter } from "./rateLimiter";
 import { logError, logWarn, logInfo } from "./logger";
+import marketplaceRouter from "./marketplace";
 
 // Initialize Stripe only if credentials are available
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -3705,6 +3706,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public marketplace routes (no auth required)
+  // Marketplace API for customer-facing restaurant discovery and ordering
+  app.use('/api/marketplace', storefrontLimiter, marketplaceRouter);
+  
   // Public storefront routes (no auth required)
   
   // Apply rate limiting to all storefront routes

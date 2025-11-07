@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { storage } from '../storage';
-import { db } from '../db';
+import { storage } from './storage';
+import { db } from './db';
+import { getBaseUrl } from './env';
+import { logError, logInfo } from './logger';
 import { restaurants, menuItems, menuCategories, orders, orderItems, deliveryZones, itemOptions, bundles, promoRules } from '@shared/schema';
 import { eq, and, sql, inArray } from 'drizzle-orm';
 
@@ -38,11 +40,12 @@ router.get('/restaurants', async (req: Request, res: Response) => {
       .where(eq(restaurants.isActive, true));
 
     // Add mock data for demo (rating, reviews, delivery time)
+    const baseUrl = getBaseUrl();
     const enrichedResults = results.map((restaurant) => ({
       ...restaurant,
       // Convert relative image URLs to absolute URLs
-      logoUrl: restaurant.logoUrl?.startsWith('http') ? restaurant.logoUrl : `https://api.eatout.cloud${restaurant.logoUrl}`,
-      coverImageUrl: restaurant.coverImageUrl?.startsWith('http') ? restaurant.coverImageUrl : `https://api.eatout.cloud${restaurant.coverImageUrl}`,
+      logoUrl: restaurant.logoUrl?.startsWith('http') ? restaurant.logoUrl : `${baseUrl}${restaurant.logoUrl}`,
+      coverImageUrl: restaurant.coverImageUrl?.startsWith('http') ? restaurant.coverImageUrl : `${baseUrl}${restaurant.coverImageUrl}`,
       rating: 4.5,
       reviewCount: Math.floor(Math.random() * 200) + 50,
       deliveryTime: '25-35 min',
@@ -52,9 +55,10 @@ router.get('/restaurants', async (req: Request, res: Response) => {
       cuisine: 'Restaurant',
     }));
 
+    logInfo('[Marketplace] Fetched restaurants', { count: enrichedResults.length });
     res.json(enrichedResults);
   } catch (error) {
-    console.error('Error fetching restaurants:', error);
+    logError('Error fetching marketplace restaurants', error);
     res.status(500).json({ message: 'Failed to fetch restaurants' });
   }
 });
@@ -80,10 +84,11 @@ router.get('/restaurants/:id', async (req: Request, res: Response) => {
     }
 
     // Add mock data and fix image URLs
+    const baseUrl = getBaseUrl();
     const enrichedRestaurant = {
       ...restaurant,
-      logoUrl: restaurant.logoUrl?.startsWith('http') ? restaurant.logoUrl : `https://api.eatout.cloud${restaurant.logoUrl}`,
-      coverImageUrl: restaurant.coverImageUrl?.startsWith('http') ? restaurant.coverImageUrl : `https://api.eatout.cloud${restaurant.coverImageUrl}`,
+      logoUrl: restaurant.logoUrl?.startsWith('http') ? restaurant.logoUrl : `${baseUrl}${restaurant.logoUrl}`,
+      coverImageUrl: restaurant.coverImageUrl?.startsWith('http') ? restaurant.coverImageUrl : `${baseUrl}${restaurant.coverImageUrl}`,
       rating: 4.5,
       reviewCount: 120,
       deliveryTime: '25-35 min',
@@ -94,7 +99,7 @@ router.get('/restaurants/:id', async (req: Request, res: Response) => {
 
     res.json(enrichedRestaurant);
   } catch (error) {
-    console.error('Error fetching restaurant:', error);
+    logError('Error fetching marketplace restaurant', error);
     res.status(500).json({ message: 'Failed to fetch restaurant' });
   }
 });
@@ -154,7 +159,7 @@ router.get('/restaurants/:id/menu', async (req: Request, res: Response) => {
       ...category,
       items: items.filter((item) => item.categoryId === category.id).map((item) => ({
         ...item,
-        imageUrl: item.imageUrl?.startsWith('http') ? item.imageUrl : `https://api.eatout.cloud${item.imageUrl}`,
+        imageUrl: item.imageUrl?.startsWith('http') ? item.imageUrl : `${getBaseUrl()}${item.imageUrl}`,
         // Add options from itemOptions table, fallback to JSONB options field
         options: optionsMap.get(item.id) || item.options || [],
       })),
@@ -162,7 +167,7 @@ router.get('/restaurants/:id/menu', async (req: Request, res: Response) => {
 
     res.json(menuWithItems);
   } catch (error) {
-    console.error('Error fetching menu:', error);
+    logError('Error fetching marketplace menu', error);
     res.status(500).json({ message: 'Failed to fetch menu' });
   }
 });
@@ -184,7 +189,7 @@ router.get('/delivery-zones/:restaurantId', async (req: Request, res: Response) 
 
     res.json(zones);
   } catch (error) {
-    console.error('Error fetching delivery zones:', error);
+    logError('Error fetching delivery zones', error);
     res.status(500).json({ message: 'Failed to fetch delivery zones' });
   }
 });
@@ -209,12 +214,12 @@ router.get('/restaurants/:id/bundles', async (req: Request, res: Response) => {
     // Fix image URLs
     const enrichedBundles = activeBundles.map(bundle => ({
       ...bundle,
-      imageUrl: bundle.imageUrl?.startsWith('http') ? bundle.imageUrl : `https://api.eatout.cloud${bundle.imageUrl}`,
+      imageUrl: bundle.imageUrl?.startsWith('http') ? bundle.imageUrl : `${getBaseUrl()}${bundle.imageUrl}`,
     }));
 
     res.json(enrichedBundles);
   } catch (error) {
-    console.error('Error fetching bundles:', error);
+    logError('Error fetching marketplace bundles', error);
     res.status(500).json({ message: 'Failed to fetch bundles' });
   }
 });
@@ -285,7 +290,7 @@ router.post('/validate-promo', async (req: Request, res: Response) => {
       discountAmount,
     });
   } catch (error) {
-    console.error('Error validating promo:', error);
+    logError('Error validating marketplace promo', error);
     res.status(500).json({ message: 'Failed to validate promo code' });
   }
 });
@@ -364,12 +369,13 @@ router.post('/orders', async (req: Request, res: Response) => {
     // TODO: Assign driver if delivery
     // TODO: Process payment if card/paypal
 
+    logInfo('[Marketplace] Order created', { orderId: order.id, restaurantId, total });
     res.json({
       ...order,
       message: 'Order placed successfully',
     });
   } catch (error) {
-    console.error('Error creating order:', error);
+    logError('Error creating marketplace order', error);
     res.status(500).json({ message: 'Failed to create order' });
   }
 });
@@ -414,7 +420,7 @@ router.get('/orders/:id', async (req: Request, res: Response) => {
       items,
     });
   } catch (error) {
-    console.error('Error fetching order:', error);
+    logError('Error fetching marketplace order', error);
     res.status(500).json({ message: 'Failed to fetch order' });
   }
 });
