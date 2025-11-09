@@ -216,7 +216,7 @@ class WebSocketManager {
     });
   }
 
-  private handleMessage(ws: WebSocketClient, message: any) {
+  private async handleMessage(ws: WebSocketClient, message: any) {
     // All identity is now derived from session - no client auth messages accepted
     // Future message types can be handled here (e.g., ping, status updates)
     
@@ -227,6 +227,59 @@ class WebSocketManager {
         type: 'error',
         data: { message: 'Authentication is session-based. Client auth messages are not accepted.' }
       });
+      return;
+    }
+
+    // Handle location updates from drivers
+    if (message.type === 'location_update' && ws.role === 'driver' && ws.userId) {
+      try {
+        const { locationTrackingService } = await import('./services/locationTracking');
+        const { lat, lng, accuracy, speed, heading, altitude, orderId } = message.data;
+
+        if (lat && lng) {
+          await locationTrackingService.updateLocation({
+            driverId: parseInt(ws.userId),
+            orderId: orderId || undefined,
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+            accuracy: accuracy ? parseFloat(accuracy) : undefined,
+            speed: speed ? parseFloat(speed) : undefined,
+            heading: heading ? parseFloat(heading) : undefined,
+            altitude: altitude ? parseFloat(altitude) : undefined,
+            timestamp: new Date(),
+          });
+
+          // Broadcast location to admins/dispatchers
+          this.broadcastToAdmins({
+            type: 'driver_location_update',
+            data: {
+              driverId: ws.userId,
+              lat,
+              lng,
+              orderId,
+              timestamp: new Date().toISOString(),
+            },
+          });
+
+          // If driver has active order, broadcast ETA updates to customer
+          if (orderId) {
+            const order = await storage.getOrder(orderId);
+            if (order && order.userId) {
+              this.broadcastToUser(order.userId.toString(), {
+                type: 'delivery_location_update',
+                data: {
+                  orderId,
+                  lat,
+                  lng,
+                  timestamp: new Date().toISOString(),
+                },
+              });
+            }
+          }
+        }
+      } catch (error) {
+        log(`[WebSocket] Error handling location update: ${error}`);
+      }
       return;
     }
 
@@ -329,6 +382,76 @@ class WebSocketManager {
     
     this.wss.clients.forEach((ws: WebSocket) => {
       this.sendToClient(ws as WebSocketClient, message);
+    });
+  }
+
+  // Broadcast location update to order's restaurant and customer
+  async broadcastLocationToOrder(orderId: number, location: { lat: number; lng: number; timestamp: string }) {
+    try {
+      const order = await storage.getOrder(orderId);
+      if (!order) return;
+
+      // Notify customer
+      if (order.userId) {
+        this.broadcastToUser(order.userId.toString(), {
+          type: 'delivery_location_update',
+          data: { orderId, ...location },
+        });
+      }
+
+      // Notify restaurant
+      this.broadcastToRestaurant(order.restaurantId.toString(), {
+        type: 'delivery_location_update',
+        data: { orderId, ...location },
+      });
+    } catch (error) {
+      log(`[WebSocket] Error broadcasting location to order ${orderId}: ${error}`);
+    }
+  }
+
+  // Broadcast ETA update
+  async broadcastETAUpdate(orderId: number, eta: {
+    estimatedMinutes: number;
+    distanceRemainingMeters: number;
+    trafficLevel: string;
+    estimatedPickupTime?: Date;
+    estimatedDeliveryTime?: Date;
+  }) {
+    try {
+      const order = await storage.getOrder(orderId);
+      if (!order) return;
+
+      const message: WebSocketMessage = {
+        type: 'eta_update',
+        data: { orderId, ...eta },
+      };
+
+      // Notify customer
+      if (order.userId) {
+        this.broadcastToUser(order.userId.toString(), message);
+      }
+
+      // Notify restaurant
+      this.broadcastToRestaurant(order.restaurantId.toString(), message);
+
+      // Notify driver
+      if (order.driverId) {
+        this.broadcastToDriver(order.driverId.toString(), message);
+      }
+    } catch (error) {
+      log(`[WebSocket] Error broadcasting ETA update for order ${orderId}: ${error}`);
+    }
+  }
+
+  // Broadcast batch delivery opportunity to driver
+  broadcastBatchOpportunity(driverId: string, opportunity: {
+    orderIds: number[];
+    estimatedEarnings: number;
+    savingsPercentage: number;
+  }) {
+    this.broadcastToDriver(driverId, {
+      type: 'batch_opportunity',
+      data: opportunity,
     });
   }
 }

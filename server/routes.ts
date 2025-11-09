@@ -3040,6 +3040,222 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // REAL-TIME LOCATION TRACKING ENDPOINTS
+  // ==========================================
+
+  // Update driver location (high-frequency updates)
+  app.post("/api/driver/location/update", isAuthenticated, async (req: any, res) => {
+    try {
+      const { locationTrackingService } = await import('./services/locationTracking');
+      const { lat, lng, accuracy, speed, heading, altitude, orderId } = req.body;
+
+      if (!lat || !lng) {
+        return res.status(400).json({ error: "Latitude and longitude are required" });
+      }
+
+      await locationTrackingService.updateLocation({
+        driverId: req.user.id,
+        orderId: orderId || undefined,
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        accuracy: accuracy ? parseFloat(accuracy) : undefined,
+        speed: speed ? parseFloat(speed) : undefined,
+        heading: heading ? parseFloat(heading) : undefined,
+        altitude: altitude ? parseFloat(altitude) : undefined,
+        timestamp: new Date(),
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error updating driver location:", error);
+      res.status(500).json({ error: error.message || "Failed to update location" });
+    }
+  });
+
+  // Get driver's current location
+  app.get("/api/driver/location/current", isAuthenticated, async (req: any, res) => {
+    try {
+      const { locationTrackingService } = await import('./services/locationTracking');
+      const location = await locationTrackingService.getCurrentLocation(req.user.id);
+
+      if (!location) {
+        return res.status(404).json({ error: "No location data found" });
+      }
+
+      res.json(location);
+    } catch (error: any) {
+      console.error("Error getting current location:", error);
+      res.status(500).json({ error: error.message || "Failed to get location" });
+    }
+  });
+
+  // Get driver's location history
+  app.get("/api/driver/location/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const { locationTrackingService } = await import('./services/locationTracking');
+      const { since, orderId } = req.query;
+
+      const sinceDate = since ? new Date(String(since)) : new Date(Date.now() - 60 * 60 * 1000); // Default: last hour
+      const history = await locationTrackingService.getLocationHistory(
+        req.user.id,
+        sinceDate,
+        orderId ? parseInt(String(orderId)) : undefined
+      );
+
+      res.json(history);
+    } catch (error: any) {
+      console.error("Error getting location history:", error);
+      res.status(500).json({ error: error.message || "Failed to get location history" });
+    }
+  });
+
+  // Get ETA for active delivery
+  app.get("/api/driver/delivery/:orderId/eta", isAuthenticated, async (req: any, res) => {
+    try {
+      const { locationTrackingService } = await import('./services/locationTracking');
+      const orderId = parseInt(req.params.orderId);
+
+      // Get driver's current location
+      const driverLocation = await locationTrackingService.getCurrentLocation(req.user.id);
+      if (!driverLocation) {
+        return res.status(404).json({ error: "Driver location not available" });
+      }
+
+      // Calculate ETA
+      const eta = await locationTrackingService.updateETA(orderId, driverLocation);
+      if (!eta) {
+        return res.status(404).json({ error: "Unable to calculate ETA" });
+      }
+
+      res.json(eta);
+    } catch (error: any) {
+      console.error("Error calculating ETA:", error);
+      res.status(500).json({ error: error.message || "Failed to calculate ETA" });
+    }
+  });
+
+  // Get ETA history for an order
+  app.get("/api/driver/delivery/:orderId/eta/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const { locationTrackingService } = await import('./services/locationTracking');
+      const orderId = parseInt(req.params.orderId);
+
+      const history = await locationTrackingService.getETAHistory(orderId);
+      res.json(history);
+    } catch (error: any) {
+      console.error("Error getting ETA history:", error);
+      res.status(500).json({ error: error.message || "Failed to get ETA history" });
+    }
+  });
+
+  // Get all active drivers with locations (admin/dispatcher only)
+  app.get("/api/admin/drivers/locations", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin' && req.user.role !== 'dispatcher') {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const { locationTrackingService } = await import('./services/locationTracking');
+      const locations = await locationTrackingService.getActiveDriverLocations();
+      res.json(locations);
+    } catch (error: any) {
+      console.error("Error getting driver locations:", error);
+      res.status(500).json({ error: error.message || "Failed to get driver locations" });
+    }
+  });
+
+  // ==========================================
+  // ROUTE OPTIMIZATION ENDPOINTS
+  // ==========================================
+
+  // Create optimized route for single delivery
+  app.post("/api/driver/route/create", isAuthenticated, async (req: any, res) => {
+    try {
+      const { routeOptimizationService } = await import('./services/routeOptimization');
+      const { locationTrackingService } = await import('./services/locationTracking');
+      const { orderId } = req.body;
+
+      if (!orderId) {
+        return res.status(400).json({ error: "Order ID is required" });
+      }
+
+      // Get driver's current location
+      const driverLocation = await locationTrackingService.getCurrentLocation(req.user.id);
+      if (!driverLocation) {
+        return res.status(400).json({ error: "Driver location not available. Please enable location tracking." });
+      }
+
+      // Create route
+      const routeId = await routeOptimizationService.createSingleDeliveryRoute(
+        req.user.id,
+        parseInt(orderId),
+        driverLocation
+      );
+
+      res.json({ routeId, success: true });
+    } catch (error: any) {
+      console.error("Error creating route:", error);
+      res.status(500).json({ error: error.message || "Failed to create route" });
+    }
+  });
+
+  // Create optimized route for batch delivery
+  app.post("/api/driver/route/batch", isAuthenticated, async (req: any, res) => {
+    try {
+      const { routeOptimizationService } = await import('./services/routeOptimization');
+      const { locationTrackingService } = await import('./services/locationTracking');
+      const { orderIds } = req.body;
+
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+        return res.status(400).json({ error: "Order IDs array is required" });
+      }
+
+      // Get driver's current location
+      const driverLocation = await locationTrackingService.getCurrentLocation(req.user.id);
+      if (!driverLocation) {
+        return res.status(400).json({ error: "Driver location not available. Please enable location tracking." });
+      }
+
+      // Create optimized batch route
+      const route = await routeOptimizationService.createBatchDeliveryRoute(
+        req.user.id,
+        orderIds.map((id: any) => parseInt(id)),
+        driverLocation
+      );
+
+      res.json(route);
+    } catch (error: any) {
+      console.error("Error creating batch route:", error);
+      res.status(500).json({ error: error.message || "Failed to create batch route" });
+    }
+  });
+
+  // Find batch delivery opportunities
+  app.get("/api/driver/batch-opportunities", isAuthenticated, async (req: any, res) => {
+    try {
+      const { routeOptimizationService } = await import('./services/routeOptimization');
+      const { locationTrackingService } = await import('./services/locationTracking');
+
+      // Get driver's current location
+      const driverLocation = await locationTrackingService.getCurrentLocation(req.user.id);
+      if (!driverLocation) {
+        return res.json({ opportunities: [] });
+      }
+
+      // Find batch opportunities
+      const opportunities = await routeOptimizationService.findBatchOpportunities(
+        req.user.id,
+        driverLocation
+      );
+
+      res.json({ opportunities });
+    } catch (error: any) {
+      console.error("Error finding batch opportunities:", error);
+      res.status(500).json({ error: error.message || "Failed to find batch opportunities" });
+    }
+  });
+
   // Get available delivery zones for a restaurant (public endpoint for storefront)
   app.get('/api/storefront/delivery-zones/:restaurantId', async (req: any, res) => {
     try {
