@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { deliveryRoutes, orders, deliveryBatches } from '@/shared/schema';
+import { deliveryRoutes, orders, deliveryBatches } from '../../shared/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { googleMapsService } from './googleMaps';
 import type { LatLng } from './googleMaps';

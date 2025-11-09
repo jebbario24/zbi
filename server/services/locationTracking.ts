@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { driverLocationHistory, deliveryRoutes, etaUpdates, orders } from '@/shared/schema';
+import { driverLocationHistory, deliveryRoutes, etaUpdates, orders } from '../../shared/schema';
 import { eq, and, desc, gt } from 'drizzle-orm';
 import { googleMapsService } from './googleMaps';
 import type { LatLng } from './googleMaps';
