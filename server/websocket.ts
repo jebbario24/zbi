@@ -454,6 +454,23 @@ class WebSocketManager {
       data: opportunity,
     });
   }
+
+  // Phase 3: Broadcast new order to specific drivers (for auto-dispatch)
+  broadcastNewOrderToDrivers(driverIds: string[], orderData: any) {
+    driverIds.forEach(driverId => {
+      this.broadcastToDriver(driverId, {
+        type: 'new_order_assignment',
+        data: orderData,
+      });
+    });
+    
+    log(`[WebSocket] Broadcast new order to ${driverIds.length} driver(s)`);
+  }
 }
 
 export const wsManager = new WebSocketManager();
+
+// Export convenience function for use in services
+export function broadcastNewOrderToDrivers(driverIds: string[], orderData: any) {
+  wsManager.broadcastNewOrderToDrivers(driverIds, orderData);
+}

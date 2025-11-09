@@ -1943,6 +1943,242 @@ export const routeReplays = pgTable("route_replays", {
   index("idx_route_replays_completed").on(table.completedAt),
 ]);
 
+// ==========================================
+// PHASE 3: AUTOMATED DISPATCHING TABLES
+// ==========================================
+
+// Dispatch Assignments - Track all order assignments to drivers
+export const dispatchAssignments = pgTable("dispatch_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  driverId: varchar("driver_id").references(() => users.id, { onDelete: 'set null' }),
+  
+  // Assignment Details
+  assignmentType: varchar("assignment_type", { length: 20 }).notNull(), // 'auto', 'manual', 'broadcast'
+  assignedBy: varchar("assigned_by"), // Admin user ID for manual assignments
+  assignmentScore: decimal("assignment_score", { precision: 5, scale: 2 }), // 0-100, higher = better match
+  
+  // Status Tracking
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // pending, accepted, rejected, expired, cancelled
+  responseTime: integer("response_time"), // seconds taken to respond
+  
+  // Driver Position at Assignment
+  driverLat: decimal("driver_lat", { precision: 10, scale: 7 }),
+  driverLng: decimal("driver_lng", { precision: 10, scale: 7 }),
+  distanceToRestaurant: decimal("distance_to_restaurant", { precision: 8, scale: 2 }), // km
+  estimatedPickupTime: integer("estimated_pickup_time"), // minutes
+  
+  // Rejection Details (if rejected)
+  rejectionReason: varchar("rejection_reason", { length: 100 }),
+  rejectionCategory: varchar("rejection_category", { length: 50 }), // 'too_far', 'break', 'ending_shift', 'other'
+  
+  // Expiry
+  expiresAt: timestamp("expires_at"),
+  
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+  respondedAt: timestamp("responded_at"),
+}, (table) => [
+  index("idx_dispatch_order").on(table.orderId),
+  index("idx_dispatch_driver").on(table.driverId),
+  index("idx_dispatch_status").on(table.status),
+  index("idx_dispatch_type").on(table.assignmentType),
+  index("idx_dispatch_assigned_at").on(table.assignedAt),
+]);
+
+// Driver Scores - Real-time scores for matching algorithm
+export const driverScores = pgTable("driver_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Performance Metrics
+  acceptanceRate: decimal("acceptance_rate", { precision: 5, scale: 2 }).notNull().default('100'), // 0-100
+  completionRate: decimal("completion_rate", { precision: 5, scale: 2 }).notNull().default('100'), // 0-100
+  onTimeRate: decimal("on_time_rate", { precision: 5, scale: 2 }).notNull().default('100'), // 0-100
+  customerRating: decimal("customer_rating", { precision: 3, scale: 2 }).notNull().default('5.00'), // 0-5.00
+  
+  // Reliability Score (composite)
+  reliabilityScore: decimal("reliability_score", { precision: 5, scale: 2 }).notNull().default('100'), // 0-100
+  
+  // Activity Metrics
+  totalDeliveries: integer("total_deliveries").notNull().default(0),
+  deliveriesLast7Days: integer("deliveries_last_7_days").notNull().default(0),
+  deliveriesLast30Days: integer("deliveries_last_30_days").notNull().default(0),
+  
+  // Speed Metrics
+  avgPickupTime: integer("avg_pickup_time"), // minutes
+  avgDeliveryTime: integer("avg_delivery_time"), // minutes
+  avgResponseTime: integer("avg_response_time"), // seconds
+  
+  // Penalties
+  activePenalties: integer("active_penalties").notNull().default(0),
+  penaltyPoints: integer("penalty_points").notNull().default(0),
+  
+  // Current Status
+  isOnline: boolean("is_online").notNull().default(false),
+  isAvailable: boolean("is_available").notNull().default(false),
+  hasActiveDelivery: boolean("has_active_delivery").notNull().default(false),
+  
+  // Priority & Preferences
+  priorityLevel: integer("priority_level").notNull().default(1), // 1-5, higher = higher priority
+  preferredZones: text("preferred_zones").array(), // Zone IDs
+  
+  lastDeliveryAt: timestamp("last_delivery_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_driver_scores_reliability").on(table.reliabilityScore),
+  index("idx_driver_scores_online").on(table.isOnline),
+  index("idx_driver_scores_available").on(table.isAvailable),
+  index("idx_driver_scores_priority").on(table.priorityLevel),
+]);
+
+// Dispatch Preferences - Driver auto-dispatch settings
+export const dispatchPreferences = pgTable("dispatch_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Auto-Accept Settings
+  autoAcceptEnabled: boolean("auto_accept_enabled").notNull().default(false),
+  autoAcceptMaxDistance: decimal("auto_accept_max_distance", { precision: 5, scale: 2 }), // km
+  autoAcceptMinPayout: decimal("auto_accept_min_payout", { precision: 8, scale: 2 }), // minimum delivery fee
+  autoAcceptOnlyPreferredZones: boolean("auto_accept_only_preferred_zones").notNull().default(false),
+  
+  // Restrictions
+  maxConcurrentOrders: integer("max_concurrent_orders").notNull().default(1),
+  blockListRestaurants: text("block_list_restaurants").array(), // Restaurant IDs to avoid
+  preferredRestaurants: text("preferred_restaurants").array(), // Restaurant IDs to prefer
+  
+  // Notification Preferences
+  notificationSound: boolean("notification_sound").notNull().default(true),
+  vibration: boolean("vibration").notNull().default(true),
+  notificationPriority: varchar("notification_priority", { length: 20 }).notNull().default('high'), // high, medium, low
+  
+  // Schedule Preferences
+  scheduleEnabled: boolean("schedule_enabled").notNull().default(false),
+  availabilitySchedule: jsonb("availability_schedule"), // Weekly schedule
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Rejection Penalties - Track and manage rejection penalties
+export const rejectionPenalties = pgTable("rejection_penalties", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  assignmentId: varchar("assignment_id").references(() => dispatchAssignments.id, { onDelete: 'set null' }),
+  
+  // Penalty Details
+  penaltyType: varchar("penalty_type", { length: 50 }).notNull(), // 'rejection', 'timeout', 'cancellation', 'no_show'
+  penaltyPoints: integer("penalty_points").notNull().default(1),
+  severity: varchar("severity", { length: 20 }).notNull(), // 'minor', 'moderate', 'severe'
+  
+  // Impact
+  durationMinutes: integer("duration_minutes"), // How long penalty lasts (null = permanent)
+  reducedPriority: boolean("reduced_priority").notNull().default(false),
+  temporarySuspension: boolean("temporary_suspension").notNull().default(false),
+  
+  reason: text("reason"),
+  notes: text("notes"),
+  
+  // Resolution
+  status: varchar("status", { length: 20 }).notNull().default('active'), // active, expired, waived, appealed
+  resolvedBy: varchar("resolved_by"), // Admin user ID
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_penalties_driver").on(table.driverId),
+  index("idx_penalties_status").on(table.status),
+  index("idx_penalties_created").on(table.createdAt),
+  index("idx_penalties_expires").on(table.expiresAt),
+]);
+
+// Dispatch Queue - Priority queue for pending orders
+export const dispatchQueue = pgTable("dispatch_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().unique().references(() => orders.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  
+  // Priority Calculation
+  priority: integer("priority").notNull().default(50), // 0-100, higher = more urgent
+  urgencyScore: decimal("urgency_score", { precision: 5, scale: 2 }), // Based on wait time
+  distanceScore: decimal("distance_score", { precision: 5, scale: 2 }), // Proximity to available drivers
+  valueScore: decimal("value_score", { precision: 5, scale: 2 }), // Order value
+  
+  // Wait Time Tracking
+  orderPlacedAt: timestamp("order_placed_at").notNull(),
+  estimatedPrepTime: integer("estimated_prep_time"), // minutes
+  targetPickupTime: timestamp("target_pickup_time"),
+  maxWaitTime: integer("max_wait_time"), // minutes before escalation
+  
+  // Assignment Attempts
+  assignmentAttempts: integer("assignment_attempts").notNull().default(0),
+  lastAssignmentAttempt: timestamp("last_assignment_attempt"),
+  rejectionCount: integer("rejection_count").notNull().default(0),
+  
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // pending, assigning, assigned, failed, cancelled
+  assignedDriverId: varchar("assigned_driver_id").references(() => users.id, { onDelete: 'set null' }),
+  assignedAt: timestamp("assigned_at"),
+  
+  // Escalation
+  isEscalated: boolean("is_escalated").notNull().default(false),
+  escalatedAt: timestamp("escalated_at"),
+  escalationReason: varchar("escalation_reason", { length: 100 }),
+  
+  // Location
+  restaurantLat: decimal("restaurant_lat", { precision: 10, scale: 7 }).notNull(),
+  restaurantLng: decimal("restaurant_lng", { precision: 10, scale: 7 }).notNull(),
+  deliveryLat: decimal("delivery_lat", { precision: 10, scale: 7 }).notNull(),
+  deliveryLng: decimal("delivery_lng", { precision: 10, scale: 7 }).notNull(),
+  
+  metadata: jsonb("metadata"), // Additional data for custom logic
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_queue_priority").on(table.priority),
+  index("idx_queue_status").on(table.status),
+  index("idx_queue_created").on(table.createdAt),
+  index("idx_queue_restaurant").on(table.restaurantId),
+  index("idx_queue_escalated").on(table.isEscalated),
+]);
+
+// Assignment History - Historical record for analytics
+export const assignmentHistory = pgTable("assignment_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  
+  // Assignment Flow
+  timeInQueue: integer("time_in_queue"), // seconds
+  assignmentAttempts: integer("assignment_attempts").notNull(),
+  driversOffered: text("drivers_offered").array(), // Driver IDs
+  driversRejected: text("drivers_rejected").array(), // Driver IDs who rejected
+  
+  // Final Assignment
+  finalDriverId: varchar("final_driver_id").references(() => users.id, { onDelete: 'set null' }),
+  assignmentMethod: varchar("assignment_method", { length: 20 }), // 'auto', 'manual', 'broadcast', 'fallback'
+  finalScore: decimal("final_score", { precision: 5, scale: 2 }),
+  
+  // Performance
+  timeToAcceptance: integer("time_to_acceptance"), // seconds
+  wasEscalated: boolean("was_escalated").notNull().default(false),
+  escalationCount: integer("escalation_count").notNull().default(0),
+  
+  // Quality Metrics
+  matchQuality: varchar("match_quality", { length: 20 }), // 'excellent', 'good', 'fair', 'poor'
+  driverDistanceAtAssignment: decimal("driver_distance_at_assignment", { precision: 8, scale: 2 }), // km
+  
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_assignment_history_order").on(table.orderId),
+  index("idx_assignment_history_driver").on(table.finalDriverId),
+  index("idx_assignment_history_method").on(table.assignmentMethod),
+  index("idx_assignment_history_created").on(table.createdAt),
+]);
+
 export const insertPlatformPaymentSettingsSchema = createInsertSchema(platformPaymentSettings).omit({
   id: true,
   createdAt: true,
@@ -2177,3 +2413,48 @@ export const insertTranslationRecordSchema = createInsertSchema(translationRecor
 });
 export type InsertTranslationRecord = z.infer<typeof insertTranslationRecordSchema>;
 export type TranslationRecord = typeof translationRecords.$inferSelect;
+
+// Phase 3: Automated Dispatching Schema Exports
+export const insertDispatchAssignmentSchema = createInsertSchema(dispatchAssignments).omit({
+  id: true,
+  assignedAt: true,
+});
+export type InsertDispatchAssignment = z.infer<typeof insertDispatchAssignmentSchema>;
+export type DispatchAssignment = typeof dispatchAssignments.$inferSelect;
+
+export const insertDriverScoreSchema = createInsertSchema(driverScores).omit({
+  id: true,
+  updatedAt: true,
+});
+export type InsertDriverScore = z.infer<typeof insertDriverScoreSchema>;
+export type DriverScore = typeof driverScores.$inferSelect;
+
+export const insertDispatchPreferenceSchema = createInsertSchema(dispatchPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDispatchPreference = z.infer<typeof insertDispatchPreferenceSchema>;
+export type DispatchPreference = typeof dispatchPreferences.$inferSelect;
+
+export const insertRejectionPenaltySchema = createInsertSchema(rejectionPenalties).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertRejectionPenalty = z.infer<typeof insertRejectionPenaltySchema>;
+export type RejectionPenalty = typeof rejectionPenalties.$inferSelect;
+
+export const insertDispatchQueueSchema = createInsertSchema(dispatchQueue).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDispatchQueue = z.infer<typeof insertDispatchQueueSchema>;
+export type DispatchQueue = typeof dispatchQueue.$inferSelect;
+
+export const insertAssignmentHistorySchema = createInsertSchema(assignmentHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAssignmentHistory = z.infer<typeof insertAssignmentHistorySchema>;
+export type AssignmentHistory = typeof assignmentHistory.$inferSelect;

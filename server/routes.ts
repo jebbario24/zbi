@@ -3382,6 +3382,247 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // PHASE 3: AUTOMATED DISPATCHING ENDPOINTS
+  // ========================================
+
+  // Get driver dispatch preferences
+  app.get("/api/driver/dispatch/preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access dispatch preferences" });
+      }
+
+      const preferences = await storage.getDispatchPreferences(req.user.id);
+      res.json(preferences || {
+        autoAcceptEnabled: false,
+        notificationSound: true,
+        vibration: true,
+        maxConcurrentOrders: 1,
+      });
+    } catch (error: any) {
+      console.error("Error getting dispatch preferences:", error);
+      res.status(500).json({ error: error.message || "Failed to get preferences" });
+    }
+  });
+
+  // Update driver dispatch preferences
+  app.put("/api/driver/dispatch/preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access dispatch preferences" });
+      }
+
+      const preferences = await storage.upsertDispatchPreferences(req.user.id, req.body);
+      res.json(preferences);
+    } catch (error: any) {
+      console.error("Error updating dispatch preferences:", error);
+      res.status(500).json({ error: error.message || "Failed to update preferences" });
+    }
+  });
+
+  // Accept an assignment
+  app.post("/api/driver/dispatch/assignments/:assignmentId/accept", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can accept assignments" });
+      }
+
+      const { assignmentId } = req.params;
+      const { automatedDispatchService } = await import('./services/automatedDispatch');
+      
+      // Calculate response time (would need assignment timestamp from DB)
+      const assignment = await storage.getDispatchAssignment(assignmentId);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+
+      if (assignment.status !== 'pending') {
+        return res.status(400).json({ error: "Assignment is no longer available" });
+      }
+
+      const responseTime = Math.floor((Date.now() - assignment.assignedAt.getTime()) / 1000);
+      
+      await automatedDispatchService.handleAcceptance(assignmentId, req.user.id, responseTime);
+      
+      res.json({ success: true, message: "Assignment accepted" });
+    } catch (error: any) {
+      console.error("Error accepting assignment:", error);
+      res.status(500).json({ error: error.message || "Failed to accept assignment" });
+    }
+  });
+
+  // Reject an assignment
+  app.post("/api/driver/dispatch/assignments/:assignmentId/reject", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can reject assignments" });
+      }
+
+      const { assignmentId } = req.params;
+      const { reason, category } = req.body;
+      const { automatedDispatchService } = await import('./services/automatedDispatch');
+      
+      const assignment = await storage.getDispatchAssignment(assignmentId);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+
+      const responseTime = Math.floor((Date.now() - assignment.assignedAt.getTime()) / 1000);
+      
+      await automatedDispatchService.handleRejection(
+        assignmentId, 
+        req.user.id, 
+        reason || 'No reason provided',
+        category || 'other',
+        responseTime
+      );
+      
+      res.json({ success: true, message: "Assignment rejected" });
+    } catch (error: any) {
+      console.error("Error rejecting assignment:", error);
+      res.status(500).json({ error: error.message || "Failed to reject assignment" });
+    }
+  });
+
+  // Get driver's assignment history
+  app.get("/api/driver/dispatch/history", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access assignment history" });
+      }
+
+      const { limit = 20, offset = 0 } = req.query;
+      const history = await storage.getDriverAssignmentHistory(req.user.id, Number(limit), Number(offset));
+      
+      res.json(history);
+    } catch (error: any) {
+      console.error("Error getting assignment history:", error);
+      res.status(500).json({ error: error.message || "Failed to get assignment history" });
+    }
+  });
+
+  // Get driver score/stats
+  app.get("/api/driver/dispatch/score", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access their score" });
+      }
+
+      const score = await storage.getDriverScore(req.user.id);
+      res.json(score || {
+        reliabilityScore: 100,
+        acceptanceRate: 100,
+        completionRate: 100,
+        onTimeRate: 100,
+        customerRating: 5.0,
+        totalDeliveries: 0,
+        activePenalties: 0,
+      });
+    } catch (error: any) {
+      console.error("Error getting driver score:", error);
+      res.status(500).json({ error: error.message || "Failed to get driver score" });
+    }
+  });
+
+  // Get driver penalties
+  app.get("/api/driver/dispatch/penalties", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access their penalties" });
+      }
+
+      const penalties = await storage.getDriverPenalties(req.user.id);
+      res.json(penalties);
+    } catch (error: any) {
+      console.error("Error getting driver penalties:", error);
+      res.status(500).json({ error: error.message || "Failed to get penalties" });
+    }
+  });
+
+  // Admin: Get dispatch queue
+  app.get("/api/admin/dispatch/queue", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only admins can access dispatch queue" });
+      }
+
+      const { status = 'pending' } = req.query;
+      const queue = await storage.getDispatchQueue(status as string);
+      
+      res.json(queue);
+    } catch (error: any) {
+      console.error("Error getting dispatch queue:", error);
+      res.status(500).json({ error: error.message || "Failed to get dispatch queue" });
+    }
+  });
+
+  // Admin: Manually assign order to driver
+  app.post("/api/admin/dispatch/assign", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only admins can manually assign orders" });
+      }
+
+      const { orderId, driverId } = req.body;
+      const { driverMatchingService } = await import('./services/driverMatching');
+      
+      // Get order and driver info for scoring
+      const order = await storage.getOrder(orderId);
+      const driver = await storage.getDriverLocation(driverId);
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Create manual assignment
+      const assignment = await storage.createDispatchAssignment({
+        orderId,
+        driverId,
+        assignmentType: 'manual',
+        assignedBy: req.user.id,
+        status: 'pending',
+      });
+
+      res.json({ success: true, assignment });
+    } catch (error: any) {
+      console.error("Error manually assigning order:", error);
+      res.status(500).json({ error: error.message || "Failed to assign order" });
+    }
+  });
+
+  // Admin: Process dispatch queue manually (trigger auto-dispatch)
+  app.post("/api/admin/dispatch/process", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only admins can process dispatch queue" });
+      }
+
+      const { automatedDispatchService } = await import('./services/automatedDispatch');
+      await automatedDispatchService.processQueue();
+      
+      res.json({ success: true, message: "Dispatch queue processed" });
+    } catch (error: any) {
+      console.error("Error processing dispatch queue:", error);
+      res.status(500).json({ error: error.message || "Failed to process queue" });
+    }
+  });
+
+  // Admin: Get all driver scores
+  app.get("/api/admin/dispatch/driver-scores", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only admins can access driver scores" });
+      }
+
+      const scores = await storage.getAllDriverScores();
+      res.json(scores);
+    } catch (error: any) {
+      console.error("Error getting driver scores:", error);
+      res.status(500).json({ error: error.message || "Failed to get driver scores" });
+    }
+  });
+
   // Get available delivery zones for a restaurant (public endpoint for storefront)
   app.get('/api/storefront/delivery-zones/:restaurantId', async (req: any, res) => {
     try {
