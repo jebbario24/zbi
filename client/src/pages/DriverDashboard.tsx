@@ -852,11 +852,24 @@ export default function DriverDashboard() {
                     )
                   : undefined,
               }))}
+              driverLocation={driverLocation || undefined}
               onOptimized={(result) => {
-                // Handle optimized result - could show route on map, accept batch, etc.
                 console.log('Optimized route:', result);
+              }}
+              onBatchAccepted={async (batchId, orderIds) => {
+                // Accept all orders in the batch
+                for (const orderId of orderIds) {
+                  try {
+                    await acceptOrderMutation.mutateAsync(orderId);
+                  } catch (error) {
+                    console.error('Failed to accept order:', orderId, error);
+                  }
+                }
+                
+                // Hide optimizer and refresh
                 setShowBatchOptimizer(false);
-                // TODO: Show optimized route result modal
+                queryClient.invalidateQueries({ queryKey: ["/api/driver/active-delivery"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/driver/available-orders"] });
               }}
             />
           )}

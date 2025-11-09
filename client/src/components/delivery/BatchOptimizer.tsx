@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
+import { OptimizedRouteResult } from './OptimizedRouteResult';
 
 interface Order {
   id: string;
@@ -36,11 +37,15 @@ interface Order {
 interface BatchOptimizerProps {
   orders: Order[];
   onOptimized: (result: any) => void;
+  onBatchAccepted?: (batchId: string, orderIds: string[]) => void;
+  driverLocation?: { lat: number; lng: number };
 }
 
-export function BatchOptimizer({ orders, onOptimized }: BatchOptimizerProps) {
+export function BatchOptimizer({ orders, onOptimized, onBatchAccepted, driverLocation }: BatchOptimizerProps) {
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [optimizeFor, setOptimizeFor] = useState<'time' | 'distance' | 'priority'>('time');
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [optimizationResult, setOptimizationResult] = useState<any>(null);
   const { toast } = useToast();
 
   const optimizeMutation = useMutation({
@@ -64,10 +69,8 @@ export function BatchOptimizer({ orders, onOptimized }: BatchOptimizerProps) {
       return response.json();
     },
     onSuccess: (result) => {
-      toast({
-        title: 'Route Optimized!',
-        description: `Saved ${result.route.totalDistance}m and ${Math.round(result.route.totalDuration / 60)} minutes`,
-      });
+      setOptimizationResult(result);
+      setShowResultModal(true);
       onOptimized(result);
     },
     onError: (error: any) => {
@@ -270,10 +273,40 @@ export function BatchOptimizer({ orders, onOptimized }: BatchOptimizerProps) {
 
         {selectedOrders.size < 2 && (
           <p className="text-xs text-center text-muted-foreground">
-            Select at least 2 orders to optimize a batch route
-          </p>
+          Select at least 2 orders to optimize a batch route
+        </p>
         )}
       </CardContent>
+
+      {/* Optimized Route Result Modal */}
+      {optimizationResult && (
+        <OptimizedRouteResult
+          open={showResultModal}
+          onClose={() => {
+            setShowResultModal(false);
+            setOptimizationResult(null);
+          }}
+          onAccept={async () => {
+            // Accept the batch
+            if (onBatchAccepted) {
+              await onBatchAccepted(
+                optimizationResult.batchId,
+                Array.from(selectedOrders)
+              );
+            }
+            setShowResultModal(false);
+            setSelectedOrders(new Set());
+            setOptimizationResult(null);
+            
+            toast({
+              title: 'Batch Accepted!',
+              description: 'Starting your optimized delivery route',
+            });
+          }}
+          result={optimizationResult}
+          driverLocation={driverLocation}
+        />
+      )}
     </Card>
   );
 }

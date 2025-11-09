@@ -3360,6 +3360,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get driver capabilities/vehicle settings
+  app.get("/api/driver/capabilities", isAuthenticated, async (req: any, res) => {
+    try {
+      const capabilities = await storage.getDriverCapabilities(req.user.id);
+      res.json(capabilities);
+    } catch (error: any) {
+      console.error("Error getting driver capabilities:", error);
+      res.status(500).json({ error: error.message || "Failed to get capabilities" });
+    }
+  });
+
+  // Update driver capabilities/vehicle settings
+  app.put("/api/driver/capabilities", isAuthenticated, async (req: any, res) => {
+    try {
+      const capabilities = await storage.upsertDriverCapabilities(req.user.id, req.body);
+      res.json(capabilities);
+    } catch (error: any) {
+      console.error("Error updating driver capabilities:", error);
+      res.status(500).json({ error: error.message || "Failed to update capabilities" });
+    }
+  });
+
   // Get available delivery zones for a restaurant (public endpoint for storefront)
   app.get('/api/storefront/delivery-zones/:restaurantId', async (req: any, res) => {
     try {
