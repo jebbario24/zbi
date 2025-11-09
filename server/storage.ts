@@ -2278,6 +2278,59 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     return locations[0] || null;
   }
+
+  // ==========================================
+  // PHASE 4: BATCH DELIVERY METHODS
+  // ==========================================
+
+  async getBatchById(batchId: string) {
+    const { deliveryBatches } = await import('../shared/schema');
+    const batches = await db
+      .select()
+      .from(deliveryBatches)
+      .where(eq(deliveryBatches.id, batchId))
+      .limit(1);
+    return batches[0] || null;
+  }
+
+  async getBatchStops(batchId: string) {
+    const { batchStops } = await import('../shared/schema');
+    return await db
+      .select()
+      .from(batchStops)
+      .where(eq(batchStops.batchId, batchId))
+      .orderBy(batchStops.stopNumber);
+  }
+
+  async getBatchModifications(batchId: string) {
+    const { batchModifications } = await import('../shared/schema');
+    return await db
+      .select()
+      .from(batchModifications)
+      .where(eq(batchModifications.batchId, batchId))
+      .orderBy(desc(batchModifications.createdAt));
+  }
+
+  async getBatchPerformance(batchId: string) {
+    const { batchPerformance } = await import('../shared/schema');
+    const performance = await db
+      .select()
+      .from(batchPerformance)
+      .where(eq(batchPerformance.batchId, batchId))
+      .limit(1);
+    return performance[0] || null;
+  }
+
+  async getBatchPerformanceList(driverId?: string, limit: number = 50) {
+    const { batchPerformance } = await import('../shared/schema');
+    let query = db.select().from(batchPerformance);
+    
+    if (driverId) {
+      query = query.where(eq(batchPerformance.driverId, driverId));
+    }
+    
+    return await query.orderBy(desc(batchPerformance.completedAt)).limit(limit);
+  }
 }
 
 export const storage = new DatabaseStorage();

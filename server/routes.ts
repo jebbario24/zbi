@@ -3623,6 +3623,206 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // PHASE 4: BATCH DELIVERY ENDPOINTS
+  // ========================================
+
+  // Create a new batch
+  app.post("/api/driver/batch/create", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can create batches" });
+      }
+
+      const { orderIds, optimize = true } = req.body;
+      const { batchManagementService } = await import('./services/batchManagement');
+
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length < 2) {
+        return res.status(400).json({ error: "At least 2 orders required for batch" });
+      }
+
+      const result = await batchManagementService.createBatch(req.user.id, orderIds, optimize);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error creating batch:", error);
+      res.status(500).json({ error: error.message || "Failed to create batch" });
+    }
+  });
+
+  // Start batch delivery
+  app.post("/api/driver/batch/:batchId/start", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can start batches" });
+      }
+
+      const { batchId } = req.params;
+      const { batchManagementService } = await import('./services/batchManagement');
+
+      await batchManagementService.startBatch(batchId);
+      res.json({ success: true, message: "Batch started" });
+    } catch (error: any) {
+      console.error("Error starting batch:", error);
+      res.status(500).json({ error: error.message || "Failed to start batch" });
+    }
+  });
+
+  // Complete a stop
+  app.post("/api/driver/batch/:batchId/stop/:stopId/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can complete stops" });
+      }
+
+      const { batchId, stopId } = req.params;
+      const { arrivalTime, duration, hasIssues = false, issueDescription } = req.body;
+      const { batchManagementService } = await import('./services/batchManagement');
+
+      await batchManagementService.completeStop(
+        batchId,
+        stopId,
+        arrivalTime ? new Date(arrivalTime) : new Date(),
+        duration || 5,
+        hasIssues,
+        issueDescription
+      );
+
+      // Check if batch is now complete
+      const activeBatch = await storage.getBatchById(batchId);
+      const batchCompleted = activeBatch?.batchStatus === 'completed';
+
+      res.json({ success: true, batchCompleted });
+    } catch (error: any) {
+      console.error("Error completing stop:", error);
+      res.status(500).json({ error: error.message || "Failed to complete stop" });
+    }
+  });
+
+  // Reorder stops
+  app.post("/api/driver/batch/:batchId/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can reorder stops" });
+      }
+
+      const { batchId } = req.params;
+      const { newSequence, reason = "driver_decision" } = req.body;
+      const { batchManagementService } = await import('./services/batchManagement');
+
+      if (!newSequence || !Array.isArray(newSequence)) {
+        return res.status(400).json({ error: "newSequence array required" });
+      }
+
+      const result = await batchManagementService.reorderStops(
+        batchId,
+        req.user.id,
+        newSequence,
+        reason
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error reordering stops:", error);
+      res.status(500).json({ error: error.message || "Failed to reorder stops" });
+    }
+  });
+
+  // Add order to batch
+  app.post("/api/driver/batch/:batchId/add", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can add to batches" });
+      }
+
+      const { batchId } = req.params;
+      const { orderId, position } = req.body;
+      const { batchManagementService } = await import('./services/batchManagement');
+
+      if (!orderId) {
+        return res.status(400).json({ error: "orderId required" });
+      }
+
+      await batchManagementService.addOrderToBatch(batchId, req.user.id, orderId, position);
+      res.json({ success: true, message: "Order added to batch" });
+    } catch (error: any) {
+      console.error("Error adding order to batch:", error);
+      res.status(500).json({ error: error.message || "Failed to add order to batch" });
+    }
+  });
+
+  // Remove order from batch
+  app.post("/api/driver/batch/:batchId/remove/:orderId", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can remove from batches" });
+      }
+
+      const { batchId, orderId } = req.params;
+      const { reason = "driver_decision" } = req.body;
+      const { batchManagementService } = await import('./services/batchManagement');
+
+      await batchManagementService.removeOrderFromBatch(batchId, req.user.id, orderId, reason);
+      res.json({ success: true, message: "Order removed from batch" });
+    } catch (error: any) {
+      console.error("Error removing order from batch:", error);
+      res.status(500).json({ error: error.message || "Failed to remove order from batch" });
+    }
+  });
+
+  // Get active batch
+  app.get("/api/driver/batch/active", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access batch info" });
+      }
+
+      const { batchManagementService } = await import('./services/batchManagement');
+      const batch = await batchManagementService.getActiveBatch(req.user.id);
+      
+      res.json(batch);
+    } catch (error: any) {
+      console.error("Error getting active batch:", error);
+      res.status(500).json({ error: error.message || "Failed to get active batch" });
+    }
+  });
+
+  // Admin: Get batch details
+  app.get("/api/admin/batch/:batchId", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only admins can access batch details" });
+      }
+
+      const { batchId } = req.params;
+      const batch = await storage.getBatchById(batchId);
+      const stops = await storage.getBatchStops(batchId);
+      const modifications = await storage.getBatchModifications(batchId);
+      const performance = await storage.getBatchPerformance(batchId);
+
+      res.json({ batch, stops, modifications, performance });
+    } catch (error: any) {
+      console.error("Error getting batch details:", error);
+      res.status(500).json({ error: error.message || "Failed to get batch details" });
+    }
+  });
+
+  // Admin: Get batch performance analytics
+  app.get("/api/admin/batch/performance", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Only admins can access batch performance" });
+      }
+
+      const { driverId, limit = 50 } = req.query;
+      const performance = await storage.getBatchPerformanceList(driverId as string, Number(limit));
+
+      res.json(performance);
+    } catch (error: any) {
+      console.error("Error getting batch performance:", error);
+      res.status(500).json({ error: error.message || "Failed to get batch performance" });
+    }
+  });
+
   // Get available delivery zones for a restaurant (public endpoint for storefront)
   app.get('/api/storefront/delivery-zones/:restaurantId', async (req: any, res) => {
     try {

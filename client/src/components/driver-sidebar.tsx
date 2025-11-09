@@ -8,7 +8,10 @@ import {
   History,
   HelpCircle,
   Receipt,
-  MapPin
+  MapPin,
+  Layers,
+  Zap,
+  Wrench
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -38,6 +41,11 @@ const driverMenuItems = [
     icon: Package,
   },
   {
+    title: "Active Batch",
+    url: "/driver/batch",
+    icon: Layers,
+  },
+  {
     title: "Service Zones",
     url: "/driver/service-zones",
     icon: MapPin,
@@ -65,12 +73,12 @@ const driverMenuItems = [
   {
     title: "Auto-Dispatch",
     url: "/driver/dispatch-preferences",
-    icon: Settings,
+    icon: Zap,
   },
   {
     title: "Vehicle & Capabilities",
     url: "/driver/vehicle-settings",
-    icon: Settings,
+    icon: Wrench,
   },
   {
     title: "Help & Support",

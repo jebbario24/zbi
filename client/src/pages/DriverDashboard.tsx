@@ -231,6 +231,13 @@ export default function DriverDashboard() {
     enabled: !!user && user.role === 'driver' && (isTestAccount || completionStatus?.adminApproved === true) && !activeDelivery,
   });
 
+  // Check for active batch
+  const { data: activeBatch } = useQuery<any>({
+    queryKey: ['/api/driver/batch/active'],
+    enabled: !!user && user.role === 'driver',
+    refetchInterval: 30000, // Refresh every 30s
+  });
+
   // Get driver location for distance calculations
   useEffect(() => {
     if (availableOrders.length > 0 && !driverLocation) {
@@ -665,6 +672,27 @@ export default function DriverDashboard() {
       <div className="container mx-auto p-4 md:p-6 space-y-4 max-w-7xl">
         {/* Debug Auth Info - Shows user role and helps diagnose 403 errors */}
         <DebugAuthInfo />
+
+        {/* Active Batch Alert - Highest Priority */}
+        {activeBatch && (
+          <Alert className="bg-gradient-to-r from-orange-500 to-red-500 text-white border-0">
+            <Package className="h-5 w-5 text-white" />
+            <AlertDescription className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex-1">
+                <div className="font-semibold mb-1">Active Batch Delivery</div>
+                <div className="text-sm opacity-90">
+                  {activeBatch.orderCount} orders • {(activeBatch.totalDistanceMeters / 1000).toFixed(1)} km • 
+                  ${parseFloat(activeBatch.estimatedEarnings || '0').toFixed(2)} earnings
+                </div>
+              </div>
+              <Link href="/driver/batch">
+                <Button size="sm" variant="secondary" className="bg-white text-orange-600 hover:bg-gray-100">
+                  Continue Batch <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Priority Alert System - Show only the most important alert */}
         {!isApproved && completionStatus && (
