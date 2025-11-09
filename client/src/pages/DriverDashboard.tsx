@@ -593,7 +593,7 @@ export default function DriverDashboard() {
             </Button>
             
             <Button asChild variant="ghost" size="sm" className="gap-2 relative" data-testid="nav-service-zones">
-              <Link href="/driver/settings?tab=zones">
+              <Link href="/driver/service-zones">
                 <MapPin className="h-4 w-4" />
                 Service Zones
                 {serviceZonesData && (
@@ -693,7 +693,7 @@ export default function DriverDashboard() {
                       </div>
                     </>
                   )}
-                  <Link href="/driver/settings?tab=zones">
+                  <Link href="/driver/service-zones">
                     <Button 
                       size="sm" 
                       variant={serviceZonesData.serviceZones.length === 0 ? "default" : "outline"}
@@ -1283,7 +1283,7 @@ export default function DriverDashboard() {
                 <AlertDescription>
                   <p className="font-medium mb-2">No Service Zones Selected</p>
                   <p className="mb-4">You need to select at least one delivery zone to start receiving orders.</p>
-                  <Link href="/driver/settings?tab=zones">
+                  <Link href="/driver/service-zones">
                     <Button size="sm" data-testid="button-configure-zones">
                       <MapPin className="w-4 h-4 mr-2" />
                       Select Your Service Zones
