@@ -60,6 +60,7 @@ import { useLocationTracking } from "@/hooks/useLocationTracking";
 import { calculateDistance, formatDistance, estimateTravelTime, getCurrentLocation } from "@/utils/location";
 import { DebugAuthInfo } from "@/components/DebugAuthInfo";
 import { LiveDeliveryTracker } from "@/components/delivery/LiveDeliveryTracker";
+import { BatchOptimizer } from "@/components/delivery/BatchOptimizer";
 
 interface CompletionStatus {
   profileComplete: boolean;
@@ -168,6 +169,7 @@ export default function DriverDashboard() {
   const [showOrderItems, setShowOrderItems] = useState(true);
   const [showDeliveryProgress, setShowDeliveryProgress] = useState(true);
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showBatchOptimizer, setShowBatchOptimizer] = useState(false);
   
   // PWA Features
   const { isOnline, wasOffline } = useOnlineStatus();
@@ -812,6 +814,53 @@ export default function DriverDashboard() {
             }
           }}
         />
+      )}
+
+      {/* Phase 2: Smart Batch Optimizer */}
+      {isApproved && !activeDelivery && stats?.isAvailable && availableOrders && availableOrders.length >= 2 && (
+        <div className="mb-4">
+          <Button
+            variant={showBatchOptimizer ? "default" : "outline"}
+            onClick={() => setShowBatchOptimizer(!showBatchOptimizer)}
+            className="w-full mb-3"
+          >
+            <Zap className="mr-2 h-4 w-4" />
+            {showBatchOptimizer ? 'Hide' : 'Show'} Smart Batch Optimizer
+            {!showBatchOptimizer && (
+              <Badge variant="secondary" className="ml-2">
+                {availableOrders.length} orders available
+              </Badge>
+            )}
+          </Button>
+          
+          {showBatchOptimizer && (
+            <BatchOptimizer
+              orders={availableOrders.map(order => ({
+                id: order.id,
+                orderNumber: order.orderNumber,
+                restaurantName: order.restaurant.name,
+                restaurantAddress: order.restaurant.address,
+                deliveryAddress: order.deliveryAddress,
+                deliveryFee: order.deliveryFee,
+                items: order.items || [],
+                distance: driverLocation && order.restaurantLat && order.restaurantLng
+                  ? calculateDistance(
+                      driverLocation.lat,
+                      driverLocation.lng,
+                      parseFloat(order.restaurantLat),
+                      parseFloat(order.restaurantLng)
+                    )
+                  : undefined,
+              }))}
+              onOptimized={(result) => {
+                // Handle optimized result - could show route on map, accept batch, etc.
+                console.log('Optimized route:', result);
+                setShowBatchOptimizer(false);
+                // TODO: Show optimized route result modal
+              }}
+            />
+          )}
+        </div>
       )}
 
       {/* Clean Available Orders Section */}
