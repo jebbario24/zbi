@@ -3,7 +3,7 @@ import { driverLocationHistory, deliveryRoutes, etaUpdates, orders } from '@/sha
 import { eq, and, desc, gt } from 'drizzle-orm';
 import { googleMapsService } from './googleMaps';
 import type { LatLng } from './googleMaps';
-import { log } from '../logger';
+import logger from '../logger';
 
 interface LocationUpdate {
   driverId: number;
@@ -53,13 +53,13 @@ class LocationTrackingService {
         });
       }
 
-      log.info(`Location updated for driver ${update.driverId}`, {
+      logger.info(`Location updated for driver ${update.driverId}`, {
         lat: update.lat,
         lng: update.lng,
         orderId: update.orderId,
       });
     } catch (error) {
-      log.error('Failed to update location', { error, update });
+      logger.error('Failed to update location', { error, update });
       throw error;
     }
   }
@@ -227,7 +227,7 @@ class LocationTrackingService {
           .where(eq(orders.id, orderId));
       }
 
-      log.info(`ETA updated for order ${orderId}`, {
+      logger.info(`ETA updated for order ${orderId}`, {
         estimatedMinutes,
         distanceMeters: eta.distanceMeters,
         trafficLevel,
@@ -242,7 +242,7 @@ class LocationTrackingService {
         estimatedDeliveryTime: !isPickup ? eta.estimatedArrival : undefined,
       };
     } catch (error) {
-      log.error('Failed to update ETA', { error, orderId });
+      logger.error('Failed to update ETA', { error, orderId });
       return null;
     }
   }

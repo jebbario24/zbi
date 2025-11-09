@@ -3,7 +3,7 @@ import { deliveryRoutes, orders, deliveryBatches } from '@/shared/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { googleMapsService } from './googleMaps';
 import type { LatLng } from './googleMaps';
-import { log } from '../logger';
+import logger from '../logger';
 
 interface DeliveryStop {
   orderId: number;
@@ -108,14 +108,14 @@ class RouteOptimizationService {
         })
         .where(eq(orders.id, orderId));
 
-      log.info(`Single delivery route created for order ${orderId}`, {
+      logger.info(`Single delivery route created for order ${orderId}`, {
         distanceMeters: bestRoute.distanceMeters,
         durationSeconds: bestRoute.durationSeconds,
       });
 
       return savedRoute.id;
     } catch (error) {
-      log.error('Failed to create single delivery route', { error, orderId });
+      logger.error('Failed to create single delivery route', { error, orderId });
       throw error;
     }
   }
@@ -249,7 +249,7 @@ class RouteOptimizationService {
         }
       );
 
-      log.info(`Batch delivery route created for driver ${driverId}`, {
+      logger.info(`Batch delivery route created for driver ${driverId}`, {
         orderCount: orderIds.length,
         distanceSavings,
         optimizationScore,
@@ -269,7 +269,7 @@ class RouteOptimizationService {
         },
       };
     } catch (error) {
-      log.error('Failed to create batch delivery route', { error, orderIds });
+      logger.error('Failed to create batch delivery route', { error, orderIds });
       throw error;
     }
   }
@@ -347,10 +347,10 @@ class RouteOptimizationService {
         }
       }
 
-      log.info(`Found ${opportunities.length} batch opportunities for driver ${driverId}`);
+      logger.info(`Found ${opportunities.length} batch opportunities for driver ${driverId}`);
       return opportunities;
     } catch (error) {
-      log.error('Failed to find batch opportunities', { error, driverId });
+      logger.error('Failed to find batch opportunities', { error, driverId });
       return [];
     }
   }
