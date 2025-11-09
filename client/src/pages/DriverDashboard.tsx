@@ -885,19 +885,53 @@ export default function DriverDashboard() {
                 console.log('Optimized route:', result);
               }}
               onBatchAccepted={async (batchId, orderIds) => {
-                // Accept all orders in the batch
-                for (const orderId of orderIds) {
-                  try {
-                    await acceptOrderMutation.mutateAsync(orderId);
-                  } catch (error) {
-                    console.error('Failed to accept order:', orderId, error);
+                try {
+                  // First, accept all individual orders
+                  for (const orderId of orderIds) {
+                    try {
+                      await acceptOrderMutation.mutateAsync(orderId);
+                    } catch (error) {
+                      console.error('Failed to accept order:', orderId, error);
+                      throw error;
+                    }
                   }
+                  
+                  // Then, create the batch record using Phase 4 API
+                  const batchResponse = await fetch('/api/driver/batch/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                      orderIds,
+                      optimize: true,
+                    }),
+                  });
+
+                  if (!batchResponse.ok) {
+                    const error = await batchResponse.json();
+                    throw new Error(error.error || 'Failed to create batch');
+                  }
+
+                  const batchData = await batchResponse.json();
+                  console.log('Batch created:', batchData);
+
+                  toast({
+                    title: 'Batch Created!',
+                    description: `Your ${orderIds.length}-order batch is ready. Check "Active Batch" to start delivery.`,
+                  });
+                  
+                  // Hide optimizer and refresh queries
+                  setShowBatchOptimizer(false);
+                  queryClient.invalidateQueries({ queryKey: ["/api/driver/active-delivery"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/driver/available-orders"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/driver/batch/active"] });
+                } catch (error: any) {
+                  toast({
+                    title: 'Batch Creation Failed',
+                    description: error.message || 'Failed to create batch',
+                    variant: 'destructive',
+                  });
                 }
-                
-                // Hide optimizer and refresh
-                setShowBatchOptimizer(false);
-                queryClient.invalidateQueries({ queryKey: ["/api/driver/active-delivery"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/driver/available-orders"] });
               }}
             />
           )}
