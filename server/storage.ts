@@ -730,6 +730,14 @@ export class DatabaseStorage implements IStorage {
     await db.delete(inventory).where(eq(inventory.id, id));
   }
 
+  async getDeliveryZone(zoneId: string): Promise<DeliveryZone | undefined> {
+    const [zone] = await db
+      .select()
+      .from(deliveryZones)
+      .where(eq(deliveryZones.id, zoneId));
+    return zone;
+  }
+
   async getDeliveryZones(restaurantId: string): Promise<DeliveryZone[]> {
     return await db.select().from(deliveryZones).where(eq(deliveryZones.restaurantId, restaurantId));
   }

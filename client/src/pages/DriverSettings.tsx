@@ -15,8 +15,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CheckCircle2, XCircle, Clock, Upload, ExternalLink, FileText, CreditCard, User, Car, MapPin, Truck, LayoutDashboard, Settings as SettingsIcon, TrendingUp } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Upload, ExternalLink, FileText, CreditCard, User, Car, MapPin, Truck, LayoutDashboard, Settings as SettingsIcon, TrendingUp, AlertCircle, ArrowRight, Calendar, Bell } from "lucide-react";
 import { Link } from "wouter";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AvailabilitySchedule } from "@/components/AvailabilitySchedule";
 
 const personalInfoSchema = z.object({
   phone: z.string()
@@ -361,22 +363,42 @@ export default function DriverSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-6" data-testid="tabs-driver-settings">
-          <TabsTrigger value="personal" data-testid="tab-personal-info">
+        <TabsList className="grid w-full grid-cols-7 mb-6" data-testid="tabs-driver-settings">
+          <TabsTrigger value="personal" data-testid="tab-personal-info" className="relative">
             <User className="w-4 h-4 mr-2" />
             Personal
+            {completionStatus?.personalInfoComplete && (
+              <CheckCircle2 className="w-3 h-3 ml-1 text-green-500" />
+            )}
           </TabsTrigger>
-          <TabsTrigger value="vehicle" data-testid="tab-vehicle-details">
+          <TabsTrigger value="vehicle" data-testid="tab-vehicle-details" className="relative">
             <Car className="w-4 h-4 mr-2" />
             Vehicle
+            {completionStatus?.vehicleInfoComplete && (
+              <CheckCircle2 className="w-3 h-3 ml-1 text-green-500" />
+            )}
           </TabsTrigger>
-          <TabsTrigger value="documents" data-testid="tab-documents">
+          <TabsTrigger value="documents" data-testid="tab-documents" className="relative">
             <FileText className="w-4 h-4 mr-2" />
             Documents
+            {completionStatus?.documentsComplete && (
+              <CheckCircle2 className="w-3 h-3 ml-1 text-green-500" />
+            )}
           </TabsTrigger>
-          <TabsTrigger value="bank" data-testid="tab-bank-account">
+          <TabsTrigger value="bank" data-testid="tab-bank-account" className="relative">
             <CreditCard className="w-4 h-4 mr-2" />
             Bank
+            {completionStatus?.bankAccountConnected && (
+              <CheckCircle2 className="w-3 h-3 ml-1 text-green-500" />
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="schedule" data-testid="tab-schedule">
+            <Calendar className="w-4 h-4 mr-2" />
+            Schedule
+          </TabsTrigger>
+          <TabsTrigger value="notifications" data-testid="tab-notifications">
+            <Bell className="w-4 h-4 mr-2" />
+            Notifications
           </TabsTrigger>
           <TabsTrigger value="status" data-testid="tab-profile-status">
             <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -388,8 +410,18 @@ export default function DriverSettings() {
         <TabsContent value="personal">
           <Card>
             <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
-              <CardDescription>Update your personal details and emergency contact</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Personal Information</CardTitle>
+                  <CardDescription>Update your personal details and emergency contact</CardDescription>
+                </div>
+                {completionStatus?.personalInfoComplete && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Complete
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <Form {...personalForm}>
@@ -523,10 +555,28 @@ export default function DriverSettings() {
 
         {/* Vehicle Details Tab */}
         <TabsContent value="vehicle">
+          {!completionStatus?.personalInfoComplete && (
+            <Alert className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Please complete your <strong>Personal Information</strong> first before adding vehicle details.
+              </AlertDescription>
+            </Alert>
+          )}
           <Card>
             <CardHeader>
-              <CardTitle>Vehicle Details</CardTitle>
-              <CardDescription>Update your vehicle and license information</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Vehicle Details</CardTitle>
+                  <CardDescription>Update your vehicle and license information</CardDescription>
+                </div>
+                {completionStatus?.vehicleInfoComplete && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Complete
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <Form {...vehicleForm}>
@@ -670,10 +720,28 @@ export default function DriverSettings() {
 
         {/* Documents Tab */}
         <TabsContent value="documents">
+          {!completionStatus?.vehicleInfoComplete && (
+            <Alert className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Please complete your <strong>Vehicle Details</strong> first before uploading documents.
+              </AlertDescription>
+            </Alert>
+          )}
           <Card>
             <CardHeader>
-              <CardTitle>Documents</CardTitle>
-              <CardDescription>Upload your ID proof and insurance certificate</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Documents</CardTitle>
+                  <CardDescription>Upload your ID proof and insurance certificate</CardDescription>
+                </div>
+                {completionStatus?.documentsComplete && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Complete
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* ID Proof */}
@@ -739,10 +807,28 @@ export default function DriverSettings() {
 
         {/* Bank Account Tab */}
         <TabsContent value="bank">
+          {!completionStatus?.documentsComplete && (
+            <Alert className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Please complete your <strong>Documents</strong> first before connecting your bank account.
+              </AlertDescription>
+            </Alert>
+          )}
           <Card>
             <CardHeader>
-              <CardTitle>Bank Account</CardTitle>
-              <CardDescription>Connect your bank account for receiving payouts</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Bank Account</CardTitle>
+                  <CardDescription>Connect your bank account for receiving payouts</CardDescription>
+                </div>
+                {completionStatus?.bankAccountConnected && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Connected
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {stripeStatus?.connected ? (
@@ -809,104 +895,462 @@ export default function DriverSettings() {
           </Card>
         </TabsContent>
 
+        {/* Schedule Tab */}
+        <TabsContent value="schedule">
+          <AvailabilitySchedule
+            onSave={async (schedule) => {
+              try {
+                await apiRequest("/api/driver/schedule", "PUT", { schedule });
+                toast({
+                  title: "Success",
+                  description: "Availability schedule updated successfully",
+                });
+              } catch (error: any) {
+                toast({
+                  title: "Error",
+                  description: error.message || "Failed to update schedule",
+                  variant: "destructive",
+                });
+              }
+            }}
+          />
+        </TabsContent>
+
+        {/* Notifications Tab */}
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Notification Preferences
+              </CardTitle>
+              <CardDescription>
+                Customize how and when you receive notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <p className="font-medium">New Order Notifications</p>
+                    <p className="text-sm text-muted-foreground">
+                      Get notified when new delivery orders become available
+                    </p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <p className="font-medium">High Value Order Alerts</p>
+                    <p className="text-sm text-muted-foreground">
+                      Special notifications for orders with earnings above $15
+                    </p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <p className="font-medium">Quiet Hours</p>
+                    <p className="text-sm text-muted-foreground">
+                      Disable notifications during specific hours
+                    </p>
+                  </div>
+                  <Switch />
+                </div>
+
+                <div className="p-4 border rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">Quiet Hours Time</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Start Time</Label>
+                      <Select defaultValue="22:00">
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 24 }, (_, i) => {
+                            const hour = i.toString().padStart(2, '0');
+                            return [`${hour}:00`, `${hour}:30`];
+                          }).flat().map(time => (
+                            <SelectItem key={time} value={time}>{time}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">End Time</Label>
+                      <Select defaultValue="08:00">
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 24 }, (_, i) => {
+                            const hour = i.toString().padStart(2, '0');
+                            return [`${hour}:00`, `${hour}:30`];
+                          }).flat().map(time => (
+                            <SelectItem key={time} value={time}>{time}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <p className="font-medium">Sound Alerts</p>
+                    <p className="text-sm text-muted-foreground">
+                      Play sound when new orders arrive
+                    </p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <p className="font-medium">Vibration</p>
+                    <p className="text-sm text-muted-foreground">
+                      Vibrate device for notifications (mobile only)
+                    </p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+              </div>
+
+              <Button
+                onClick={async () => {
+                  toast({
+                    title: "Success",
+                    description: "Notification preferences saved",
+                  });
+                }}
+                className="w-full"
+              >
+                Save Preferences
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Profile Status Tab */}
         <TabsContent value="status">
           <Card>
             <CardHeader>
-              <CardTitle>Profile Status</CardTitle>
-              <CardDescription>Your profile completion and approval status</CardDescription>
+              <CardTitle>Verification Status</CardTitle>
+              <CardDescription>Track your profile completion and approval progress</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Completion Progress */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">Profile Completion</span>
-                  <span className="text-sm text-muted-foreground" data-testid="text-completion-percentage">
+                  <span className="font-medium text-lg">Profile Completion</span>
+                  <span className="text-2xl font-bold text-primary" data-testid="text-completion-percentage">
                     {completionStatus?.completionPercentage || 0}%
                   </span>
                 </div>
-                <Progress value={completionStatus?.completionPercentage || 0} className="h-2" />
+                <Progress value={completionStatus?.completionPercentage || 0} className="h-3" />
+                <p className="text-xs text-muted-foreground">
+                  {completionStatus?.isComplete 
+                    ? "All steps completed! Your profile is ready for review." 
+                    : "Complete all steps to submit your profile for approval."}
+                </p>
               </div>
 
-              {/* Checklist */}
-              <div className="space-y-3">
-                <h3 className="font-medium">Completion Checklist</h3>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    {completionStatus?.personalInfoComplete ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-gray-400" />
-                    )}
-                    <span data-testid="text-personal-info-status">Personal Information Complete</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {completionStatus?.vehicleInfoComplete ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-gray-400" />
-                    )}
-                    <span data-testid="text-vehicle-info-status">Vehicle Details Complete</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {completionStatus?.documentsComplete ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-gray-400" />
-                    )}
-                    <span data-testid="text-documents-status">Documents Uploaded</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {completionStatus?.bankAccountConnected ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-gray-400" />
-                    )}
-                    <span data-testid="text-bank-account-status">Bank Account Connected</span>
-                  </div>
+              {/* Visual Timeline */}
+              <div className="space-y-4">
+                <h3 className="font-medium text-lg">Verification Steps</h3>
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted" />
+                  {[
+                    { step: 1, label: "Personal Information", percent: 20, key: "personalInfoComplete", tab: "personal", icon: User },
+                    { step: 2, label: "Vehicle Details", percent: 40, key: "vehicleInfoComplete", tab: "vehicle", icon: Car },
+                    { step: 3, label: "Documents", percent: 60, key: "documentsComplete", tab: "documents", icon: FileText },
+                    { step: 4, label: "Bank Account", percent: 100, key: "bankAccountConnected", tab: "bank", icon: CreditCard },
+                  ].map((item, index) => {
+                    const isComplete = completionStatus?.[item.key];
+                    const previousComplete = index === 0 ? true : completionStatus?.[[
+                      { key: "personalInfoComplete" },
+                      { key: "vehicleInfoComplete" },
+                      { key: "documentsComplete" },
+                    ][index - 1]?.key];
+                    const isCurrent = !isComplete && previousComplete;
+                    const Icon = item.icon;
+                    
+                    return (
+                      <div key={item.step} className="relative flex items-start gap-4 pb-6 last:pb-0">
+                        <div className={`relative z-10 h-8 w-8 rounded-full flex items-center justify-center transition-all ${
+                          isComplete 
+                            ? 'bg-green-500 text-white shadow-lg scale-110' 
+                            : isCurrent
+                            ? 'bg-primary text-white animate-pulse shadow-lg'
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {isComplete ? (
+                            <CheckCircle2 className="h-5 w-5" />
+                          ) : (
+                            <span className="text-sm font-semibold">{item.step}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 pt-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <Icon className={`h-4 w-4 ${isCurrent ? 'text-primary' : isComplete ? 'text-green-500' : 'text-muted-foreground'}`} />
+                              <span className={`font-medium ${isCurrent ? 'text-primary text-base' : isComplete ? 'text-green-600' : ''}`}>
+                                {item.label}
+                              </span>
+                            </div>
+                            {isCurrent && (
+                              <Badge variant="default" className="animate-pulse">
+                                Current Step
+                              </Badge>
+                            )}
+                            {isComplete && (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                Complete
+                              </Badge>
+                            )}
+                          </div>
+                          {isCurrent && (
+                            <div className="mt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setActiveTab(item.tab)}
+                                className="gap-2"
+                              >
+                                Complete This Step
+                                <ArrowRight className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          {!isComplete && !isCurrent && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Complete previous steps first
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
+              {/* Field-Level Breakdown */}
+              {!completionStatus?.personalInfoComplete && (
+                <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-900/10">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-orange-500" />
+                      Missing Personal Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {[
+                        { field: 'phone', label: 'Phone Number' },
+                        { field: 'dateOfBirth', label: 'Date of Birth' },
+                        { field: 'address', label: 'Address' },
+                        { field: 'city', label: 'City' },
+                        { field: 'country', label: 'Country' },
+                        { field: 'postalCode', label: 'Postal Code' },
+                        { field: 'emergencyContactName', label: 'Emergency Contact' },
+                        { field: 'emergencyContactPhone', label: 'Emergency Phone' },
+                      ].filter(item => !user?.[item.field as keyof typeof user]).map(item => (
+                        <div key={item.field} className="flex items-center gap-2">
+                          <XCircle className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                          <span className="text-muted-foreground">{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveTab("personal")}
+                      className="mt-3 gap-2"
+                    >
+                      Complete Personal Info
+                      <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {!completionStatus?.vehicleInfoComplete && completionStatus?.personalInfoComplete && (
+                <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-900/10">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-orange-500" />
+                      Missing Vehicle Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {[
+                        { field: 'vehicleType', label: 'Vehicle Type' },
+                        { field: 'vehicleMake', label: 'Vehicle Make' },
+                        { field: 'vehicleModel', label: 'Vehicle Model' },
+                        { field: 'vehicleYear', label: 'Vehicle Year' },
+                        { field: 'vehiclePlate', label: 'License Plate' },
+                        { field: 'vehicleColor', label: 'Vehicle Color' },
+                        { field: 'licenseNumber', label: 'License Number' },
+                        { field: 'licenseExpiry', label: 'License Expiry' },
+                      ].filter(item => !user?.[item.field as keyof typeof user]).map(item => (
+                        <div key={item.field} className="flex items-center gap-2">
+                          <XCircle className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                          <span className="text-muted-foreground">{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveTab("vehicle")}
+                      className="mt-3 gap-2"
+                    >
+                      Complete Vehicle Details
+                      <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Document Verification Status */}
+              <div className="space-y-3">
+                <h3 className="font-medium text-lg">Document Verification</h3>
+                <div className="grid gap-3">
+                  <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        user.idProofUrl ? 'bg-green-100 dark:bg-green-900/20' : 'bg-muted'
+                      }`}>
+                        <FileText className={`h-5 w-5 ${
+                          user.idProofUrl ? 'text-green-600' : 'text-muted-foreground'
+                        }`} />
+                      </div>
+                      <div>
+                        <p className="font-medium">ID Proof</p>
+                        <p className="text-sm text-muted-foreground">
+                          Driver's license, passport, or national ID
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {user.idProofUrl ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <Clock className="w-3 h-3" />
+                          Pending Review
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1">
+                          <XCircle className="w-3 h-3" />
+                          Not Uploaded
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        user.insuranceUrl ? 'bg-green-100 dark:bg-green-900/20' : 'bg-muted'
+                      }`}>
+                        <FileText className={`h-5 w-5 ${
+                          user.insuranceUrl ? 'text-green-600' : 'text-muted-foreground'
+                        }`} />
+                      </div>
+                      <div>
+                        <p className="font-medium">Insurance Certificate</p>
+                        <p className="text-sm text-muted-foreground">
+                          Vehicle insurance document
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {user.insuranceUrl ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <Clock className="w-3 h-3" />
+                          Pending Review
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1">
+                          <XCircle className="w-3 h-3" />
+                          Not Uploaded
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {(!user.idProofUrl || !user.insuranceUrl) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveTab("documents")}
+                    className="gap-2"
+                  >
+                    Upload Documents
+                    <ArrowRight className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+
               {/* Admin Approval Status */}
-              <div className="p-4 bg-muted rounded-lg space-y-2">
-                <h3 className="font-medium">Admin Approval Status</h3>
-                <div className="flex items-center gap-2">
+              <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-lg">Admin Approval Status</h3>
                   {user.adminApproved ? (
-                    <>
-                      <Badge variant="default" className="bg-green-500">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Approved
-                      </Badge>
-                      <span className="text-sm text-muted-foreground" data-testid="text-approval-status">
-                        You can start accepting deliveries
-                      </span>
-                    </>
+                    <Badge variant="default" className="bg-green-500 text-white">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Approved
+                    </Badge>
                   ) : (
-                    <>
-                      <Badge variant="secondary">
-                        <Clock className="w-3 h-3 mr-1" />
-                        Pending Review
-                      </Badge>
-                      <span className="text-sm text-muted-foreground" data-testid="text-approval-status">
-                        Your profile is under review by our team
-                      </span>
-                    </>
+                    <Badge variant="secondary">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Pending Review
+                    </Badge>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {user.adminApproved ? (
+                    <p className="text-sm text-muted-foreground" data-testid="text-approval-status">
+                      🎉 Congratulations! Your profile has been approved. You can now start accepting deliveries and earning money.
+                    </p>
+                  ) : completionStatus?.isComplete ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground" data-testid="text-approval-status">
+                      Your profile is complete and has been submitted for review. Our team will review your information and documents.
+                      </p>
+                      <Alert>
+                        <Clock className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Review in Progress</strong>
+                          <p className="text-sm mt-1">
+                            Average review time: <strong>24-48 hours</strong>. You'll be notified once your profile is approved.
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground" data-testid="text-approval-status">
+                      Complete all verification steps above to submit your profile for admin approval.
+                    </p>
                   )}
                 </div>
               </div>
 
               {/* Next Steps */}
               {!completionStatus?.isComplete && (
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-medium mb-2">Next Steps</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Complete all sections above to submit your profile for admin approval.
-                  </p>
-                </div>
+                <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription>
+                    <strong className="text-blue-900 dark:text-blue-100">Next Steps</strong>
+                    <p className="text-sm mt-1 text-blue-800 dark:text-blue-200">
+                      Complete all sections above to submit your profile for admin approval. Use the timeline above to track your progress.
+                    </p>
+                  </AlertDescription>
+                </Alert>
               )}
             </CardContent>
           </Card>

@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CheckCircle2, Clock, MapPin, Truck, LayoutDashboard, Settings, TrendingUp, Filter, X } from "lucide-react";
+import { CheckCircle2, Clock, MapPin, Truck, LayoutDashboard, Settings, TrendingUp, Filter, X, BarChart3, DollarSign, Target, Zap } from "lucide-react";
 import { Link } from "wouter";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import {
   Select,
   SelectContent,
@@ -22,6 +24,13 @@ export default function DriverServiceZones() {
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>("all");
   const [selectedCity, setSelectedCity] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"zones" | "analytics">("zones");
+
+  // Fetch zone performance analytics
+  const { data: zoneAnalytics } = useQuery<any>({
+    queryKey: ["/api/driver/zone-analytics"],
+    enabled: !!user && user.role === 'driver' && selectedZones.length > 0,
+  });
 
   // Fetch available zones
   const { data: availableZones = [], isLoading: zonesLoading } = useQuery<any[]>({
@@ -203,6 +212,19 @@ export default function DriverServiceZones() {
           <p className="text-muted-foreground text-sm">Select the delivery zones where you want to accept orders</p>
         </div>
 
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "zones" | "analytics")} className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="zones">
+              <MapPin className="h-4 w-4 mr-2" />
+              Zone Selection
+            </TabsTrigger>
+            <TabsTrigger value="analytics" disabled={selectedZones.length === 0}>
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Zone Analytics
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="zones">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -478,6 +500,143 @@ export default function DriverServiceZones() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            {zoneAnalytics && zoneAnalytics.length > 0 ? (
+              <div className="space-y-6">
+                {/* Zone Performance Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Best Zone</CardTitle>
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {zoneAnalytics[0]?.zoneName || "N/A"}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ${Number(zoneAnalytics[0]?.totalEarnings || 0).toFixed(2)} earned
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">
+                        ${zoneAnalytics.reduce((sum: number, z: any) => sum + Number(z.totalEarnings || 0), 0).toFixed(2)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Across all zones
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Deliveries</CardTitle>
+                      <Truck className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {zoneAnalytics.reduce((sum: number, z: any) => sum + (z.totalDeliveries || 0), 0)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        All time
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Zone Performance Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Zone Performance Comparison</CardTitle>
+                    <CardDescription>
+                      Compare earnings and deliveries across your service zones
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={zoneAnalytics.map((z: any) => ({
+                        zone: z.zoneName || z.zoneId,
+                        earnings: Number(z.totalEarnings || 0),
+                        deliveries: z.totalDeliveries || 0,
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="zone" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="earnings" fill="#22c55e" name="Earnings ($)" />
+                        <Bar dataKey="deliveries" fill="#3b82f6" name="Deliveries" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Zone Details */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-lg">Zone Details</h3>
+                  {zoneAnalytics.map((zone: any) => (
+                    <Card key={zone.zoneId}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h4 className="font-semibold">{zone.zoneName || zone.zoneId}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {zone.totalDeliveries || 0} deliveries completed
+                            </p>
+                          </div>
+                          <Badge variant="default" className="text-lg">
+                            ${Number(zone.totalEarnings || 0).toFixed(2)}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Avg per Delivery</p>
+                            <p className="font-semibold">
+                              ${zone.totalDeliveries > 0 
+                                ? (Number(zone.totalEarnings || 0) / zone.totalDeliveries).toFixed(2)
+                                : "0.00"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Success Rate</p>
+                            <p className="font-semibold">
+                              {zone.successRate || 100}%
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Avg Time</p>
+                            <p className="font-semibold">
+                              {zone.avgDeliveryTime || "N/A"}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-lg font-semibold mb-2">No Analytics Available</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Complete some deliveries in your selected zones to see performance analytics.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

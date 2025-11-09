@@ -3502,10 +3502,288 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get earnings breakdown
       const earnings = await storage.getDriverEarnings(driver.id);
 
-      res.json(earnings);
+      // Get delivery history for analytics
+      const orders = await storage.getDriverOrders(driver.id);
+      const completedOrders = orders.filter(o => o.status === 'completed' || o.status === 'delivered');
+      
+      // Calculate daily breakdown (last 7 days)
+      const dailyBreakdown: Array<{ date: string; earnings: string; deliveries: number }> = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+        const nextDay = new Date(date);
+        nextDay.setDate(nextDay.getDate() + 1);
+        
+        const dayOrders = completedOrders.filter(o => {
+          const orderDate = new Date(o.deliveryTime || o.updatedAt || o.createdAt);
+          return orderDate >= date && orderDate < nextDay;
+        });
+        
+        const dayEarnings = dayOrders.reduce((sum, o) => {
+          const deliveryFee = parseFloat(o.deliveryFee || '0');
+          return sum + (deliveryFee * 0.8);
+        }, 0);
+        
+        dailyBreakdown.push({
+          date: date.toISOString(),
+          earnings: dayEarnings.toFixed(2),
+          deliveries: dayOrders.length,
+        });
+      }
+
+      // Calculate weekly breakdown (last 4 weeks)
+      const weeklyBreakdown: Array<{ week: string; earnings: string; deliveries: number }> = [];
+      for (let i = 3; i >= 0; i--) {
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - (i * 7 + 7));
+        weekStart.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        
+        const weekOrders = completedOrders.filter(o => {
+          const orderDate = new Date(o.deliveryTime || o.updatedAt || o.createdAt);
+          return orderDate >= weekStart && orderDate < weekEnd;
+        });
+        
+        const weekEarnings = weekOrders.reduce((sum, o) => {
+          const deliveryFee = parseFloat(o.deliveryFee || '0');
+          return sum + (deliveryFee * 0.8);
+        }, 0);
+        
+        weeklyBreakdown.push({
+          week: `Week ${4 - i}`,
+          earnings: weekEarnings.toFixed(2),
+          deliveries: weekOrders.length,
+        });
+      }
+
+      // Calculate performance metrics
+      const totalDeliveries = completedOrders.length;
+      const totalEarnings = completedOrders.reduce((sum, o) => {
+        const deliveryFee = parseFloat(o.deliveryFee || '0');
+        return sum + (deliveryFee * 0.8);
+      }, 0);
+      
+      const avgEarningsPerDelivery = totalDeliveries > 0 ? totalEarnings / totalDeliveries : 0;
+      
+      // Estimate hours worked (assuming 30 min per delivery average)
+      const totalHours = totalDeliveries * 0.5;
+      const avgEarningsPerHour = totalHours > 0 ? totalEarnings / totalHours : 0;
+      
+      // Find best day
+      const bestDayData = dailyBreakdown.reduce((best, day) => {
+        return parseFloat(day.earnings) > parseFloat(best.earnings) ? day : best;
+      }, dailyBreakdown[0] || { date: '', earnings: '0', deliveries: 0 });
+      
+      const bestDayDate = bestDayData.date ? new Date(bestDayData.date) : null;
+      const bestDay = bestDayDate ? bestDayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'N/A';
+
+      res.json({
+        ...earnings,
+        dailyBreakdown,
+        weeklyBreakdown,
+        performance: {
+          avgEarningsPerDelivery: avgEarningsPerDelivery.toFixed(2),
+          avgEarningsPerHour: avgEarningsPerHour.toFixed(2),
+          totalDeliveries,
+          totalHours: Math.round(totalHours),
+          bestDay,
+          bestDayEarnings: bestDayData.earnings,
+        },
+      });
     } catch (error) {
       console.error("Error fetching driver earnings:", error);
       res.status(500).json({ message: "Failed to fetch driver earnings" });
+    }
+  });
+
+  // Get driver delivery history
+  app.get('/api/driver/history', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can access this endpoint" });
+      }
+
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      const orders = await storage.getDriverOrders(driver.id);
+      const completedOrders = orders
+        .filter(o => o.status === 'completed' || o.status === 'delivered')
+        .map(async (order) => {
+          const restaurant = await storage.getRestaurant(order.restaurantId);
+          return {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            total: order.total,
+            deliveryAddress: order.deliveryAddress,
+            driverShare: (parseFloat(order.deliveryFee || '0') * 0.8).toFixed(2),
+            status: order.status,
+            deliveryTime: order.deliveryTime || order.updatedAt || order.createdAt,
+            restaurant: {
+              id: restaurant?.id || '',
+              name: restaurant?.name || 'Unknown',
+            },
+          };
+        });
+
+      const history = await Promise.all(completedOrders);
+      res.json(history.sort((a, b) => new Date(b.deliveryTime).getTime() - new Date(a.deliveryTime).getTime()));
+    } catch (error) {
+      console.error("Error fetching driver history:", error);
+      res.status(500).json({ message: "Failed to fetch driver history" });
+    }
+  });
+
+  // Upload delivery proof
+  app.post('/api/driver/orders/:orderId/proof', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can upload delivery proof" });
+      }
+
+      const { orderId } = req.params;
+      const { photoUrl, signature, notes } = req.body;
+
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      const orderData = await storage.getOrderWithItems(orderId);
+      if (!orderData) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      if (orderData.order.assignedDriverId !== driver.id) {
+        return res.status(403).json({ message: "You are not assigned to this order" });
+      }
+
+      // Update driver delivery status with proof
+      const deliveryStatus = await storage.getDriverDeliveryStatus(orderId);
+      if (deliveryStatus) {
+        await storage.updateDriverDeliveryStatus(orderId, {
+          deliveryProofUrl: photoUrl,
+          customerSignature: signature,
+          deliveryNotes: notes,
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error uploading delivery proof:", error);
+      res.status(500).json({ message: "Failed to upload delivery proof" });
+    }
+  });
+
+  // Send SMS message
+  app.post('/api/driver/send-message', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can send messages" });
+      }
+
+      const { phone, message, type } = req.body;
+
+      if (!phone || !message) {
+        return res.status(400).json({ message: "Phone and message are required" });
+      }
+
+      // In production, integrate with SMS service like Twilio
+      // For now, we'll just log it and return success
+      console.log(`[SMS] Sending message to ${phone} (${type}): ${message}`);
+      
+      // TODO: Integrate with Twilio or similar SMS service
+      // const twilio = require('twilio');
+      // const client = twilio(accountSid, authToken);
+      // await client.messages.create({
+      //   body: message,
+      //   to: phone,
+      //   from: process.env.TWILIO_PHONE_NUMBER,
+      // });
+
+      res.json({ success: true, message: "Message sent successfully" });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Update driver availability schedule
+  app.put('/api/driver/schedule', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can update schedule" });
+      }
+
+      const { schedule } = req.body;
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      // Store schedule in user preferences or driver profile
+      // For now, we'll store it in a JSON field
+      await storage.updateDriverProfile(driver.id, {
+        availabilitySchedule: JSON.stringify(schedule),
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating schedule:", error);
+      res.status(500).json({ message: "Failed to update schedule" });
+    }
+  });
+
+  // Get zone performance analytics
+  app.get('/api/driver/zone-analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ message: "Only drivers can access zone analytics" });
+      }
+
+      const driver = await storage.getDriverByUserId(req.user.id);
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found" });
+      }
+
+      const orders = await storage.getDriverOrders(driver.id);
+      const completedOrders = orders.filter(o => o.status === 'completed' || o.status === 'delivered');
+
+      // Group by delivery zone
+      const zoneStats: Record<string, any> = {};
+      
+      for (const order of completedOrders) {
+        const zoneId = order.deliveryZoneId;
+        if (!zoneId) continue;
+
+        if (!zoneStats[zoneId]) {
+          const zone = await storage.getDeliveryZone(zoneId);
+          zoneStats[zoneId] = {
+            zoneId,
+            zoneName: zone ? `${zone.city}${zone.neighborhood ? ` - ${zone.neighborhood}` : ''}` : zoneId,
+            totalEarnings: 0,
+            totalDeliveries: 0,
+            successRate: 100,
+          };
+        }
+
+        const deliveryFee = parseFloat(order.deliveryFee || '0');
+        zoneStats[zoneId].totalEarnings += deliveryFee * 0.8;
+        zoneStats[zoneId].totalDeliveries += 1;
+      }
+
+      const analytics = Object.values(zoneStats).sort((a: any, b: any) => 
+        Number(b.totalEarnings) - Number(a.totalEarnings)
+      );
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching zone analytics:", error);
+      res.status(500).json({ message: "Failed to fetch zone analytics" });
     }
   });
 

@@ -34,11 +34,25 @@ import {
   LayoutDashboard,
   Download,
   Bell,
-  BellOff
+  BellOff,
+  Navigation,
+  Phone,
+  ExternalLink,
+  Filter,
+  Eye,
+  MessageSquare,
+  BarChart3,
+  Target,
+  Zap
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { OrderPreviewModal } from "@/components/OrderPreviewModal";
+import { DeliveryProofCapture } from "@/components/DeliveryProofCapture";
+import { QuickMessages } from "@/components/QuickMessages";
+import { useLocationTracking } from "@/hooks/useLocationTracking";
+import { calculateDistance, formatDistance, estimateTravelTime, getCurrentLocation } from "@/utils/location";
 
 interface CompletionStatus {
   profileComplete: boolean;
@@ -118,12 +132,31 @@ const deliveryStatusSteps = [
   { key: 'delivered', label: 'Delivered', nextStatus: null },
 ];
 
+// Helper function to open navigation
+const openNavigation = (address: string) => {
+  const encodedAddress = encodeURIComponent(address);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  if (isIOS) {
+    window.open(`maps://maps.apple.com/?daddr=${encodedAddress}`);
+  } else {
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`);
+  }
+};
+
 export default function DriverDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>("all");
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [previewOrder, setPreviewOrder] = useState<AvailableOrder | null>(null);
+  const [showDeliveryProof, setShowDeliveryProof] = useState(false);
+  const [showQuickMessages, setShowQuickMessages] = useState(false);
+  const [messageRecipient, setMessageRecipient] = useState<{ name: string; phone: string; type: "restaurant" | "customer" } | null>(null);
+  const [sortBy, setSortBy] = useState<"distance" | "earnings" | "time">("distance");
+  const [filterByEarnings, setFilterByEarnings] = useState<string>("all");
+  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
   
   // PWA Features
   const { isOnline, wasOffline } = useOnlineStatus();
@@ -152,6 +185,21 @@ export default function DriverDashboard() {
     enabled: !!user && user.role === 'driver' && isApproved,
   });
 
+  // Location tracking for active delivery
+  const { location: trackedLocation, startTracking, stopTracking } = useLocationTracking({
+    enabled: !!activeDelivery,
+    interval: 30000, // Update every 30 seconds
+    onLocationUpdate: (loc) => {
+      setDriverLocation({ lat: loc.lat, lng: loc.lng });
+      // Send location update to backend
+      if (activeDelivery) {
+        apiRequest(`/api/driver/orders/${activeDelivery.id}/tracking`, 'PUT', {
+          location: { lat: loc.lat, lng: loc.lng, timestamp: loc.timestamp }
+        }).catch(err => console.error('Failed to update location:', err));
+      }
+    },
+  });
+
   // Fetch service zones
   const { data: serviceZonesData } = useQuery<{ serviceZones: string[] }>({
     queryKey: ['/api/driver/service-zones'],
@@ -170,19 +218,72 @@ export default function DriverDashboard() {
     enabled: !!user && user.role === 'driver' && (isTestAccount || completionStatus?.adminApproved === true) && !activeDelivery,
   });
 
+  // Get driver location for distance calculations
+  useEffect(() => {
+    if (availableOrders.length > 0 && !driverLocation) {
+      getCurrentLocation()
+        .then(loc => setDriverLocation(loc))
+        .catch(err => console.error('Failed to get location:', err));
+    }
+  }, [availableOrders.length]);
+
+  // Calculate distances and enrich orders
+  const enrichedOrders = availableOrders.map((order: AvailableOrder) => {
+    let distance: number | null = null;
+    let distanceText = "Calculating...";
+    let estimatedTime = "Calculating...";
+
+    if (driverLocation) {
+      // Try to geocode addresses and calculate distance
+      // For now, we'll use a simple approach - in production, use proper geocoding
+      // This is a placeholder - actual implementation would use geocoding API
+      distanceText = "~2.5 km"; // Placeholder
+      estimatedTime = "~8 min"; // Placeholder
+    }
+
+    return {
+      ...order,
+      distance,
+      distanceText,
+      estimatedTime,
+    };
+  });
+
   // Filter orders by selected zone
-  const filteredOrders = selectedZoneFilter === "all" 
-    ? availableOrders 
-    : availableOrders.filter(order => order.deliveryZone?.id === selectedZoneFilter);
+  let filteredOrders = selectedZoneFilter === "all" 
+    ? enrichedOrders 
+    : enrichedOrders.filter((order: any) => order.deliveryZone?.id === selectedZoneFilter);
+
+  // Filter by earnings
+  if (filterByEarnings !== "all") {
+    const minEarnings = parseFloat(filterByEarnings);
+    filteredOrders = filteredOrders.filter((order: any) => 
+      Number(order.estimatedEarnings) >= minEarnings
+    );
+  }
+
+  // Sort orders
+  filteredOrders = [...filteredOrders].sort((a: any, b: any) => {
+    if (sortBy === "distance") {
+      // Sort by distance (closest first)
+      return (a.distance || 999) - (b.distance || 999);
+    } else if (sortBy === "earnings") {
+      // Sort by earnings (highest first)
+      return Number(b.estimatedEarnings) - Number(a.estimatedEarnings);
+    } else {
+      // Sort by time (newest first)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+  });
 
   // Get unique zones from available orders for filter dropdown
   const uniqueZones = Array.from(
     new Map(
       availableOrders
-        .filter(order => order.deliveryZone)
-        .map(order => [order.deliveryZone!.id, order.deliveryZone!])
+        .filter((order: AvailableOrder) => order.deliveryZone)
+        .map((order: AvailableOrder) => [order.deliveryZone!.id, order.deliveryZone!])
     ).values()
-  );
+  ) as DeliveryZone[];
 
   // Toggle driver online/offline status
   const statusMutation = useMutation({
@@ -414,12 +515,17 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation Header */}
-      <div className="border-b bg-card">
+      <div className="border-b bg-gradient-to-r from-primary/10 via-primary/5 to-background sticky top-0 z-50 backdrop-blur-sm shadow-sm">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Truck className="h-6 w-6 text-primary" />
               <span className="text-lg font-semibold">Driver Portal</span>
+              {isApproved && stats?.isAvailable && filteredOrders.length > 0 && (
+                <Badge variant="default" className="animate-pulse">
+                  {filteredOrders.length} Available
+                </Badge>
+              )}
             </div>
             
             <div className="flex items-center gap-3">
@@ -684,58 +790,101 @@ export default function DriverDashboard() {
         </Card>
       )}
 
+      {/* Quick Stats Summary */}
+      {isApproved && stats && (
+        <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Today's Potential</p>
+                <p className="text-2xl font-bold mt-1">
+                  ${((Number(stats.weeklyEarnings) / 7) * 1.2).toFixed(2)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Based on weekly average + 20% boost
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium text-muted-foreground">Active Status</p>
+                <Badge 
+                  variant={stats.isAvailable ? "default" : "secondary"} 
+                  className="mt-1 text-base px-3 py-1"
+                >
+                  {stats.isAvailable ? (
+                    <>
+                      <div className="h-2 w-2 rounded-full bg-green-500 mr-2 animate-pulse" />
+                      Online
+                    </>
+                  ) : (
+                    <>
+                      <div className="h-2 w-2 rounded-full bg-gray-500 mr-2" />
+                      Offline
+                    </>
+                  )}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Grid - Only show when approved */}
       {isApproved && stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card data-testid="card-total-deliveries">
+          <Card className="border-l-4 border-l-blue-500" data-testid="card-total-deliveries">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Deliveries</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
+              <Package className="h-5 w-5 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="stat-total-deliveries">
+              <div className="text-3xl font-bold" data-testid="stat-total-deliveries">
                 {stats.totalDeliveries}
               </div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <p className="text-xs text-muted-foreground mt-1">All time deliveries</p>
             </CardContent>
           </Card>
 
-          <Card data-testid="card-total-earnings">
+          <Card className="border-l-4 border-l-green-500" data-testid="card-total-earnings">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <DollarSign className="h-5 w-5 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="stat-total-earnings">
+              <div className="text-3xl font-bold text-green-600" data-testid="stat-total-earnings">
                 ${Number(stats.totalEarnings).toFixed(2)}
               </div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <p className="text-xs text-muted-foreground mt-1">Lifetime earnings</p>
             </CardContent>
           </Card>
 
-          <Card data-testid="card-weekly-earnings">
+          <Card className="border-l-4 border-l-purple-500" data-testid="card-weekly-earnings">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">This Week</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <TrendingUp className="h-5 w-5 text-purple-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600" data-testid="stat-weekly-earnings">
+              <div className="text-3xl font-bold text-purple-600" data-testid="stat-weekly-earnings">
                 ${Number(stats.weeklyEarnings).toFixed(2)}
               </div>
-              <p className="text-xs text-muted-foreground">Last 7 days</p>
+              <p className="text-xs text-muted-foreground mt-1">Last 7 days</p>
+              <Progress 
+                value={Math.min((Number(stats.weeklyEarnings) / 500) * 100, 100)} 
+                className="mt-2 h-1" 
+              />
             </CardContent>
           </Card>
 
-          <Card data-testid="card-acceptance-rate">
+          <Card className="border-l-4 border-l-orange-500" data-testid="card-acceptance-rate">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Acceptance Rate</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CheckCircle className="h-5 w-5 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary" data-testid="stat-acceptance-rate">
+              <div className="text-3xl font-bold text-orange-600" data-testid="stat-acceptance-rate">
                 {stats.acceptanceRate}%
               </div>
-              <p className="text-xs text-muted-foreground">Order acceptance</p>
+              <p className="text-xs text-muted-foreground mt-1">Order acceptance</p>
+              <Progress value={stats.acceptanceRate} className="mt-2 h-1" />
             </CardContent>
           </Card>
         </div>
@@ -743,36 +892,95 @@ export default function DriverDashboard() {
 
       {/* Active Delivery Tracker */}
       {isApproved && activeDelivery && (
-        <Card data-testid="card-active-delivery">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Active Delivery
-            </CardTitle>
-            <CardDescription>
-              Order #{activeDelivery.orderNumber}
-            </CardDescription>
+        <Card className="border-2 border-primary/20 shadow-lg" data-testid="card-active-delivery">
+          <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Truck className="h-6 w-6" />
+                  Active Delivery
+                </CardTitle>
+                <CardDescription className="text-base mt-1">
+                  Order #{activeDelivery.orderNumber}
+                </CardDescription>
+              </div>
+              <Badge className="text-lg px-4 py-2" variant="default">
+                ${Number(activeDelivery.driverShare).toFixed(2)}
+              </Badge>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Order Details */}
+          <CardContent className="space-y-6 pt-6">
+            {/* Order Details with Quick Actions */}
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <Store className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium" data-testid="text-restaurant-name">{activeDelivery.restaurant.name}</p>
-                    <p className="text-sm text-muted-foreground">{activeDelivery.restaurant.address}</p>
-                    <p className="text-sm text-muted-foreground">{activeDelivery.restaurant.phone}</p>
+              <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-2 flex-1">
+                    <Store className="h-4 w-4 mt-1 text-muted-foreground" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium" data-testid="text-restaurant-name">{activeDelivery.restaurant.name}</p>
+                      <p className="text-sm text-muted-foreground">{activeDelivery.restaurant.address}</p>
+                      <p className="text-sm text-muted-foreground">{activeDelivery.restaurant.phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {activeDelivery.restaurant.address && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openNavigation(activeDelivery.restaurant.address)}
+                        className="h-8 w-8 p-0"
+                        title="Navigate to Restaurant"
+                      >
+                        <Navigation className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {activeDelivery.restaurant.phone && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`tel:${activeDelivery.restaurant.phone}`)}
+                        className="h-8 w-8 p-0"
+                        title="Call Restaurant"
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <Home className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium" data-testid="text-customer-name">{activeDelivery.customerName}</p>
-                    <p className="text-sm text-muted-foreground" data-testid="text-delivery-address">{activeDelivery.deliveryAddress}</p>
-                    <p className="text-sm text-muted-foreground">{activeDelivery.customerPhone}</p>
+              <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-2 flex-1">
+                    <Home className="h-4 w-4 mt-1 text-muted-foreground" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium" data-testid="text-customer-name">{activeDelivery.customerName}</p>
+                      <p className="text-sm text-muted-foreground" data-testid="text-delivery-address">{activeDelivery.deliveryAddress}</p>
+                      <p className="text-sm text-muted-foreground">{activeDelivery.customerPhone}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {activeDelivery.deliveryAddress && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openNavigation(activeDelivery.deliveryAddress)}
+                        className="h-8 w-8 p-0"
+                        title="Navigate to Customer"
+                      >
+                        <Navigation className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {activeDelivery.customerPhone && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`tel:${activeDelivery.customerPhone}`)}
+                        className="h-8 w-8 p-0"
+                        title="Call Customer"
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -799,31 +1007,140 @@ export default function DriverDashboard() {
 
             {/* Delivery Progress */}
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold">Delivery Progress</h4>
-              <div className="space-y-3">
-                {deliveryStatusSteps.map((step, index) => {
-                  const currentIndex = getCurrentStepIndex(activeDelivery.status);
-                  const isCompleted = index <= currentIndex;
-                  const isCurrent = index === currentIndex;
-                  
-                  return (
-                    <div key={step.key} className="flex items-center gap-3">
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                        isCompleted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                      }`}>
-                        {isCompleted ? (
-                          <CheckCircle className="h-4 w-4" />
-                        ) : (
-                          <span className="text-xs">{index + 1}</span>
-                        )}
-                      </div>
-                      <span className={`text-sm ${isCurrent ? 'font-semibold' : ''}`} data-testid={`text-status-${step.key}`}>
-                        {step.label}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Delivery Progress
+                </h4>
+                {activeDelivery.status !== 'picked_up' && activeDelivery.restaurant.address && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openNavigation(activeDelivery.restaurant.address)}
+                    className="gap-2"
+                  >
+                    <Navigation className="h-4 w-4" />
+                    Navigate to Restaurant
+                  </Button>
+                )}
+                {activeDelivery.status === 'picked_up' && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => openNavigation(activeDelivery.deliveryAddress)}
+                    className="gap-2"
+                  >
+                    <Navigation className="h-4 w-4" />
+                    Navigate to Customer
+                  </Button>
+                )}
               </div>
+              <div className="relative">
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted" />
+                <div className="space-y-3">
+                  {deliveryStatusSteps.map((step, index) => {
+                    const currentIndex = getCurrentStepIndex(activeDelivery.status);
+                    const isCompleted = index <= currentIndex;
+                    const isCurrent = index === currentIndex;
+                    
+                    return (
+                      <div key={step.key} className="relative flex items-start gap-4">
+                        <div className={`relative z-10 h-8 w-8 rounded-full flex items-center justify-center transition-all ${
+                          isCompleted 
+                            ? 'bg-primary text-primary-foreground shadow-lg scale-110' 
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {isCompleted ? (
+                            <CheckCircle className="h-5 w-5" />
+                          ) : (
+                            <span className="text-xs font-semibold">{index + 1}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 pt-1">
+                          <div className={`flex items-center justify-between ${isCurrent ? 'mb-1' : ''}`}>
+                            <span className={`text-sm font-medium ${isCurrent ? 'text-primary text-base' : ''}`} data-testid={`text-status-${step.key}`}>
+                              {step.label}
+                            </span>
+                            {isCurrent && (
+                              <Badge variant="default" className="animate-pulse">
+                                Current
+                              </Badge>
+                            )}
+                          </div>
+                          {isCurrent && step.key === 'en_route_to_pickup' && activeDelivery.restaurant.address && (
+                            <div className="mt-2 p-2 bg-muted rounded-md">
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {activeDelivery.restaurant.address}
+                              </p>
+                            </div>
+                          )}
+                          {isCurrent && step.key === 'en_route_to_customer' && (
+                            <div className="mt-2 p-2 bg-muted rounded-md">
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {activeDelivery.deliveryAddress}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Quick Action Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => window.open(`tel:${activeDelivery.restaurant.phone}`)}
+              >
+                <Phone className="h-4 w-4" />
+                Call Restaurant
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  setMessageRecipient({
+                    name: activeDelivery.restaurant.name,
+                    phone: activeDelivery.restaurant.phone,
+                    type: "restaurant",
+                  });
+                  setShowQuickMessages(true);
+                }}
+              >
+                <MessageSquare className="h-4 w-4" />
+                Message Restaurant
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => window.open(`tel:${activeDelivery.customerPhone}`)}
+              >
+                <Phone className="h-4 w-4" />
+                Call Customer
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  setMessageRecipient({
+                    name: activeDelivery.customerName,
+                    phone: activeDelivery.customerPhone,
+                    type: "customer",
+                  });
+                  setShowQuickMessages(true);
+                }}
+              >
+                <MessageSquare className="h-4 w-4" />
+                Message Customer
+              </Button>
             </div>
 
             <Separator />
@@ -845,7 +1162,17 @@ export default function DriverDashboard() {
             </div>
 
             {/* Update Status Button */}
-            {getNextStatus(activeDelivery.status) && (
+            {getNextStatus(activeDelivery.status) === 'delivered' ? (
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => setShowDeliveryProof(true)}
+                disabled={updateStatusMutation.isPending}
+              >
+                Complete Delivery
+                <CheckCircle className="ml-2 h-4 w-4" />
+              </Button>
+            ) : getNextStatus(activeDelivery.status) ? (
               <Button
                 className="w-full"
                 size="lg"
@@ -865,7 +1192,7 @@ export default function DriverDashboard() {
                   </>
                 )}
               </Button>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       )}
@@ -874,7 +1201,7 @@ export default function DriverDashboard() {
       {isApproved && !activeDelivery && stats?.isAvailable && (
         <Card data-testid="card-available-orders">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
@@ -884,21 +1211,65 @@ export default function DriverDashboard() {
                   Accept orders and start delivering
                 </CardDescription>
               </div>
-              {uniqueZones.length > 1 && (
-                <Select value={selectedZoneFilter} onValueChange={setSelectedZoneFilter}>
-                  <SelectTrigger className="w-[200px]" data-testid="select-zone-filter">
-                    <SelectValue placeholder="Filter by zone" />
+              <div className="flex gap-2 flex-wrap">
+                {/* Sort By */}
+                <Select value={sortBy} onValueChange={(v: "distance" | "earnings" | "time") => setSortBy(v)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Zones ({availableOrders.length})</SelectItem>
-                    {uniqueZones.map((zone) => (
-                      <SelectItem key={zone.id} value={zone.id}>
-                        {zone.city}{zone.neighborhood ? ` - ${zone.neighborhood}` : ''} ({availableOrders.filter(o => o.deliveryZone?.id === zone.id).length})
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="distance">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Distance
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="earnings">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        Earnings
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="time">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        Time
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
-              )}
+                
+                {/* Filter by Earnings */}
+                <Select value={filterByEarnings} onValueChange={setFilterByEarnings}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Min earnings" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Earnings</SelectItem>
+                    <SelectItem value="5">$5+</SelectItem>
+                    <SelectItem value="10">$10+</SelectItem>
+                    <SelectItem value="15">$15+</SelectItem>
+                    <SelectItem value="20">$20+</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Zone Filter */}
+                {uniqueZones.length > 1 && (
+                  <Select value={selectedZoneFilter} onValueChange={setSelectedZoneFilter}>
+                    <SelectTrigger className="w-[180px]" data-testid="select-zone-filter">
+                      <SelectValue placeholder="Filter by zone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Zones ({availableOrders.length})</SelectItem>
+                      {uniqueZones.map((zone: DeliveryZone) => (
+                        <SelectItem key={zone.id} value={zone.id}>
+                          {zone.city}{zone.neighborhood ? ` - ${zone.neighborhood}` : ''} ({availableOrders.filter((o: AvailableOrder) => o.deliveryZone?.id === zone.id).length})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -921,27 +1292,39 @@ export default function DriverDashboard() {
                 </AlertDescription>
               </Alert>
             ) : filteredOrders.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p data-testid="text-no-orders">
+              <div className="text-center py-16 text-muted-foreground">
+                <div className="mx-auto w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <Package className="h-12 w-12 text-muted-foreground opacity-50" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No Orders Available</h3>
+                <p className="text-muted-foreground max-w-md mx-auto mb-4" data-testid="text-no-orders">
                   {selectedZoneFilter === "all" 
-                    ? "No orders available in your selected zones" 
-                    : "No orders available in this zone"}
+                    ? "There are currently no delivery orders in your selected service zones. Check back soon!" 
+                    : "No orders available in this zone. Try selecting 'All Zones' or check back later."}
                 </p>
-                <p className="text-sm">
-                  {selectedZoneFilter === "all"
-                    ? "Check back soon for delivery opportunities"
-                    : "Try selecting 'All Zones' or check back later"}
-                </p>
+                {selectedZoneFilter !== "all" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedZoneFilter("all")}
+                    data-testid="button-show-all-zones"
+                  >
+                    Show All Zones
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-4" data-testid="list-available-orders">
                 {filteredOrders.map((order) => (
-                  <Card key={order.id} data-testid={`card-order-${order.id}`}>
+                  <Card 
+                    key={order.id} 
+                    className="transition-all hover:shadow-lg hover:border-primary/50"
+                    data-testid={`card-order-${order.id}`}
+                  >
                     <CardContent className="pt-6 space-y-4">
                       <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold" data-testid={`text-order-number-${order.id}`}>
                               Order #{order.orderNumber}
                             </p>
@@ -951,25 +1334,43 @@ export default function DriverDashboard() {
                                 {order.deliveryZone.city}{order.deliveryZone.neighborhood ? ` - ${order.deliveryZone.neighborhood}` : ''}
                               </Badge>
                             )}
+                            <Badge variant="outline" className="text-xs">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-${order.id}`}>
                             <Store className="inline h-3 w-3 mr-1" />
                             {order.restaurant.name}
                           </p>
                         </div>
-                        <Badge variant="outline" data-testid={`badge-earnings-${order.id}`}>
-                          Earn ${Number(order.estimatedEarnings).toFixed(2)}
-                        </Badge>
+                        <div className="text-right">
+                          <Badge variant="default" className="text-lg font-semibold px-3 py-1" data-testid={`badge-earnings-${order.id}`}>
+                            ${Number(order.estimatedEarnings).toFixed(2)}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground mt-1">Earnings</p>
+                        </div>
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className="space-y-2 p-3 bg-muted/50 rounded-md">
                         <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                          <span className="text-muted-foreground" data-testid={`text-delivery-address-${order.id}`}>
-                            {order.deliveryAddress}
-                          </span>
+                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1">
+                            <span className="text-muted-foreground" data-testid={`text-delivery-address-${order.id}`}>
+                              {order.deliveryAddress}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto p-0 ml-2 text-primary hover:text-primary/80"
+                              onClick={() => openNavigation(order.deliveryAddress)}
+                              title="Open in Maps"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center justify-between text-sm pt-2 border-t">
                           <span className="text-muted-foreground">Order Total:</span>
                           <span className="font-semibold" data-testid={`text-total-${order.id}`}>
                             ${Number(order.total).toFixed(2)}
@@ -977,14 +1378,36 @@ export default function DriverDashboard() {
                         </div>
                       </div>
 
-                      <Button
-                        className="w-full"
-                        data-testid={`button-accept-order-${order.id}`}
-                        onClick={() => acceptOrderMutation.mutate(order.id)}
-                        disabled={acceptOrderMutation.isPending}
-                      >
-                        {acceptOrderMutation.isPending ? "Accepting..." : "Accept Order"}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="flex-1"
+                          onClick={() => setPreviewOrder(order)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Preview
+                        </Button>
+                        <Button
+                          className="flex-1"
+                          size="lg"
+                          data-testid={`button-accept-order-${order.id}`}
+                          onClick={() => acceptOrderMutation.mutate(order.id)}
+                          disabled={acceptOrderMutation.isPending}
+                        >
+                          {acceptOrderMutation.isPending ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                              Accepting...
+                            </>
+                          ) : (
+                            <>
+                              Accept Order
+                              <ArrowRight className="ml-2 h-4 w-4" />
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -1019,6 +1442,113 @@ export default function DriverDashboard() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Order Preview Modal */}
+      {previewOrder && (
+        <OrderPreviewModal
+          order={previewOrder}
+          open={!!previewOrder}
+          onClose={() => setPreviewOrder(null)}
+          onAccept={() => {
+            if (previewOrder) {
+              acceptOrderMutation.mutate(previewOrder.id);
+              setPreviewOrder(null);
+            }
+          }}
+          distance={previewOrder.distanceText}
+          estimatedTime={previewOrder.estimatedTime}
+          isLoading={acceptOrderMutation.isPending}
+        />
+      )}
+
+      {/* Delivery Proof Capture Modal */}
+      {activeDelivery && (
+        <DeliveryProofCapture
+          open={showDeliveryProof}
+          onClose={() => setShowDeliveryProof(false)}
+          onComplete={async (data) => {
+            // Upload photo if provided
+            let photoUrl = data.photoUrl;
+            if (data.photoUrl && data.photoUrl.startsWith('data:')) {
+              // Convert base64 to file and upload
+              try {
+                const res = await apiRequest("/api/object-storage/upload-url", "POST", {
+                  fileName: `delivery-proof-${activeDelivery.id}.jpg`,
+                  objectPath: `drivers/${user?.id}/deliveries/${activeDelivery.id}/proof.jpg`,
+                });
+                const { uploadURL, objectPath } = await res.json();
+                
+                // Upload the image
+                const blob = await fetch(data.photoUrl).then(r => r.blob());
+                await fetch(uploadURL, {
+                  method: 'PUT',
+                  body: blob,
+                  headers: { 'Content-Type': 'image/jpeg' },
+                });
+                
+                photoUrl = objectPath;
+              } catch (err) {
+                console.error('Failed to upload photo:', err);
+              }
+            }
+
+            // Update delivery status with proof
+            updateStatusMutation.mutate({
+              orderId: activeDelivery.id,
+              status: 'delivered',
+            }, {
+              onSuccess: () => {
+                // Update delivery proof in backend
+                apiRequest(`/api/driver/orders/${activeDelivery.id}/proof`, 'POST', {
+                  photoUrl,
+                  signature: data.signature,
+                  notes: data.notes,
+                }).catch(err => console.error('Failed to save proof:', err));
+                
+                setShowDeliveryProof(false);
+                toast({
+                  title: "Delivery Completed!",
+                  description: "Thank you for completing the delivery",
+                });
+              },
+            });
+          }}
+          orderId={activeDelivery.id}
+          isLoading={updateStatusMutation.isPending}
+        />
+      )}
+
+      {/* Quick Messages Modal */}
+      {messageRecipient && (
+        <QuickMessages
+          open={showQuickMessages}
+          onClose={() => {
+            setShowQuickMessages(false);
+            setMessageRecipient(null);
+          }}
+          recipient={messageRecipient}
+          onSend={async (message) => {
+            // Send SMS via backend
+            try {
+              await apiRequest("/api/driver/send-message", "POST", {
+                phone: messageRecipient.phone,
+                message,
+                type: messageRecipient.type,
+              });
+              toast({
+                title: "Message Sent",
+                description: `Message sent to ${messageRecipient.name}`,
+              });
+            } catch (error: any) {
+              toast({
+                title: "Error",
+                description: error.message || "Failed to send message",
+                variant: "destructive",
+              });
+            }
+          }}
+        />
       )}
       </div>
     </div>
