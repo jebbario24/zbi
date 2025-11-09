@@ -2645,3 +2645,172 @@ export const insertBatchPerformanceSchema = createInsertSchema(batchPerformance)
 });
 export type InsertBatchPerformance = z.infer<typeof insertBatchPerformanceSchema>;
 export type BatchPerformance = typeof batchPerformance.$inferSelect;
+
+// ==========================================
+// PHASE 5: ANALYTICS & PERFORMANCE TABLES
+// ==========================================
+
+// Driver Earnings History - Daily aggregated earnings data
+export const driverEarningsHistory = pgTable("driver_earnings_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: varchar("date").notNull(), // YYYY-MM-DD format
+  totalEarnings: varchar("total_earnings").notNull().default('0'),
+  deliveryCount: integer("delivery_count").notNull().default(0),
+  totalDistanceKm: varchar("total_distance_km").notNull().default('0'),
+  totalDurationMinutes: integer("total_duration_minutes").notNull().default(0),
+  tipsAmount: varchar("tips_amount").notNull().default('0'),
+  basePayAmount: varchar("base_pay_amount").notNull().default('0'),
+  bonusesAmount: varchar("bonuses_amount").notNull().default('0'),
+  avgEarningsPerDelivery: varchar("avg_earnings_per_delivery").notNull().default('0'),
+  avgEarningsPerKm: varchar("avg_earnings_per_km").notNull().default('0'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  indexDriverDate: index("idx_earnings_driver_date").on(table.driverId, table.date),
+  indexDate: index("idx_earnings_date").on(table.date),
+  uniqueDriverDate: index("idx_earnings_unique").on(table.driverId, table.date),
+}));
+
+// Driver Performance Metrics - Daily performance tracking
+export const driverPerformanceMetrics = pgTable("driver_performance_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  date: varchar("date").notNull(), // YYYY-MM-DD format
+  deliveriesCompleted: integer("deliveries_completed").notNull().default(0),
+  deliveriesAccepted: integer("deliveries_accepted").notNull().default(0),
+  deliveriesRejected: integer("deliveries_rejected").notNull().default(0),
+  acceptanceRate: varchar("acceptance_rate").notNull().default('0'), // percentage 0-100
+  onTimeDeliveries: integer("on_time_deliveries").notNull().default(0),
+  lateDeliveries: integer("late_deliveries").notNull().default(0),
+  onTimeRate: varchar("on_time_rate").notNull().default('0'), // percentage 0-100
+  avgDeliveryTimeMinutes: integer("avg_delivery_time_minutes").notNull().default(0),
+  avgCustomerRating: varchar("avg_customer_rating").notNull().default('0'),
+  efficiencyScore: varchar("efficiency_score").notNull().default('0'), // deliveries per hour
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  indexDriverDate: index("idx_performance_driver_date").on(table.driverId, table.date),
+  indexDate: index("idx_performance_date").on(table.date),
+  uniqueDriverDate: index("idx_performance_unique").on(table.driverId, table.date),
+}));
+
+// Delivery Heat Map Data - Grid-based delivery and earnings data
+export const deliveryHeatMapData = pgTable("delivery_heat_map_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  gridLat: varchar("grid_lat").notNull(), // Rounded to 3 decimals (~111m grid)
+  gridLng: varchar("grid_lng").notNull(), // Rounded to 3 decimals
+  date: varchar("date").notNull(), // YYYY-MM-DD format
+  hourOfDay: integer("hour_of_day").notNull(), // 0-23
+  deliveryCount: integer("delivery_count").notNull().default(0),
+  totalEarnings: varchar("total_earnings").notNull().default('0'),
+  avgDeliveryTimeMinutes: integer("avg_delivery_time_minutes").notNull().default(0),
+  demandScore: varchar("demand_score").notNull().default('0'), // 0-100 calculated score
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  indexGrid: index("idx_heatmap_grid").on(table.gridLat, table.gridLng),
+  indexDateHour: index("idx_heatmap_date_hour").on(table.date, table.hourOfDay),
+  uniqueGridDateHour: index("idx_heatmap_unique").on(table.gridLat, table.gridLng, table.date, table.hourOfDay),
+}));
+
+// Driver Time Slots - Earnings by day of week and hour
+export const driverTimeSlots = pgTable("driver_time_slots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sunday, 6=Saturday
+  hourOfDay: integer("hour_of_day").notNull(), // 0-23
+  totalDeliveries: integer("total_deliveries").notNull().default(0),
+  totalEarnings: varchar("total_earnings").notNull().default('0'),
+  avgEarningsPerHour: varchar("avg_earnings_per_hour").notNull().default('0'),
+  sampleCount: integer("sample_count").notNull().default(0), // Times worked this slot
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  indexDriver: index("idx_timeslots_driver").on(table.driverId),
+  indexDayHour: index("idx_timeslots_day_hour").on(table.dayOfWeek, table.hourOfDay),
+  uniqueDriverDayHour: index("idx_timeslots_unique").on(table.driverId, table.dayOfWeek, table.hourOfDay),
+}));
+
+// Zone Performance Stats - Performance metrics by delivery zone
+export const zonePerformanceStats = pgTable("zone_performance_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  zoneId: varchar("zone_id").notNull().references(() => deliveryZones.id, { onDelete: "cascade" }),
+  date: varchar("date").notNull(), // YYYY-MM-DD format
+  totalOrders: integer("total_orders").notNull().default(0),
+  totalDeliveries: integer("total_deliveries").notNull().default(0),
+  avgDeliveryTimeMinutes: integer("avg_delivery_time_minutes").notNull().default(0),
+  avgEarningsPerDelivery: varchar("avg_earnings_per_delivery").notNull().default('0'),
+  demandLevel: varchar("demand_level").notNull().default('medium'), // low, medium, high, very_high
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  indexZoneDate: index("idx_zone_stats_zone_date").on(table.zoneId, table.date),
+  indexDate: index("idx_zone_stats_date").on(table.date),
+  uniqueZoneDate: index("idx_zone_stats_unique").on(table.zoneId, table.date),
+}));
+
+// Driver Goals - Gamification and goal tracking
+export const driverGoals = pgTable("driver_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  goalType: varchar("goal_type").notNull(), // daily_earnings, weekly_deliveries, acceptance_rate, etc.
+  targetValue: varchar("target_value").notNull(),
+  currentValue: varchar("current_value").notNull().default('0'),
+  startDate: varchar("start_date").notNull(), // YYYY-MM-DD
+  endDate: varchar("end_date").notNull(), // YYYY-MM-DD
+  status: varchar("status").notNull().default('in_progress'), // in_progress, completed, failed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  indexDriver: index("idx_goals_driver").on(table.driverId),
+  indexStatus: index("idx_goals_status").on(table.status),
+  indexDates: index("idx_goals_dates").on(table.startDate, table.endDate),
+}));
+
+// Phase 5: Analytics & Performance Schema Exports
+export const insertDriverEarningsHistorySchema = createInsertSchema(driverEarningsHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDriverEarningsHistory = z.infer<typeof insertDriverEarningsHistorySchema>;
+export type DriverEarningsHistory = typeof driverEarningsHistory.$inferSelect;
+
+export const insertDriverPerformanceMetricsSchema = createInsertSchema(driverPerformanceMetrics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDriverPerformanceMetrics = z.infer<typeof insertDriverPerformanceMetricsSchema>;
+export type DriverPerformanceMetrics = typeof driverPerformanceMetrics.$inferSelect;
+
+export const insertDeliveryHeatMapDataSchema = createInsertSchema(deliveryHeatMapData).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDeliveryHeatMapData = z.infer<typeof insertDeliveryHeatMapDataSchema>;
+export type DeliveryHeatMapData = typeof deliveryHeatMapData.$inferSelect;
+
+export const insertDriverTimeSlotsSchema = createInsertSchema(driverTimeSlots).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDriverTimeSlots = z.infer<typeof insertDriverTimeSlotsSchema>;
+export type DriverTimeSlots = typeof driverTimeSlots.$inferSelect;
+
+export const insertZonePerformanceStatsSchema = createInsertSchema(zonePerformanceStats).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertZonePerformanceStats = z.infer<typeof insertZonePerformanceStatsSchema>;
+export type ZonePerformanceStats = typeof zonePerformanceStats.$inferSelect;
+
+export const insertDriverGoalsSchema = createInsertSchema(driverGoals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDriverGoals = z.infer<typeof insertDriverGoalsSchema>;
+export type DriverGoals = typeof driverGoals.$inferSelect;
