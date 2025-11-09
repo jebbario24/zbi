@@ -58,6 +58,7 @@ import { DeliveryProofCapture } from "@/components/DeliveryProofCapture";
 import { QuickMessages } from "@/components/QuickMessages";
 import { useLocationTracking } from "@/hooks/useLocationTracking";
 import { calculateDistance, formatDistance, estimateTravelTime, getCurrentLocation } from "@/utils/location";
+import { DebugAuthInfo } from "@/components/DebugAuthInfo";
 
 interface CompletionStatus {
   profileComplete: boolean;
@@ -659,6 +660,9 @@ export default function DriverDashboard() {
 
       {/* Main Content */}
       <div className="container mx-auto p-4 md:p-6 space-y-4 max-w-7xl">
+        {/* Debug Auth Info - Shows user role and helps diagnose 403 errors */}
+        <DebugAuthInfo />
+
         {/* Priority Alert System - Show only the most important alert */}
         {!isApproved && completionStatus && (
           <Alert variant={completionStatus.profileComplete ? "default" : "destructive"} data-testid="alert-profile-status">
