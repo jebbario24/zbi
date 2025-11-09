@@ -30,14 +30,32 @@ class LocationTrackingService {
   /**
    * Update driver's current location
    * Stores high-frequency GPS data for real-time tracking
+   * Optionally snaps to roads for better accuracy
    */
-  async updateLocation(update: LocationUpdate): Promise<void> {
+  async updateLocation(update: LocationUpdate, snapToRoads: boolean = false): Promise<void> {
     try {
+      let finalLat = update.lat;
+      let finalLng = update.lng;
+
+      // Snap to roads if enabled (improves GPS accuracy)
+      if (snapToRoads) {
+        try {
+          const snapped = await googleMapsService.snapToRoads([{ lat: update.lat, lng: update.lng }]);
+          if (snapped && snapped.length > 0) {
+            finalLat = snapped[0].lat;
+            finalLng = snapped[0].lng;
+          }
+        } catch (error) {
+          // Continue with original coordinates if snapping fails
+          logger.warn('Failed to snap location to roads, using raw GPS', { error });
+        }
+      }
+
       await db.insert(driverLocationHistory).values({
         driverId: update.driverId,
         orderId: update.orderId || null,
-        lat: update.lat.toString(),
-        lng: update.lng.toString(),
+        lat: finalLat.toString(),
+        lng: finalLng.toString(),
         accuracy: update.accuracy || null,
         speed: update.speed || null,
         heading: update.heading || null,
@@ -48,14 +66,15 @@ class LocationTrackingService {
       // If this is for an active delivery, update ETA
       if (update.orderId) {
         await this.updateETA(update.orderId, {
-          lat: update.lat,
-          lng: update.lng,
+          lat: finalLat,
+          lng: finalLng,
         });
       }
 
       logger.info(`Location updated for driver ${update.driverId}`, {
-        lat: update.lat,
-        lng: update.lng,
+        lat: finalLat,
+        lng: finalLng,
+        snapped: snapToRoads,
         orderId: update.orderId,
       });
     } catch (error) {

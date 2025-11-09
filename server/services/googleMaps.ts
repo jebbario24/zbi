@@ -321,6 +321,87 @@ class GoogleMapsService {
   }
 
   /**
+   * Snap GPS points to nearest roads (Roads API)
+   * Improves accuracy of driver location tracking
+   */
+  async snapToRoads(
+    points: LatLng[],
+    interpolate: boolean = true
+  ): Promise<LatLng[]> {
+    if (!this.apiKey) {
+      console.warn('Google Maps API key not configured, skipping snap-to-roads');
+      return points;
+    }
+
+    if (points.length === 0 || points.length > 100) {
+      console.warn('Snap to roads requires 1-100 points');
+      return points;
+    }
+
+    try {
+      const path = points.map(p => `${p.lat},${p.lng}`).join('|');
+      const params = new URLSearchParams({
+        key: this.apiKey,
+        path,
+        interpolate: interpolate ? 'true' : 'false',
+      });
+
+      const url = `${this.baseUrl.replace('/maps', '/roads/v1')}/snapToRoads?${params}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!data.snappedPoints || data.snappedPoints.length === 0) {
+        return points;
+      }
+
+      return data.snappedPoints.map((point: any) => ({
+        lat: point.location.latitude,
+        lng: point.location.longitude,
+      }));
+    } catch (error) {
+      console.error('Roads API snap-to-roads failed:', error);
+      return points; // Return original points on error
+    }
+  }
+
+  /**
+   * Get speed limits for a path (Roads API)
+   * Useful for estimated arrival calculations
+   */
+  async getSpeedLimits(placeIds: string[]): Promise<{ placeId: string; speedLimit: number }[]> {
+    if (!this.apiKey) {
+      throw new Error('Google Maps API key not configured');
+    }
+
+    if (placeIds.length === 0 || placeIds.length > 100) {
+      throw new Error('Speed limits API requires 1-100 place IDs');
+    }
+
+    try {
+      const params = new URLSearchParams({
+        key: this.apiKey,
+        placeId: placeIds.join(','),
+      });
+
+      const url = `${this.baseUrl.replace('/maps', '/roads/v1')}/speedLimits?${params}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!data.speedLimits) {
+        return [];
+      }
+
+      return data.speedLimits.map((limit: any) => ({
+        placeId: limit.placeId,
+        speedLimit: limit.speedLimit,
+      }));
+    } catch (error) {
+      console.error('Roads API speed limits failed:', error);
+      return [];
+    }
+  }
+
+  /**
    * Clear geocoding cache (for testing or manual refresh)
    */
   clearCache() {
