@@ -3256,6 +3256,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // ADVANCED ROUTE OPTIMIZATION (PHASE 2)
+  // ==========================================
+
+  // Create advanced optimized batch route with constraints
+  app.post("/api/driver/route/batch/advanced", isAuthenticated, async (req: any, res) => {
+    try {
+      const { advancedRouteOptimizationService } = await import('./services/advancedRouteOptimization');
+      const { locationTrackingService } = await import('./services/locationTracking');
+      const { orderIds, optimizeFor, respectConstraints } = req.body;
+
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+        return res.status(400).json({ error: "Order IDs array is required" });
+      }
+
+      // Get driver's current location
+      const driverLocation = await locationTrackingService.getCurrentLocation(req.user.id);
+      if (!driverLocation) {
+        return res.status(400).json({ error: "Driver location not available" });
+      }
+
+      // Create advanced batch route
+      const result = await advancedRouteOptimizationService.createOptimizedBatchRoute(
+        req.user.id,
+        orderIds.map((id: any) => parseInt(id)),
+        driverLocation,
+        {
+          optimizeFor: optimizeFor || 'time',
+          respectConstraints: respectConstraints !== false,
+        }
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error creating advanced batch route:", error);
+      res.status(500).json({ error: error.message || "Failed to create advanced route" });
+    }
+  });
+
+  // Add time window constraint to order
+  app.post("/api/orders/:orderId/constraints/time-window", isAuthenticated, async (req: any, res) => {
+    try {
+      const { advancedRouteOptimizationService } = await import('./services/advancedRouteOptimization');
+      const { orderId } = req.params;
+      const { earliestTime, latestTime, constraintType, priority, isHard, reason } = req.body;
+
+      if (!earliestTime || !latestTime) {
+        return res.status(400).json({ error: "earliestTime and latestTime are required" });
+      }
+
+      const constraintId = await advancedRouteOptimizationService.addTimeWindowConstraint(
+        parseInt(orderId),
+        new Date(earliestTime),
+        new Date(latestTime),
+        { constraintType, priority, isHard, reason }
+      );
+
+      res.json({ constraintId, success: true });
+    } catch (error: any) {
+      console.error("Error adding time window constraint:", error);
+      res.status(500).json({ error: error.message || "Failed to add constraint" });
+    }
+  });
+
+  // Get constraints for an order
+  app.get("/api/orders/:orderId/constraints", isAuthenticated, async (req: any, res) => {
+    try {
+      const { advancedRouteOptimizationService } = await import('./services/advancedRouteOptimization');
+      const { orderId } = req.params;
+
+      const constraints = await advancedRouteOptimizationService.getOrderConstraints(parseInt(orderId));
+      res.json(constraints);
+    } catch (error: any) {
+      console.error("Error getting order constraints:", error);
+      res.status(500).json({ error: error.message || "Failed to get constraints" });
+    }
+  });
+
+  // Remove constraint
+  app.delete("/api/constraints/:constraintId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { advancedRouteOptimizationService } = await import('./services/advancedRouteOptimization');
+      const { constraintId } = req.params;
+
+      await advancedRouteOptimizationService.removeConstraint(constraintId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error removing constraint:", error);
+      res.status(500).json({ error: error.message || "Failed to remove constraint" });
+    }
+  });
+
+  // Get route optimization history
+  app.get("/api/driver/route-optimization/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const { limit = 50 } = req.query;
+      const history = await storage.getRouteOptimizationHistory(req.user.id, parseInt(String(limit)));
+      res.json(history);
+    } catch (error: any) {
+      console.error("Error getting optimization history:", error);
+      res.status(500).json({ error: error.message || "Failed to get history" });
+    }
+  });
+
   // Get available delivery zones for a restaurant (public endpoint for storefront)
   app.get('/api/storefront/delivery-zones/:restaurantId', async (req: any, res) => {
     try {
