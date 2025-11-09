@@ -2179,6 +2179,163 @@ export const assignmentHistory = pgTable("assignment_history", {
   index("idx_assignment_history_created").on(table.createdAt),
 ]);
 
+// ==========================================
+// PHASE 4: ADVANCED BATCH DELIVERY TABLES
+// ==========================================
+
+// Batch Stops - Track each stop in a batch delivery
+export const batchStops = pgTable("batch_stops", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id").notNull().references(() => deliveryBatches.id, { onDelete: 'cascade' }),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  
+  // Stop Details
+  stopType: varchar("stop_type", { length: 20 }).notNull(), // 'pickup', 'dropoff'
+  stopNumber: integer("stop_number").notNull(), // Sequence number in batch (1, 2, 3...)
+  
+  // Location
+  lat: decimal("lat", { precision: 10, scale: 7 }).notNull(),
+  lng: decimal("lng", { precision: 10, scale: 7 }).notNull(),
+  address: text("address").notNull(),
+  
+  // Timing
+  estimatedArrivalTime: timestamp("estimated_arrival_time"),
+  actualArrivalTime: timestamp("actual_arrival_time"),
+  estimatedDuration: integer("estimated_duration"), // minutes at stop
+  actualDuration: integer("actual_duration"), // minutes spent at stop
+  
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // pending, in_progress, completed, skipped, failed
+  completedAt: timestamp("completed_at"),
+  
+  // Special Instructions
+  instructions: text("instructions"),
+  contactName: varchar("contact_name", { length: 100 }),
+  contactPhone: varchar("contact_phone", { length: 50 }),
+  
+  // Issues
+  hasIssues: boolean("has_issues").default(false),
+  issueDescription: text("issue_description"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_batch_stops_batch").on(table.batchId),
+  index("idx_batch_stops_order").on(table.orderId),
+  index("idx_batch_stops_status").on(table.status),
+  index("idx_batch_stops_sequence").on(table.batchId, table.stopNumber),
+]);
+
+// Batch Modifications - Track changes to batches during delivery
+export const batchModifications = pgTable("batch_modifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id").notNull().references(() => deliveryBatches.id, { onDelete: 'cascade' }),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Modification Details
+  modificationType: varchar("modification_type", { length: 50 }).notNull(), // 'reorder', 'add', 'remove', 'split'
+  reason: varchar("reason", { length: 100 }), // 'customer_request', 'traffic', 'driver_decision', 'order_cancelled'
+  
+  // Before/After State
+  beforeState: jsonb("before_state"), // Previous stop sequence
+  afterState: jsonb("after_state"), // New stop sequence
+  affectedOrderIds: text("affected_order_ids").array(),
+  
+  // Impact Analysis
+  distanceImpact: integer("distance_impact"), // Meters added/saved (negative = saved)
+  timeImpact: integer("time_impact"), // Seconds added/saved (negative = saved)
+  earningsImpact: decimal("earnings_impact", { precision: 8, scale: 2 }), // $ added/lost
+  
+  // Approval
+  requiresApproval: boolean("requires_approval").default(false),
+  approvedBy: varchar("approved_by"), // Admin user ID
+  approvedAt: timestamp("approved_at"),
+  
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_batch_mods_batch").on(table.batchId),
+  index("idx_batch_mods_driver").on(table.driverId),
+  index("idx_batch_mods_type").on(table.modificationType),
+  index("idx_batch_mods_created").on(table.createdAt),
+]);
+
+// Batch Compatibility - Track order compatibility for batch grouping
+export const batchCompatibility = pgTable("batch_compatibility", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  order1Id: varchar("order1_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  order2Id: varchar("order2_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  
+  // Compatibility Scores
+  locationScore: decimal("location_score", { precision: 5, scale: 2 }), // 0-100
+  timeScore: decimal("time_score", { precision: 5, scale: 2 }), // 0-100
+  valueScore: decimal("value_score", { precision: 5, scale: 2 }), // 0-100
+  overallScore: decimal("overall_score", { precision: 5, scale: 2 }).notNull(), // 0-100
+  
+  // Compatibility Factors
+  distanceBetween: decimal("distance_between", { precision: 8, scale: 2 }), // km
+  timeDifference: integer("time_difference"), // seconds between order times
+  sameRestaurant: boolean("same_restaurant").notNull().default(false),
+  sameNeighborhood: boolean("same_neighborhood").default(false),
+  
+  // Constraints
+  isCompatible: boolean("is_compatible").notNull(),
+  incompatibilityReasons: text("incompatibility_reasons").array(),
+  
+  // Caching
+  calculatedAt: timestamp("calculated_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"), // Cache expiry
+}, (table) => [
+  index("idx_batch_compat_order1").on(table.order1Id),
+  index("idx_batch_compat_order2").on(table.order2Id),
+  index("idx_batch_compat_score").on(table.overallScore),
+  index("idx_batch_compat_compatible").on(table.isCompatible),
+]);
+
+// Batch Performance - Analytics for batch delivery performance
+export const batchPerformance = pgTable("batch_performance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id").notNull().references(() => deliveryBatches.id, { onDelete: 'cascade' }),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Performance Metrics
+  totalStops: integer("total_stops").notNull(),
+  completedStops: integer("completed_stops").notNull(),
+  skippedStops: integer("skipped_stops").default(0),
+  failedStops: integer("failed_stops").default(0),
+  
+  // Time Metrics
+  plannedDuration: integer("planned_duration"), // seconds
+  actualDuration: integer("actual_duration"), // seconds
+  idleTime: integer("idle_time"), // seconds waiting between stops
+  
+  // Distance Metrics
+  plannedDistance: decimal("planned_distance", { precision: 10, scale: 2 }), // km
+  actualDistance: decimal("actual_distance", { precision: 10, scale: 2 }), // km
+  
+  // Earnings
+  plannedEarnings: decimal("planned_earnings", { precision: 10, scale: 2 }),
+  actualEarnings: decimal("actual_earnings", { precision: 10, scale: 2 }),
+  bonusEarnings: decimal("bonus_earnings", { precision: 10, scale: 2 }).default('0'), // Performance bonus
+  
+  // Efficiency Scores
+  routeEfficiency: decimal("route_efficiency", { precision: 5, scale: 2 }), // 0-100
+  timeEfficiency: decimal("time_efficiency", { precision: 5, scale: 2 }), // 0-100
+  customerSatisfaction: decimal("customer_satisfaction", { precision: 3, scale: 2 }), // 0-5.00
+  
+  // Issues
+  totalIssues: integer("total_issues").default(0),
+  modificationsCount: integer("modifications_count").default(0),
+  
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_batch_perf_batch").on(table.batchId),
+  index("idx_batch_perf_driver").on(table.driverId),
+  index("idx_batch_perf_completed").on(table.completedAt),
+  index("idx_batch_perf_efficiency").on(table.routeEfficiency),
+]);
+
 export const insertPlatformPaymentSettingsSchema = createInsertSchema(platformPaymentSettings).omit({
   id: true,
   createdAt: true,
@@ -2458,3 +2615,33 @@ export const insertAssignmentHistorySchema = createInsertSchema(assignmentHistor
 });
 export type InsertAssignmentHistory = z.infer<typeof insertAssignmentHistorySchema>;
 export type AssignmentHistory = typeof assignmentHistory.$inferSelect;
+
+// Phase 4: Advanced Batch Delivery Schema Exports
+export const insertBatchStopSchema = createInsertSchema(batchStops).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertBatchStop = z.infer<typeof insertBatchStopSchema>;
+export type BatchStop = typeof batchStops.$inferSelect;
+
+export const insertBatchModificationSchema = createInsertSchema(batchModifications).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertBatchModification = z.infer<typeof insertBatchModificationSchema>;
+export type BatchModification = typeof batchModifications.$inferSelect;
+
+export const insertBatchCompatibilitySchema = createInsertSchema(batchCompatibility).omit({
+  id: true,
+  calculatedAt: true,
+});
+export type InsertBatchCompatibility = z.infer<typeof insertBatchCompatibilitySchema>;
+export type BatchCompatibility = typeof batchCompatibility.$inferSelect;
+
+export const insertBatchPerformanceSchema = createInsertSchema(batchPerformance).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertBatchPerformance = z.infer<typeof insertBatchPerformanceSchema>;
+export type BatchPerformance = typeof batchPerformance.$inferSelect;
