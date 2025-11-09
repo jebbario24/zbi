@@ -2168,6 +2168,116 @@ export class DatabaseStorage implements IStorage {
         )
       );
   }
+
+  // ==========================================
+  // PHASE 3: AUTOMATED DISPATCHING METHODS
+  // ==========================================
+
+  async getDispatchPreferences(driverId: string) {
+    const { dispatchPreferences } = await import('../shared/schema');
+    const prefs = await db
+      .select()
+      .from(dispatchPreferences)
+      .where(eq(dispatchPreferences.driverId, driverId))
+      .limit(1);
+    return prefs[0] || null;
+  }
+
+  async upsertDispatchPreferences(driverId: string, data: any) {
+    const { dispatchPreferences } = await import('../shared/schema');
+    const existing = await this.getDispatchPreferences(driverId);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(dispatchPreferences)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(dispatchPreferences.driverId, driverId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(dispatchPreferences)
+        .values({ ...data, driverId })
+        .returning();
+      return created;
+    }
+  }
+
+  async getDispatchAssignment(assignmentId: string) {
+    const { dispatchAssignments } = await import('../shared/schema');
+    const assignments = await db
+      .select()
+      .from(dispatchAssignments)
+      .where(eq(dispatchAssignments.id, assignmentId))
+      .limit(1);
+    return assignments[0] || null;
+  }
+
+  async createDispatchAssignment(data: any) {
+    const { dispatchAssignments } = await import('../shared/schema');
+    const [assignment] = await db
+      .insert(dispatchAssignments)
+      .values(data)
+      .returning();
+    return assignment;
+  }
+
+  async getDriverScore(driverId: string) {
+    const { driverScores } = await import('../shared/schema');
+    const scores = await db
+      .select()
+      .from(driverScores)
+      .where(eq(driverScores.driverId, driverId))
+      .limit(1);
+    return scores[0] || null;
+  }
+
+  async getAllDriverScores() {
+    const { driverScores } = await import('../shared/schema');
+    return await db.select().from(driverScores);
+  }
+
+  async getDispatchQueue(status?: string) {
+    const { dispatchQueue } = await import('../shared/schema');
+    let query = db.select().from(dispatchQueue);
+    
+    if (status) {
+      query = query.where(eq(dispatchQueue.status, status));
+    }
+    
+    return await query.orderBy(desc(dispatchQueue.priority), dispatchQueue.createdAt);
+  }
+
+  async getDriverAssignmentHistory(driverId: string, limit: number = 20, offset: number = 0) {
+    const { dispatchAssignments } = await import('../shared/schema');
+    return await db
+      .select()
+      .from(dispatchAssignments)
+      .where(eq(dispatchAssignments.driverId, driverId))
+      .orderBy(desc(dispatchAssignments.assignedAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getDriverPenalties(driverId: string) {
+    const { rejectionPenalties } = await import('../shared/schema');
+    return await db
+      .select()
+      .from(rejectionPenalties)
+      .where(eq(rejectionPenalties.driverId, driverId))
+      .orderBy(desc(rejectionPenalties.createdAt));
+  }
+
+  async getDriverLocation(driverId: string) {
+    const { driverLocationHistory } = await import('../shared/schema');
+    const locations = await db
+      .select()
+      .from(driverLocationHistory)
+      .where(eq(driverLocationHistory.driverId, driverId))
+      .orderBy(desc(driverLocationHistory.timestamp))
+      .limit(1);
+    return locations[0] || null;
+  }
 }
 
 export const storage = new DatabaseStorage();

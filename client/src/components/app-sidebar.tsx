@@ -180,6 +180,11 @@ const adminMenuItems = [
     icon: Truck,
   },
   {
+    titleKey: "Dispatch Control",
+    url: "/admin/dispatch",
+    icon: Truck,
+  },
+  {
     titleKey: "Subscriptions",
     url: "/admin/subscriptions",
     icon: CreditCard,

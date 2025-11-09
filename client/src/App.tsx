@@ -67,6 +67,9 @@ import DriverEarnings from "@/pages/DriverEarnings";
 import DriverHistory from "@/pages/DriverHistory";
 import DriverPayouts from "@/pages/DriverPayouts";
 import DriverHelp from "@/pages/DriverHelp";
+import DriverDispatchPreferences from "@/pages/DriverDispatchPreferences";
+import DriverVehicleSettings from "@/pages/DriverVehicleSettings";
+import AdminDispatchDashboard from "@/pages/AdminDispatchDashboard";
 import Contact from "@/pages/Contact";
 
 function PublicRouter() {
@@ -105,6 +108,7 @@ function AuthenticatedRouter() {
         <Route path="/admin/moderation" component={AdminModeration} />
         <Route path="/admin/activity-logs" component={AdminActivityLogs} />
         <Route path="/admin/settings" component={AdminSettings} />
+        <Route path="/admin/dispatch" component={AdminDispatchDashboard} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
@@ -124,6 +128,8 @@ function AuthenticatedRouter() {
         <Route path="/driver/history" component={DriverHistory} />
         <Route path="/driver/payouts" component={DriverPayouts} />
         <Route path="/driver/settings" component={DriverSettings} />
+        <Route path="/driver/dispatch-preferences" component={DriverDispatchPreferences} />
+        <Route path="/driver/vehicle-settings" component={DriverVehicleSettings} />
         <Route path="/driver/help" component={DriverHelp} />
         <Route component={NotFound} />
       </Switch>

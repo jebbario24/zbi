@@ -63,6 +63,16 @@ const driverMenuItems = [
     icon: Settings,
   },
   {
+    title: "Auto-Dispatch",
+    url: "/driver/dispatch-preferences",
+    icon: Settings,
+  },
+  {
+    title: "Vehicle & Capabilities",
+    url: "/driver/vehicle-settings",
+    icon: Settings,
+  },
+  {
     title: "Help & Support",
     url: "/driver/help",
     icon: HelpCircle,

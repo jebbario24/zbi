@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,7 +44,7 @@ interface DriverScore {
 }
 
 export default function DriverDispatchPreferences() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -427,7 +427,7 @@ export default function DriverDispatchPreferences() {
 
       {/* Save Button */}
       <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={() => navigate('/driver/dashboard')}>
+        <Button variant="outline" onClick={() => setLocation('/driver/dashboard')}>
           Back to Dashboard
         </Button>
         <Button
