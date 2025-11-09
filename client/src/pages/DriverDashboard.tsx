@@ -59,6 +59,7 @@ import { QuickMessages } from "@/components/QuickMessages";
 import { useLocationTracking } from "@/hooks/useLocationTracking";
 import { calculateDistance, formatDistance, estimateTravelTime, getCurrentLocation } from "@/utils/location";
 import { DebugAuthInfo } from "@/components/DebugAuthInfo";
+import { LiveDeliveryTracker } from "@/components/delivery/LiveDeliveryTracker";
 
 interface CompletionStatus {
   profileComplete: boolean;
@@ -774,206 +775,43 @@ export default function DriverDashboard() {
         </Card>
       )}
 
-      {/* Streamlined Active Delivery */}
+      {/* Phase 1: Live Delivery Tracker with Real-Time Map */}
       {isApproved && activeDelivery && (
-        <Card className="border-primary/30" data-testid="card-active-delivery">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Truck className="h-5 w-5 text-primary" />
-                  Active Delivery
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  Order #{activeDelivery.orderNumber}
-                </CardDescription>
-              </div>
-              <Badge className="text-base px-3 py-1 bg-green-600">
-                ${Number(activeDelivery.driverShare).toFixed(2)}
-              </Badge>
-            </div>
-          </CardHeader>
-          
-          <CardContent className="space-y-4">
-            {/* Restaurant & Customer - Compact */}
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
-                <Store className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" data-testid="text-restaurant-name">
-                    {activeDelivery.restaurant.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {activeDelivery.restaurant.address}
-                  </p>
-                </div>
-                <div className="flex gap-1 flex-shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openNavigation(activeDelivery.restaurant.address)}
-                    className="h-7 w-7 p-0"
-                  >
-                    <Navigation className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(`tel:${activeDelivery.restaurant.phone}`)}
-                    className="h-7 w-7 p-0"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setMessageRecipient({
-                        name: activeDelivery.restaurant.name,
-                        phone: activeDelivery.restaurant.phone,
-                        type: "restaurant",
-                      });
-                      setShowQuickMessages(true);
-                    }}
-                    className="h-7 w-7 p-0"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
-                <Home className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" data-testid="text-customer-name">
-                    {activeDelivery.customerName}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate" data-testid="text-delivery-address">
-                    {activeDelivery.deliveryAddress}
-                  </p>
-                </div>
-                <div className="flex gap-1 flex-shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openNavigation(activeDelivery.deliveryAddress)}
-                    className="h-7 w-7 p-0"
-                  >
-                    <Navigation className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(`tel:${activeDelivery.customerPhone}`)}
-                    className="h-7 w-7 p-0"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setMessageRecipient({
-                        name: activeDelivery.customerName,
-                        phone: activeDelivery.customerPhone,
-                        type: "customer",
-                      });
-                      setShowQuickMessages(true);
-                    }}
-                    className="h-7 w-7 p-0"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Collapsible Order Items */}
-            <div className="border rounded-lg overflow-hidden">
-              <button
-                onClick={() => setShowOrderItems(!showOrderItems)}
-                className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
-              >
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Order Items ({activeDelivery.items.length})
-                </span>
-                {showOrderItems ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
-              {showOrderItems && (
-                <div className="p-3 pt-0 space-y-2" data-testid="list-order-items">
-                  {activeDelivery.items.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm py-1">
-                      <span className="text-muted-foreground">
-                        {item.quantity}x {item.menuItem?.name || item.bundle?.name}
-                      </span>
-                      <span className="font-medium">${Number(item.subtotal).toFixed(2)}</span>
-                    </div>
-                  ))}
-                  <Separator className="my-2" />
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Total</span>
-                    <span data-testid="text-order-total">${Number(activeDelivery.total).toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Delivery Status - Compact */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Current Status</span>
-                <Badge variant="default" className="animate-pulse">
-                  {deliveryStatusSteps.find(s => s.key === activeDelivery.status)?.label}
-                </Badge>
-              </div>
-              
-              {/* Progress Bar */}
-              <div className="space-y-1">
-                <Progress 
-                  value={(getCurrentStepIndex(activeDelivery.status) / (deliveryStatusSteps.length - 1)) * 100} 
-                  className="h-2"
-                />
-                <p className="text-xs text-muted-foreground text-center">
-                  Step {getCurrentStepIndex(activeDelivery.status) + 1} of {deliveryStatusSteps.length}
-                </p>
-              </div>
-            </div>
-
-            {/* Primary Action Button */}
-            {getNextStatus(activeDelivery.status) === 'delivered' ? (
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={() => setShowDeliveryProof(true)}
-                disabled={updateStatusMutation.isPending}
-              >
-                <CheckCircle className="mr-2 h-5 w-5" />
-                Complete Delivery
-              </Button>
-            ) : getNextStatus(activeDelivery.status) ? (
-              <Button
-                className="w-full"
-                size="lg"
-                data-testid={`button-update-status-${getNextStatus(activeDelivery.status)}`}
-                onClick={() => updateStatusMutation.mutate({ 
-                  orderId: activeDelivery.id, 
-                  status: getNextStatus(activeDelivery.status)! 
-                })}
-                disabled={updateStatusMutation.isPending}
-              >
-                {updateStatusMutation.isPending ? (
-                  "Updating..."
-                ) : (
-                  <>
-                    {deliveryStatusSteps.find(s => s.key === getNextStatus(activeDelivery.status))?.label}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
+        <LiveDeliveryTracker
+          order={{
+            id: parseInt(activeDelivery.id),
+            restaurantName: activeDelivery.restaurant.name,
+            restaurantAddress: activeDelivery.restaurant.address,
+            restaurantLat: activeDelivery.restaurantLat || "0",
+            restaurantLng: activeDelivery.restaurantLng || "0",
+            restaurantPhone: activeDelivery.restaurant.phone,
+            deliveryAddress: activeDelivery.deliveryAddress,
+            deliveryLat: activeDelivery.deliveryLat || "0",
+            deliveryLng: activeDelivery.deliveryLng || "0",
+            customerName: activeDelivery.customerName,
+            customerPhone: activeDelivery.customerPhone,
+            status: activeDelivery.status,
+            items: activeDelivery.items.map(item => ({
+              name: item.menuItem?.name || item.bundle?.name || "Item",
+              quantity: item.quantity,
+              price: item.subtotal,
+            })),
+            totalAmount: parseFloat(activeDelivery.total),
+            deliveryFee: activeDelivery.deliveryFee || "0",
+            estimatedPickupTime: activeDelivery.estimatedPickupTime,
+            estimatedDeliveryTime: activeDelivery.estimatedDeliveryTime,
+          }}
+          onStatusUpdate={(newStatus) => {
+            if (newStatus === 'delivered') {
+              setShowDeliveryProof(true);
+            } else {
+              updateStatusMutation.mutate({ 
+                orderId: activeDelivery.id, 
+                status: newStatus 
+              });
+            }
+          }}
+        />
       )}
 
       {/* Clean Available Orders Section */}
