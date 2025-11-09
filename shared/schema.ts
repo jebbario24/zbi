@@ -1518,6 +1518,232 @@ export const insertDeliveryZoneSchema = createInsertSchema(deliveryZones).omit({
 export type InsertDeliveryZone = z.infer<typeof insertDeliveryZoneSchema>;
 export type DeliveryZone = typeof deliveryZones.$inferSelect;
 
+// ===== ADVANCED DELIVERY TRACKING TABLES =====
+
+// Real-time Driver Location Tracking - High-frequency updates
+export const driverLocationHistory = pgTable("driver_location_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: 'cascade' }), // null if not on active delivery
+  lat: decimal("lat", { precision: 10, scale: 7 }).notNull(),
+  lng: decimal("lng", { precision: 10, scale: 7 }).notNull(),
+  accuracy: integer("accuracy"), // GPS accuracy in meters
+  speed: decimal("speed", { precision: 6, scale: 2 }), // Speed in km/h
+  heading: integer("heading"), // Direction in degrees (0-359)
+  altitude: decimal("altitude", { precision: 8, scale: 2 }), // Altitude in meters
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+}, (table) => [
+  index("idx_driver_location_driver_time").on(table.driverId, table.timestamp),
+  index("idx_driver_location_order").on(table.orderId),
+]);
+
+// Delivery Routes - Optimized routes for each delivery
+export const deliveryRoutes = pgTable("delivery_routes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  batchId: varchar("batch_id"), // Reference to batch if part of multi-order delivery
+  
+  // Route Information
+  originLat: decimal("origin_lat", { precision: 10, scale: 7 }).notNull(),
+  originLng: decimal("origin_lng", { precision: 10, scale: 7 }).notNull(),
+  destinationLat: decimal("destination_lat", { precision: 10, scale: 7 }).notNull(),
+  destinationLng: decimal("destination_lng", { precision: 10, scale: 7 }).notNull(),
+  
+  // Route Details (from Google Maps)
+  distanceMeters: integer("distance_meters"), // Total distance in meters
+  durationSeconds: integer("duration_seconds"), // Estimated duration in seconds
+  durationInTrafficSeconds: integer("duration_in_traffic_seconds"), // With traffic
+  polyline: text("polyline"), // Encoded polyline for route visualization
+  
+  // Route Steps (JSON array of turn-by-turn directions)
+  steps: jsonb("steps"),
+  
+  // Optimization Data
+  optimizationScore: decimal("optimization_score", { precision: 5, scale: 2 }), // 0-100 score
+  isOptimized: boolean("is_optimized").default(false),
+  alternativeRoutesCount: integer("alternative_routes_count"),
+  
+  // ETA Tracking
+  estimatedPickupTime: timestamp("estimated_pickup_time"),
+  estimatedDeliveryTime: timestamp("estimated_delivery_time"),
+  actualPickupTime: timestamp("actual_pickup_time"),
+  actualDeliveryTime: timestamp("actual_delivery_time"),
+  
+  // Status
+  routeStatus: varchar("route_status", { length: 50 }).default('planned'), // planned, active, completed, cancelled
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_delivery_routes_order").on(table.orderId),
+  index("idx_delivery_routes_driver").on(table.driverId),
+  index("idx_delivery_routes_batch").on(table.batchId),
+]);
+
+// Batch Deliveries - Multiple orders delivered together
+export const deliveryBatches = pgTable("delivery_batches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Batch Details
+  orderIds: text("order_ids").array(), // Array of order IDs in this batch
+  orderCount: integer("order_count").notNull(),
+  stopSequence: jsonb("stop_sequence"), // Optimized sequence of stops with coordinates
+  
+  // Route Information
+  totalDistanceMeters: integer("total_distance_meters"),
+  totalDurationSeconds: integer("total_duration_seconds"),
+  estimatedEarnings: decimal("estimated_earnings", { precision: 10, scale: 2 }),
+  actualEarnings: decimal("actual_earnings", { precision: 10, scale: 2 }),
+  
+  // Optimization Metrics
+  routeOptimizationSavings: decimal("route_optimization_savings", { precision: 10, scale: 2 }), // Distance saved vs individual deliveries
+  timeOptimizationSavings: integer("time_optimization_savings"), // Time saved in seconds
+  
+  // Status
+  batchStatus: varchar("batch_status", { length: 50 }).default('pending'), // pending, active, completed, cancelled
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_delivery_batches_driver").on(table.driverId),
+  index("idx_delivery_batches_status").on(table.batchStatus),
+]);
+
+// ETA Updates - Track ETA changes and accuracy
+export const etaUpdates = pgTable("eta_updates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  routeId: varchar("route_id").references(() => deliveryRoutes.id, { onDelete: 'cascade' }),
+  
+  // ETA Information
+  estimatedMinutes: integer("estimated_minutes").notNull(),
+  previousEstimatedMinutes: integer("previous_estimated_minutes"),
+  changeReason: varchar("change_reason", { length: 100 }), // traffic, route_change, driver_delay
+  
+  // Location at time of update
+  driverLat: decimal("driver_lat", { precision: 10, scale: 7 }),
+  driverLng: decimal("driver_lng", { precision: 10, scale: 7 }),
+  distanceRemainingMeters: integer("distance_remaining_meters"),
+  
+  // Traffic conditions
+  trafficLevel: varchar("traffic_level", { length: 20 }), // light, moderate, heavy, severe
+  
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+}, (table) => [
+  index("idx_eta_updates_order").on(table.orderId),
+  index("idx_eta_updates_time").on(table.timestamp),
+]);
+
+// Traffic Incidents - Track traffic conditions affecting deliveries
+export const trafficIncidents = pgTable("traffic_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Location
+  lat: decimal("lat", { precision: 10, scale: 7 }).notNull(),
+  lng: decimal("lng", { precision: 10, scale: 7 }).notNull(),
+  radius: integer("radius"), // Affected radius in meters
+  
+  // Incident Details
+  incidentType: varchar("incident_type", { length: 50 }), // accident, construction, road_closure, heavy_traffic
+  severity: varchar("severity", { length: 20 }), // low, medium, high, critical
+  description: text("description"),
+  
+  // Impact
+  delayMinutes: integer("delay_minutes"), // Estimated delay
+  affectedOrders: text("affected_orders").array(), // Order IDs affected
+  affectedDrivers: text("affected_drivers").array(), // Driver IDs in the area
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  resolvedAt: timestamp("resolved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_traffic_incidents_location").on(table.lat, table.lng),
+  index("idx_traffic_incidents_active").on(table.isActive),
+]);
+
+// Dispatch Events - Track automated dispatch decisions
+export const dispatchEvents = pgTable("dispatch_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  
+  // Dispatch Decision
+  assignedDriverId: varchar("assigned_driver_id").references(() => users.id, { onDelete: 'cascade' }),
+  dispatchMethod: varchar("dispatch_method", { length: 50 }), // auto, manual, ai
+  
+  // Scoring (for AI dispatch)
+  candidateDrivers: jsonb("candidate_drivers"), // Array of drivers considered with their scores
+  matchScore: decimal("match_score", { precision: 5, scale: 2 }), // 0-100
+  
+  // Decision Factors
+  distanceToRestaurant: integer("distance_to_restaurant"), // meters
+  distanceToCustomer: integer("distance_to_customer"), // meters
+  driverRating: decimal("driver_rating", { precision: 3, scale: 2 }),
+  driverAcceptanceRate: decimal("driver_acceptance_rate", { precision: 5, scale: 2 }),
+  estimatedPickupTime: integer("estimated_pickup_time"), // seconds
+  
+  // Result
+  wasAccepted: boolean("was_accepted"),
+  acceptedAt: timestamp("accepted_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: varchar("rejection_reason", { length: 100 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_dispatch_events_order").on(table.orderId),
+  index("idx_dispatch_events_driver").on(table.assignedDriverId),
+]);
+
+// Driver Analytics - Aggregated performance data
+export const driverAnalytics = pgTable("driver_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Time Period
+  periodType: varchar("period_type", { length: 20 }).notNull(), // hourly, daily, weekly, monthly
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Performance Metrics
+  totalDeliveries: integer("total_deliveries").default(0),
+  completedDeliveries: integer("completed_deliveries").default(0),
+  cancelledDeliveries: integer("cancelled_deliveries").default(0),
+  
+  // Earnings
+  totalEarnings: decimal("total_earnings", { precision: 10, scale: 2 }).default('0'),
+  averageEarningsPerDelivery: decimal("average_earnings_per_delivery", { precision: 10, scale: 2 }),
+  averageEarningsPerHour: decimal("average_earnings_per_hour", { precision: 10, scale: 2 }),
+  
+  // Time Metrics
+  totalActiveMinutes: integer("total_active_minutes").default(0),
+  totalDeliveryMinutes: integer("total_delivery_minutes").default(0),
+  averageDeliveryMinutes: decimal("average_delivery_minutes", { precision: 6, scale: 2 }),
+  
+  // Distance
+  totalDistanceMeters: integer("total_distance_meters").default(0),
+  averageDistancePerDelivery: integer("average_distance_per_delivery"),
+  
+  // Efficiency
+  acceptanceRate: decimal("acceptance_rate", { precision: 5, scale: 2 }),
+  onTimeDeliveryRate: decimal("on_time_delivery_rate", { precision: 5, scale: 2 }),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }),
+  
+  // Batch Performance
+  batchDeliveries: integer("batch_deliveries").default(0),
+  averageOrdersPerBatch: decimal("average_orders_per_batch", { precision: 4, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_driver_analytics_driver_period").on(table.driverId, table.periodStart),
+  unique("unique_driver_period").on(table.driverId, table.periodType, table.periodStart),
+]);
+
 export const insertPlatformPaymentSettingsSchema = createInsertSchema(platformPaymentSettings).omit({
   id: true,
   createdAt: true,
