@@ -43,7 +43,12 @@ import {
   MessageSquare,
   BarChart3,
   Target,
-  Zap
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  MoreVertical,
+  Menu,
+  X as CloseIcon
 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -157,6 +162,10 @@ export default function DriverDashboard() {
   const [sortBy, setSortBy] = useState<"distance" | "earnings" | "time">("distance");
   const [filterByEarnings, setFilterByEarnings] = useState<string>("all");
   const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showOrderItems, setShowOrderItems] = useState(true);
+  const [showDeliveryProgress, setShowDeliveryProgress] = useState(true);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   
   // PWA Features
   const { isOnline, wasOffline } = useOnlineStatus();
@@ -504,6 +513,17 @@ export default function DriverDashboard() {
   const profileStatus = getProfileCompletionMessage();
   const canToggleStatus = isTestAccount ? true : (completionStatus?.profileComplete && completionStatus?.adminApproved);
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showQuickActions) {
+        setShowQuickActions(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showQuickActions]);
+
   if (loadingStatus) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -514,57 +534,56 @@ export default function DriverDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation Header */}
-      <div className="border-b bg-gradient-to-r from-primary/10 via-primary/5 to-background sticky top-0 z-50 backdrop-blur-sm shadow-sm">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Truck className="h-6 w-6 text-primary" />
-              <span className="text-lg font-semibold">Driver Portal</span>
+      {/* Simplified Navigation Header */}
+      <div className="border-b bg-white dark:bg-background sticky top-0 z-50 shadow-sm">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            {/* Left: Logo & Navigation */}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Truck className="h-5 w-5 text-primary" />
+                <span className="font-semibold">Driver</span>
+              </div>
+              
+              <nav className="hidden md:flex items-center gap-1" data-testid="driver-nav-menu">
+                <Button asChild variant="ghost" size="sm" data-testid="nav-dashboard">
+                  <Link href="/driver/dashboard">
+                    <LayoutDashboard className="h-4 w-4 mr-1.5" />
+                    Dashboard
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm" data-testid="nav-service-zones">
+                  <Link href="/driver/service-zones">
+                    <MapPin className="h-4 w-4 mr-1.5" />
+                    Zones
+                    {serviceZonesData && serviceZonesData.serviceZones.length > 0 && (
+                      <Badge variant="secondary" className="ml-1.5 text-xs h-4 px-1">
+                        {serviceZonesData.serviceZones.length}
+                      </Badge>
+                    )}
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm" data-testid="nav-settings">
+                  <Link href="/driver/settings">
+                    <Settings className="h-4 w-4 mr-1.5" />
+                    Settings
+                  </Link>
+                </Button>
+              </nav>
+            </div>
+
+            {/* Right: Status & Actions */}
+            <div className="flex items-center gap-3">
+              {/* Available Orders Badge */}
               {isApproved && stats?.isAvailable && filteredOrders.length > 0 && (
-                <Badge variant="default" className="animate-pulse">
-                  {filteredOrders.length} Available
+                <Badge variant="default" className="animate-pulse hidden sm:flex">
+                  {filteredOrders.length} {filteredOrders.length === 1 ? 'Order' : 'Orders'}
                 </Badge>
               )}
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {/* Push Notifications Toggle */}
-              {pushSupported && (
-                <Button
-                  variant={pushSubscribed ? "outline" : "default"}
-                  size="sm"
-                  onClick={() => pushSubscribed ? unsubscribeFromPush() : subscribeToPush()}
-                  className="gap-2"
-                >
-                  {pushSubscribed ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
-                  {pushSubscribed ? "Notifications On" : "Enable Notifications"}
-                </Button>
-              )}
-              
-              {/* PWA Install Button */}
-              {showInstallButton && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleInstallClick}
-                  className="gap-2"
-                  data-testid="button-install-app"
-                >
-                  <Download className="h-4 w-4" />
-                  Install App
-                </Button>
-              )}
-              
-              {/* Driver Status Toggle */}
+
+              {/* Driver Status Toggle - Simplified */}
               {isApproved && (
-                <div className="flex items-center gap-3" data-testid="header-driver-status">
-                  <div className="flex items-center gap-2">
-                    <Power className={`h-4 w-4 ${stats?.isAvailable ? 'text-green-600' : 'text-muted-foreground'}`} />
-                    <Label htmlFor="header-status-toggle" className="text-sm font-medium">
-                      {stats?.isAvailable ? 'Online' : 'Offline'}
-                    </Label>
-                  </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-background" data-testid="header-driver-status">
                   <Switch
                     id="header-status-toggle"
                     data-testid="switch-driver-status-header"
@@ -572,78 +591,105 @@ export default function DriverDashboard() {
                     onCheckedChange={(checked) => statusMutation.mutate(checked)}
                     disabled={!canToggleStatus || statusMutation.isPending}
                   />
-                  <Badge 
-                    variant={stats?.isAvailable ? "default" : "secondary"}
-                    className="text-xs"
-                  >
-                    {stats?.isAvailable ? 'Available' : 'Offline'}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <div className={`h-2 w-2 rounded-full ${stats?.isAvailable ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                    <Label htmlFor="header-status-toggle" className="text-sm font-medium cursor-pointer">
+                      {stats?.isAvailable ? 'Online' : 'Offline'}
+                    </Label>
+                  </div>
                 </div>
               )}
+
+              {/* Quick Actions Dropdown */}
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowQuickActions(!showQuickActions)}
+                  className="h-9 w-9 p-0"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+                
+                {showQuickActions && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
+                    <div className="py-1">
+                      {pushSupported && (
+                        <button
+                          onClick={() => {
+                            pushSubscribed ? unsubscribeFromPush() : subscribeToPush();
+                            setShowQuickActions(false);
+                          }}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          {pushSubscribed ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                          {pushSubscribed ? 'Disable Notifications' : 'Enable Notifications'}
+                        </button>
+                      )}
+                      {showInstallButton && (
+                        <button
+                          onClick={() => {
+                            handleInstallClick();
+                            setShowQuickActions(false);
+                          }}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                          data-testid="button-install-app"
+                        >
+                          <Download className="h-4 w-4" />
+                          Install App
+                        </button>
+                      )}
+                      <Link href="/driver/settings">
+                        <button
+                          onClick={() => setShowQuickActions(false)}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Settings
+                        </button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          
-          {/* Navigation Menu */}
-          <nav className="flex items-center gap-1" data-testid="driver-nav-menu">
-            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-dashboard">
-              <Link href="/driver/dashboard">
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </Link>
-            </Button>
-            
-            <Button asChild variant="ghost" size="sm" className="gap-2 relative" data-testid="nav-service-zones">
-              <Link href="/driver/service-zones">
-                <MapPin className="h-4 w-4" />
-                Service Zones
-                {serviceZonesData && (
-                  <Badge 
-                    variant={serviceZonesData.serviceZones.length === 0 ? "destructive" : "secondary"}
-                    className="ml-1 text-xs h-5 px-1.5"
-                    data-testid="badge-zone-count-nav"
-                  >
-                    {serviceZonesData.serviceZones.length}
-                  </Badge>
-                )}
-              </Link>
-            </Button>
-            
-            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-settings">
-              <Link href="/driver/settings">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
-            </Button>
-            
-            <Button asChild variant="ghost" size="sm" className="gap-2" data-testid="nav-earnings">
-              <Link href="/driver/dashboard#earnings">
-                <TrendingUp className="h-4 w-4" />
-                Earnings
-              </Link>
-            </Button>
-          </nav>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto p-6 space-y-6">
-        {/* Welcome Header */}
-        <div>
-          <h1 className="text-2xl font-bold">
-            Welcome back, {user?.firstName || 'Driver'}!
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Manage your deliveries and earnings
-          </p>
-        </div>
+      <div className="container mx-auto p-4 md:p-6 space-y-4 max-w-7xl">
+        {/* Priority Alert System - Show only the most important alert */}
+        {!isApproved && completionStatus && (
+          <Alert variant={completionStatus.profileComplete ? "default" : "destructive"} data-testid="alert-profile-status">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between flex-wrap gap-2">
+              <span className="flex-1">{profileStatus.message}</span>
+              {!completionStatus.profileComplete && (
+                <Link href="/driver/settings">
+                  <Button size="sm" variant="outline" data-testid="button-complete-profile">
+                    Complete Profile
+                  </Button>
+                </Link>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
-        {/* Offline/Online Indicator */}
-        <OfflineIndicator />
+        {isApproved && serviceZonesData && serviceZonesData.serviceZones.length === 0 && (
+          <Alert className="bg-orange-50 dark:bg-orange-900/20 border-orange-200" data-testid="alert-no-zones">
+            <MapPin className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="flex items-center justify-between flex-wrap gap-2">
+              <span className="flex-1">No service zones selected. Select zones to receive orders.</span>
+              <Link href="/driver/service-zones">
+                <Button size="sm" variant="outline" data-testid="button-configure-zones">
+                  Select Zones
+                </Button>
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
 
-        {/* iOS Install Instructions */}
-        <IOSInstallPrompt />
-
-        {/* Sync Status Indicator */}
         {isSyncing && (
           <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200">
             <div className="flex items-center gap-2">
@@ -655,513 +701,242 @@ export default function DriverDashboard() {
           </Alert>
         )}
 
-      {/* Service Zones Indicator */}
-      {isApproved && serviceZonesData && (
-        <Card data-testid="card-service-zones">
-          <CardContent className="py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3 flex-1">
-                <div className={`p-2 rounded-lg ${serviceZonesData.serviceZones.length === 0 ? 'bg-orange-100 dark:bg-orange-900/20' : 'bg-green-100 dark:bg-green-900/20'}`}>
-                  <MapPin className={`h-5 w-5 ${serviceZonesData.serviceZones.length === 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`} />
+        {!isOnline && (
+          <OfflineIndicator />
+        )}
+
+      {/* Compact Stats Card - Only show when approved */}
+      {isApproved && stats && (
+        <Card className="overflow-hidden" data-testid="card-stats-summary">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {/* Total Deliveries */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Package className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase tracking-wide">Deliveries</span>
                 </div>
-                <div className="flex-1">
-                  <div className="font-medium text-base mb-1">Service Zones</div>
-                  {serviceZonesData.serviceZones.length === 0 ? (
-                    <div className="text-sm text-muted-foreground mb-3">
-                      No zones selected - You won't receive any orders
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-sm text-muted-foreground mb-2">
-                        Serving {serviceZonesData.serviceZones.length} zone{serviceZonesData.serviceZones.length !== 1 ? 's' : ''}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {serviceZonesData.serviceZones.slice(0, 4).map((zoneId: string) => {
-                          const zone = allZones.find((z: any) => z.id === zoneId);
-                          return zone ? (
-                            <Badge key={zoneId} variant="secondary" className="text-xs" data-testid={`badge-zone-${zoneId}`}>
-                              <MapPin className="h-3 w-3 mr-1" />
-                              {zone.city}{zone.neighborhood ? ` - ${zone.neighborhood}` : ''}
-                            </Badge>
-                          ) : null;
-                        })}
-                        {serviceZonesData.serviceZones.length > 4 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{serviceZonesData.serviceZones.length - 4} more
-                          </Badge>
-                        )}
-                      </div>
-                    </>
-                  )}
-                  <Link href="/driver/service-zones">
-                    <Button 
-                      size="sm" 
-                      variant={serviceZonesData.serviceZones.length === 0 ? "default" : "outline"}
-                      data-testid="button-manage-zones"
-                    >
-                      <MapPin className="w-4 h-4 mr-2" />
-                      {serviceZonesData.serviceZones.length === 0 ? "Select Zones" : "Manage Zones"}
-                    </Button>
-                  </Link>
+                <div>
+                  <div className="text-2xl font-bold" data-testid="stat-total-deliveries">
+                    {stats.totalDeliveries}
+                  </div>
+                  <p className="text-xs text-muted-foreground">All time</p>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Profile Completion Alert */}
-      {!completionStatus?.adminApproved && (
-        <Alert variant={completionStatus?.profileComplete ? "default" : "destructive"} data-testid="alert-profile-status">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="flex items-center justify-between">
-            <span>{profileStatus.message}</span>
-            {!completionStatus?.profileComplete && (
-              <Link href="/driver/settings">
-                <Button size="sm" variant="outline" data-testid="button-complete-profile">
-                  Complete Profile
-                </Button>
-              </Link>
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
+              {/* Total Earnings */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <DollarSign className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase tracking-wide">Lifetime</span>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-green-600" data-testid="stat-total-earnings">
+                    ${Number(stats.totalEarnings).toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Total earned</p>
+                </div>
+              </div>
 
-      {/* Profile Completion Card */}
-      {!isApproved && (
-        <Card data-testid="card-profile-completion">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Profile Status
-            </CardTitle>
-            <CardDescription>
-              Complete your profile to start accepting deliveries
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Profile Completion</span>
-                <span className="font-medium" data-testid="text-completion-percent">{profileStatus.percent}%</span>
+              {/* Weekly Earnings */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase tracking-wide">This Week</span>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-primary" data-testid="stat-weekly-earnings">
+                    ${Number(stats.weeklyEarnings).toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Last 7 days</p>
+                </div>
               </div>
-              <Progress value={profileStatus.percent} data-testid="progress-profile-completion" />
-            </div>
-            
-            <div className="grid gap-3">
-              <div className="flex items-center gap-2">
-                {completionStatus?.profileComplete ? (
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-destructive" />
-                )}
-                <span className="text-sm" data-testid="text-profile-complete-status">
-                  {completionStatus?.profileComplete ? 'Profile Complete' : 'Profile Incomplete'}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {completionStatus?.adminApproved ? (
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                ) : completionStatus?.profileComplete ? (
-                  <Clock className="h-5 w-5 text-yellow-600" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-muted-foreground" />
-                )}
-                <span className="text-sm" data-testid="text-admin-approval-status">
-                  {completionStatus?.adminApproved 
-                    ? 'Approved by Admin' 
-                    : completionStatus?.profileComplete
-                    ? 'Pending Admin Approval'
-                    : 'Awaiting Profile Completion'}
-                </span>
-              </div>
-            </div>
 
-            {!completionStatus?.profileComplete && (
-              <Link href="/driver/settings">
-                <Button className="w-full" data-testid="button-go-to-settings">
-                  <User className="mr-2 h-4 w-4" />
-                  Complete Your Profile
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Quick Stats Summary */}
-      {isApproved && stats && (
-        <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Today's Potential</p>
-                <p className="text-2xl font-bold mt-1">
-                  ${((Number(stats.weeklyEarnings) / 7) * 1.2).toFixed(2)}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Based on weekly average + 20% boost
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium text-muted-foreground">Active Status</p>
-                <Badge 
-                  variant={stats.isAvailable ? "default" : "secondary"} 
-                  className="mt-1 text-base px-3 py-1"
-                >
-                  {stats.isAvailable ? (
-                    <>
-                      <div className="h-2 w-2 rounded-full bg-green-500 mr-2 animate-pulse" />
-                      Online
-                    </>
-                  ) : (
-                    <>
-                      <div className="h-2 w-2 rounded-full bg-gray-500 mr-2" />
-                      Offline
-                    </>
-                  )}
-                </Badge>
+              {/* Acceptance Rate */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase tracking-wide">Acceptance</span>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold" data-testid="stat-acceptance-rate">
+                    {stats.acceptanceRate}%
+                  </div>
+                  <p className="text-xs text-muted-foreground">Success rate</p>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Stats Grid - Only show when approved */}
-      {isApproved && stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-l-4 border-l-blue-500" data-testid="card-total-deliveries">
-            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Deliveries</CardTitle>
-              <Package className="h-5 w-5 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold" data-testid="stat-total-deliveries">
-                {stats.totalDeliveries}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">All time deliveries</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-green-500" data-testid="card-total-earnings">
-            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-              <DollarSign className="h-5 w-5 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600" data-testid="stat-total-earnings">
-                ${Number(stats.totalEarnings).toFixed(2)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Lifetime earnings</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-purple-500" data-testid="card-weekly-earnings">
-            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">This Week</CardTitle>
-              <TrendingUp className="h-5 w-5 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-purple-600" data-testid="stat-weekly-earnings">
-                ${Number(stats.weeklyEarnings).toFixed(2)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Last 7 days</p>
-              <Progress 
-                value={Math.min((Number(stats.weeklyEarnings) / 500) * 100, 100)} 
-                className="mt-2 h-1" 
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-orange-500" data-testid="card-acceptance-rate">
-            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Acceptance Rate</CardTitle>
-              <CheckCircle className="h-5 w-5 text-orange-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-orange-600" data-testid="stat-acceptance-rate">
-                {stats.acceptanceRate}%
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Order acceptance</p>
-              <Progress value={stats.acceptanceRate} className="mt-2 h-1" />
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Active Delivery Tracker */}
+      {/* Streamlined Active Delivery */}
       {isApproved && activeDelivery && (
-        <Card className="border-2 border-primary/20 shadow-lg" data-testid="card-active-delivery">
-          <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Truck className="h-6 w-6" />
+        <Card className="border-primary/30" data-testid="card-active-delivery">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Truck className="h-5 w-5 text-primary" />
                   Active Delivery
                 </CardTitle>
-                <CardDescription className="text-base mt-1">
+                <CardDescription className="mt-1">
                   Order #{activeDelivery.orderNumber}
                 </CardDescription>
               </div>
-              <Badge className="text-lg px-4 py-2" variant="default">
+              <Badge className="text-base px-3 py-1 bg-green-600">
                 ${Number(activeDelivery.driverShare).toFixed(2)}
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6 pt-6">
-            {/* Order Details with Quick Actions */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-2 flex-1">
-                    <Store className="h-4 w-4 mt-1 text-muted-foreground" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium" data-testid="text-restaurant-name">{activeDelivery.restaurant.name}</p>
-                      <p className="text-sm text-muted-foreground">{activeDelivery.restaurant.address}</p>
-                      <p className="text-sm text-muted-foreground">{activeDelivery.restaurant.phone}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    {activeDelivery.restaurant.address && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openNavigation(activeDelivery.restaurant.address)}
-                        className="h-8 w-8 p-0"
-                        title="Navigate to Restaurant"
-                      >
-                        <Navigation className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {activeDelivery.restaurant.phone && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(`tel:${activeDelivery.restaurant.phone}`)}
-                        className="h-8 w-8 p-0"
-                        title="Call Restaurant"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+          
+          <CardContent className="space-y-4">
+            {/* Restaurant & Customer - Compact */}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                <Store className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" data-testid="text-restaurant-name">
+                    {activeDelivery.restaurant.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {activeDelivery.restaurant.address}
+                  </p>
                 </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-2 flex-1">
-                    <Home className="h-4 w-4 mt-1 text-muted-foreground" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium" data-testid="text-customer-name">{activeDelivery.customerName}</p>
-                      <p className="text-sm text-muted-foreground" data-testid="text-delivery-address">{activeDelivery.deliveryAddress}</p>
-                      <p className="text-sm text-muted-foreground">{activeDelivery.customerPhone}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    {activeDelivery.deliveryAddress && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openNavigation(activeDelivery.deliveryAddress)}
-                        className="h-8 w-8 p-0"
-                        title="Navigate to Customer"
-                      >
-                        <Navigation className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {activeDelivery.customerPhone && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(`tel:${activeDelivery.customerPhone}`)}
-                        className="h-8 w-8 p-0"
-                        title="Call Customer"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Order Items */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold">Order Items</h4>
-              <div className="space-y-2" data-testid="list-order-items">
-                {activeDelivery.items.map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span>
-                      {item.quantity}x {item.menuItem?.name || item.bundle?.name}
-                    </span>
-                    <span className="text-muted-foreground">${Number(item.subtotal).toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Delivery Progress */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  Delivery Progress
-                </h4>
-                {activeDelivery.status !== 'picked_up' && activeDelivery.restaurant.address && (
+                <div className="flex gap-1 flex-shrink-0">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={() => openNavigation(activeDelivery.restaurant.address)}
-                    className="gap-2"
+                    className="h-7 w-7 p-0"
                   >
-                    <Navigation className="h-4 w-4" />
-                    Navigate to Restaurant
+                    <Navigation className="h-3.5 w-3.5" />
                   </Button>
-                )}
-                {activeDelivery.status === 'picked_up' && (
                   <Button
-                    variant="default"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(`tel:${activeDelivery.restaurant.phone}`)}
+                    className="h-7 w-7 p-0"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setMessageRecipient({
+                        name: activeDelivery.restaurant.name,
+                        phone: activeDelivery.restaurant.phone,
+                        type: "restaurant",
+                      });
+                      setShowQuickMessages(true);
+                    }}
+                    className="h-7 w-7 p-0"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                <Home className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" data-testid="text-customer-name">
+                    {activeDelivery.customerName}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate" data-testid="text-delivery-address">
+                    {activeDelivery.deliveryAddress}
+                  </p>
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => openNavigation(activeDelivery.deliveryAddress)}
-                    className="gap-2"
+                    className="h-7 w-7 p-0"
                   >
-                    <Navigation className="h-4 w-4" />
-                    Navigate to Customer
+                    <Navigation className="h-3.5 w-3.5" />
                   </Button>
-                )}
-              </div>
-              <div className="relative">
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-muted" />
-                <div className="space-y-3">
-                  {deliveryStatusSteps.map((step, index) => {
-                    const currentIndex = getCurrentStepIndex(activeDelivery.status);
-                    const isCompleted = index <= currentIndex;
-                    const isCurrent = index === currentIndex;
-                    
-                    return (
-                      <div key={step.key} className="relative flex items-start gap-4">
-                        <div className={`relative z-10 h-8 w-8 rounded-full flex items-center justify-center transition-all ${
-                          isCompleted 
-                            ? 'bg-primary text-primary-foreground shadow-lg scale-110' 
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {isCompleted ? (
-                            <CheckCircle className="h-5 w-5" />
-                          ) : (
-                            <span className="text-xs font-semibold">{index + 1}</span>
-                          )}
-                        </div>
-                        <div className="flex-1 pt-1">
-                          <div className={`flex items-center justify-between ${isCurrent ? 'mb-1' : ''}`}>
-                            <span className={`text-sm font-medium ${isCurrent ? 'text-primary text-base' : ''}`} data-testid={`text-status-${step.key}`}>
-                              {step.label}
-                            </span>
-                            {isCurrent && (
-                              <Badge variant="default" className="animate-pulse">
-                                Current
-                              </Badge>
-                            )}
-                          </div>
-                          {isCurrent && step.key === 'en_route_to_pickup' && activeDelivery.restaurant.address && (
-                            <div className="mt-2 p-2 bg-muted rounded-md">
-                              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {activeDelivery.restaurant.address}
-                              </p>
-                            </div>
-                          )}
-                          {isCurrent && step.key === 'en_route_to_customer' && (
-                            <div className="mt-2 p-2 bg-muted rounded-md">
-                              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {activeDelivery.deliveryAddress}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(`tel:${activeDelivery.customerPhone}`)}
+                    className="h-7 w-7 p-0"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setMessageRecipient({
+                        name: activeDelivery.customerName,
+                        phone: activeDelivery.customerPhone,
+                        type: "customer",
+                      });
+                      setShowQuickMessages(true);
+                    }}
+                    className="h-7 w-7 p-0"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
             </div>
 
-            <Separator />
-
-            {/* Quick Action Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => window.open(`tel:${activeDelivery.restaurant.phone}`)}
+            {/* Collapsible Order Items */}
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowOrderItems(!showOrderItems)}
+                className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
               >
-                <Phone className="h-4 w-4" />
-                Call Restaurant
-              </Button>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => {
-                  setMessageRecipient({
-                    name: activeDelivery.restaurant.name,
-                    phone: activeDelivery.restaurant.phone,
-                    type: "restaurant",
-                  });
-                  setShowQuickMessages(true);
-                }}
-              >
-                <MessageSquare className="h-4 w-4" />
-                Message Restaurant
-              </Button>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => window.open(`tel:${activeDelivery.customerPhone}`)}
-              >
-                <Phone className="h-4 w-4" />
-                Call Customer
-              </Button>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => {
-                  setMessageRecipient({
-                    name: activeDelivery.customerName,
-                    phone: activeDelivery.customerPhone,
-                    type: "customer",
-                  });
-                  setShowQuickMessages(true);
-                }}
-              >
-                <MessageSquare className="h-4 w-4" />
-                Message Customer
-              </Button>
+                <span className="text-sm font-medium flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Order Items ({activeDelivery.items.length})
+                </span>
+                {showOrderItems ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+              {showOrderItems && (
+                <div className="p-3 pt-0 space-y-2" data-testid="list-order-items">
+                  {activeDelivery.items.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm py-1">
+                      <span className="text-muted-foreground">
+                        {item.quantity}x {item.menuItem?.name || item.bundle?.name}
+                      </span>
+                      <span className="font-medium">${Number(item.subtotal).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <Separator className="my-2" />
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>Total</span>
+                    <span data-testid="text-order-total">${Number(activeDelivery.total).toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <Separator />
-
-            {/* Earnings Info */}
-            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-              <div>
-                <p className="text-sm text-muted-foreground">Your Earnings</p>
-                <p className="text-2xl font-bold text-green-600" data-testid="text-delivery-earnings">
-                  ${Number(activeDelivery.driverShare).toFixed(2)}
-                </p>
+            {/* Delivery Status - Compact */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Current Status</span>
+                <Badge variant="default" className="animate-pulse">
+                  {deliveryStatusSteps.find(s => s.key === activeDelivery.status)?.label}
+                </Badge>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Order Total</p>
-                <p className="text-lg font-semibold" data-testid="text-order-total">
-                  ${Number(activeDelivery.total).toFixed(2)}
+              
+              {/* Progress Bar */}
+              <div className="space-y-1">
+                <Progress 
+                  value={(getCurrentStepIndex(activeDelivery.status) / (deliveryStatusSteps.length - 1)) * 100} 
+                  className="h-2"
+                />
+                <p className="text-xs text-muted-foreground text-center">
+                  Step {getCurrentStepIndex(activeDelivery.status) + 1} of {deliveryStatusSteps.length}
                 </p>
               </div>
             </div>
 
-            {/* Update Status Button */}
+            {/* Primary Action Button */}
             {getNextStatus(activeDelivery.status) === 'delivered' ? (
               <Button
                 className="w-full"
@@ -1169,8 +944,8 @@ export default function DriverDashboard() {
                 onClick={() => setShowDeliveryProof(true)}
                 disabled={updateStatusMutation.isPending}
               >
+                <CheckCircle className="mr-2 h-5 w-5" />
                 Complete Delivery
-                <CheckCircle className="ml-2 h-4 w-4" />
               </Button>
             ) : getNextStatus(activeDelivery.status) ? (
               <Button
@@ -1197,55 +972,58 @@ export default function DriverDashboard() {
         </Card>
       )}
 
-      {/* Available Orders Section */}
+      {/* Clean Available Orders Section */}
       {isApproved && !activeDelivery && stats?.isAvailable && (
         <Card data-testid="card-available-orders">
-          <CardHeader>
-            <div className="flex items-center justify-between flex-wrap gap-4">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <Package className="h-5 w-5" />
                   Available Orders
+                  {filteredOrders.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {filteredOrders.length}
+                    </Badge>
+                  )}
                 </CardTitle>
-                <CardDescription>
-                  Accept orders and start delivering
+                <CardDescription className="text-xs">
+                  {sortBy === "distance" && "Sorted by distance"}
+                  {sortBy === "earnings" && "Sorted by earnings (high to low)"}
+                  {sortBy === "time" && "Sorted by time (newest first)"}
                 </CardDescription>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {/* Sort By */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                {showFilters ? "Hide" : "Filters"}
+              </Button>
+            </div>
+
+            {/* Collapsible Filters */}
+            {showFilters && (
+              <div className="flex gap-2 flex-wrap mt-4 pt-4 border-t">
                 <Select value={sortBy} onValueChange={(v: "distance" | "earnings" | "time") => setSortBy(v)}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-[130px]">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="distance">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        Distance
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="earnings">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4" />
-                        Earnings
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="time">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        Time
-                      </div>
-                    </SelectItem>
+                    <SelectItem value="distance">Distance</SelectItem>
+                    <SelectItem value="earnings">Earnings</SelectItem>
+                    <SelectItem value="time">Time</SelectItem>
                   </SelectContent>
                 </Select>
                 
-                {/* Filter by Earnings */}
                 <Select value={filterByEarnings} onValueChange={setFilterByEarnings}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-[130px]">
                     <SelectValue placeholder="Min earnings" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Earnings</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
                     <SelectItem value="5">$5+</SelectItem>
                     <SelectItem value="10">$10+</SelectItem>
                     <SelectItem value="15">$15+</SelectItem>
@@ -1253,24 +1031,23 @@ export default function DriverDashboard() {
                   </SelectContent>
                 </Select>
 
-                {/* Zone Filter */}
                 {uniqueZones.length > 1 && (
                   <Select value={selectedZoneFilter} onValueChange={setSelectedZoneFilter}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-zone-filter">
-                      <SelectValue placeholder="Filter by zone" />
+                    <SelectTrigger className="w-[150px]" data-testid="select-zone-filter">
+                      <SelectValue placeholder="Zone" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Zones ({availableOrders.length})</SelectItem>
+                      <SelectItem value="all">All Zones</SelectItem>
                       {uniqueZones.map((zone: DeliveryZone) => (
                         <SelectItem key={zone.id} value={zone.id}>
-                          {zone.city}{zone.neighborhood ? ` - ${zone.neighborhood}` : ''} ({availableOrders.filter((o: AvailableOrder) => o.deliveryZone?.id === zone.id).length})
+                          {zone.city}{zone.neighborhood ? ` - ${zone.neighborhood}` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 )}
               </div>
-            </div>
+            )}
           </CardHeader>
           <CardContent>
             {loadingAvailableOrders ? (
@@ -1314,102 +1091,82 @@ export default function DriverDashboard() {
                 )}
               </div>
             ) : (
-              <div className="space-y-4" data-testid="list-available-orders">
+              <div className="space-y-3" data-testid="list-available-orders">
                 {filteredOrders.map((order) => (
-                  <Card 
+                  <div 
                     key={order.id} 
-                    className="transition-all hover:shadow-lg hover:border-primary/50"
+                    className="border rounded-lg p-4 hover:border-primary/50 hover:shadow-md transition-all bg-card"
                     data-testid={`card-order-${order.id}`}
                   >
-                    <CardContent className="pt-6 space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold" data-testid={`text-order-number-${order.id}`}>
-                              Order #{order.orderNumber}
-                            </p>
-                            {order.deliveryZone && (
-                              <Badge variant="secondary" className="text-xs" data-testid={`badge-zone-${order.id}`}>
-                                <MapPin className="h-3 w-3 mr-1" />
-                                {order.deliveryZone.city}{order.deliveryZone.neighborhood ? ` - ${order.deliveryZone.neighborhood}` : ''}
-                              </Badge>
-                            )}
-                            <Badge variant="outline" className="text-xs">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-${order.id}`}>
-                            <Store className="inline h-3 w-3 mr-1" />
-                            {order.restaurant.name}
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-semibold truncate" data-testid={`text-order-number-${order.id}`}>
+                            #{order.orderNumber}
                           </p>
-                        </div>
-                        <div className="text-right">
-                          <Badge variant="default" className="text-lg font-semibold px-3 py-1" data-testid={`badge-earnings-${order.id}`}>
-                            ${Number(order.estimatedEarnings).toFixed(2)}
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                            {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </Badge>
-                          <p className="text-xs text-muted-foreground mt-1">Earnings</p>
                         </div>
-                      </div>
-                      
-                      <div className="space-y-2 p-3 bg-muted/50 rounded-md">
-                        <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                          <div className="flex-1">
-                            <span className="text-muted-foreground" data-testid={`text-delivery-address-${order.id}`}>
-                              {order.deliveryAddress}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-auto p-0 ml-2 text-primary hover:text-primary/80"
-                              onClick={() => openNavigation(order.deliveryAddress)}
-                              title="Open in Maps"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-sm pt-2 border-t">
-                          <span className="text-muted-foreground">Order Total:</span>
-                          <span className="font-semibold" data-testid={`text-total-${order.id}`}>
-                            ${Number(order.total).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="lg"
-                          className="flex-1"
-                          onClick={() => setPreviewOrder(order)}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          Preview
-                        </Button>
-                        <Button
-                          className="flex-1"
-                          size="lg"
-                          data-testid={`button-accept-order-${order.id}`}
-                          onClick={() => acceptOrderMutation.mutate(order.id)}
-                          disabled={acceptOrderMutation.isPending}
-                        >
-                          {acceptOrderMutation.isPending ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                              Accepting...
-                            </>
-                          ) : (
-                            <>
-                              Accept Order
-                              <ArrowRight className="ml-2 h-4 w-4" />
-                            </>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1 truncate" data-testid={`text-restaurant-${order.id}`}>
+                          <Store className="h-3 w-3 flex-shrink-0" />
+                          {order.restaurant.name}
+                          {order.deliveryZone && (
+                            <span className="text-xs">• {order.deliveryZone.city}</span>
                           )}
-                        </Button>
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <Badge variant="default" className="text-base font-semibold px-3 py-1 flex-shrink-0" data-testid={`badge-earnings-${order.id}`}>
+                        ${Number(order.estimatedEarnings).toFixed(2)}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3 p-2 bg-muted/30 rounded">
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      <span className="flex-1 truncate" data-testid={`text-delivery-address-${order.id}`}>
+                        {order.deliveryAddress}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 flex-shrink-0"
+                        onClick={() => openNavigation(order.deliveryAddress)}
+                      >
+                        <Navigation className="h-3 w-3" />
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setPreviewOrder(order)}
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        Details
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-[2]"
+                        data-testid={`button-accept-order-${order.id}`}
+                        onClick={() => acceptOrderMutation.mutate(order.id)}
+                        disabled={acceptOrderMutation.isPending}
+                      >
+                        {acceptOrderMutation.isPending ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mr-1.5" />
+                            Accepting...
+                          </>
+                        ) : (
+                          <>
+                            Accept ${Number(order.estimatedEarnings).toFixed(0)}
+                            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
