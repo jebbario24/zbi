@@ -1943,6 +1943,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal: (parseFloat(item.unitPrice) * item.quantity).toFixed(2),
         notes: item.notes || null,
       })));
+
+      // PHASE 6: Make prep time prediction when order is created
+      try {
+        const { prepTimePredictionService } = await import('./services/prepTimePrediction');
+        const prediction = await prepTimePredictionService.predictPrepTime(restaurant.id, {
+          itemCount: data.items.length,
+          orderValue: data.total,
+          hasSpecialInstructions: data.items.some((item: any) => item.notes),
+        });
+        await prepTimePredictionService.savePrediction(order.id, restaurant.id, prediction, {
+          itemCount: data.items.length,
+          orderValue: data.total,
+        });
+        logInfo(`Prep time prediction for order ${order.id}: ${prediction.predictedMinutes} min (${prediction.confidence}% confidence)`);
+      } catch (error) {
+        logError('Error making prep time prediction (non-critical)', error);
+      }
       
       res.json(order);
     } catch (error) {
@@ -5650,6 +5667,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal: (parseFloat(item.unitPrice) * item.quantity).toFixed(2),
         selectedOptions: item.selectedOptions || null,
       })));
+
+      // PHASE 6: Make prep time prediction when order is created
+      try {
+        const { prepTimePredictionService } = await import('./services/prepTimePrediction');
+        const prediction = await prepTimePredictionService.predictPrepTime(restaurant.id, {
+          itemCount: data.items.length,
+          orderValue: data.total,
+          hasSpecialInstructions: data.items.some((item: any) => item.selectedOptions),
+        });
+        await prepTimePredictionService.savePrediction(order.id, restaurant.id, prediction, {
+          itemCount: data.items.length,
+          orderValue: data.total,
+        });
+        logInfo(`Prep time prediction for order ${order.id}: ${prediction.predictedMinutes} min (${prediction.confidence}% confidence)`);
+      } catch (error) {
+        logError('Error making prep time prediction (non-critical)', error);
+      }
       
       // Increment bundle sales count for any bundles in the order
       for (const item of data.items) {
