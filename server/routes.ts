@@ -172,6 +172,19 @@ const isAdmin = async (req: any, res: any, next: any) => {
   next();
 };
 
+// Middleware to check if user is driver
+const isDriver = async (req: any, res: any, next: any) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  if (req.user.role !== 'driver') {
+    return res.status(403).json({ message: "Forbidden: Driver access required" });
+  }
+  
+  next();
+};
+
 // Middleware to check subscription status (allows admins to bypass)
 const requireActiveSubscription = async (req: any, res: any, next: any) => {
   if (!req.user) {
