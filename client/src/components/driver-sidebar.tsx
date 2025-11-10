@@ -11,7 +11,8 @@ import {
   MapPin,
   Layers,
   Zap,
-  Wrench
+  Wrench,
+  BarChart3
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -54,6 +55,11 @@ const driverMenuItems = [
     title: "Earnings",
     url: "/driver/earnings",
     icon: DollarSign,
+  },
+  {
+    title: "Analytics",
+    url: "/driver/analytics",
+    icon: BarChart3,
   },
   {
     title: "Delivery History",

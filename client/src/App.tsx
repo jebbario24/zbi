@@ -70,6 +70,7 @@ import DriverHelp from "@/pages/DriverHelp";
 import DriverDispatchPreferences from "@/pages/DriverDispatchPreferences";
 import DriverVehicleSettings from "@/pages/DriverVehicleSettings";
 import DriverActiveBatch from "@/pages/DriverActiveBatch";
+import DriverAnalytics from "@/pages/DriverAnalytics";
 import AdminDispatchDashboard from "@/pages/AdminDispatchDashboard";
 import Contact from "@/pages/Contact";
 
@@ -132,6 +133,7 @@ function AuthenticatedRouter() {
         <Route path="/driver/dispatch-preferences" component={DriverDispatchPreferences} />
         <Route path="/driver/vehicle-settings" component={DriverVehicleSettings} />
         <Route path="/driver/batch" component={DriverActiveBatch} />
+        <Route path="/driver/analytics" component={DriverAnalytics} />
         <Route path="/driver/help" component={DriverHelp} />
         <Route component={NotFound} />
       </Switch>
