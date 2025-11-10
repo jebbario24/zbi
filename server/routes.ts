@@ -3823,6 +3823,408 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // PHASE 5: ANALYTICS & PERFORMANCE ENDPOINTS
+  // ========================================
+
+  // Get earnings summary
+  app.get("/api/driver/analytics/earnings/summary", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access earnings analytics" });
+      }
+
+      const { period = 'week' } = req.query;
+      const { earningsAnalyticsService } = await import('./services/earningsAnalytics');
+
+      // Calculate date range
+      const endDate = new Date().toISOString().split('T')[0];
+      let startDate: string;
+      switch (period) {
+        case 'week':
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          startDate = weekAgo.toISOString().split('T')[0];
+          break;
+        case 'month':
+          const monthAgo = new Date();
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          startDate = monthAgo.toISOString().split('T')[0];
+          break;
+        case 'year':
+          const yearAgo = new Date();
+          yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+          startDate = yearAgo.toISOString().split('T')[0];
+          break;
+        default:
+          startDate = endDate;
+      }
+
+      const summary = await earningsAnalyticsService.getEarningsSummary(
+        req.user.id,
+        startDate,
+        endDate
+      );
+
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error getting earnings summary:", error);
+      res.status(500).json({ error: error.message || "Failed to get earnings summary" });
+    }
+  });
+
+  // Get earnings trend
+  app.get("/api/driver/analytics/earnings/trend", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access earnings analytics" });
+      }
+
+      const { period = 'week' } = req.query;
+      const { earningsAnalyticsService } = await import('./services/earningsAnalytics');
+
+      const trend = await earningsAnalyticsService.getEarningsTrend(
+        req.user.id,
+        period as 'week' | 'month' | 'year'
+      );
+
+      res.json(trend);
+    } catch (error: any) {
+      console.error("Error getting earnings trend:", error);
+      res.status(500).json({ error: error.message || "Failed to get earnings trend" });
+    }
+  });
+
+  // Get earnings by time of day
+  app.get("/api/driver/analytics/earnings/by-time", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access earnings analytics" });
+      }
+
+      const { earningsAnalyticsService } = await import('./services/earningsAnalytics');
+      const timeSlots = await earningsAnalyticsService.getEarningsByTimeOfDay(req.user.id);
+
+      res.json(timeSlots);
+    } catch (error: any) {
+      console.error("Error getting earnings by time:", error);
+      res.status(500).json({ error: error.message || "Failed to get earnings by time" });
+    }
+  });
+
+  // Get earnings forecast
+  app.get("/api/driver/analytics/earnings/forecast", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access earnings analytics" });
+      }
+
+      const { days = 7 } = req.query;
+      const { earningsAnalyticsService } = await import('./services/earningsAnalytics');
+
+      const forecast = await earningsAnalyticsService.calculateEarningsForecast(
+        req.user.id,
+        Number(days)
+      );
+
+      res.json(forecast);
+    } catch (error: any) {
+      console.error("Error getting earnings forecast:", error);
+      res.status(500).json({ error: error.message || "Failed to get earnings forecast" });
+    }
+  });
+
+  // Get top earning hours
+  app.get("/api/driver/analytics/insights/best-hours", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access insights" });
+      }
+
+      const { limit = 5 } = req.query;
+      const { earningsAnalyticsService } = await import('./services/earningsAnalytics');
+
+      const topHours = await earningsAnalyticsService.getTopEarningHours(req.user.id, Number(limit));
+
+      res.json(topHours);
+    } catch (error: any) {
+      console.error("Error getting best hours:", error);
+      res.status(500).json({ error: error.message || "Failed to get best hours" });
+    }
+  });
+
+  // Get performance summary
+  app.get("/api/driver/analytics/performance/summary", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access performance analytics" });
+      }
+
+      const { period = 'week' } = req.query;
+      const { performanceTrackingService } = await import('./services/performanceTracking');
+
+      // Calculate date range
+      const endDate = new Date().toISOString().split('T')[0];
+      let startDate: string;
+      switch (period) {
+        case 'week':
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          startDate = weekAgo.toISOString().split('T')[0];
+          break;
+        case 'month':
+          const monthAgo = new Date();
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          startDate = monthAgo.toISOString().split('T')[0];
+          break;
+        default:
+          startDate = endDate;
+      }
+
+      const summary = await performanceTrackingService.getPerformanceSummary(
+        req.user.id,
+        startDate,
+        endDate
+      );
+
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error getting performance summary:", error);
+      res.status(500).json({ error: error.message || "Failed to get performance summary" });
+    }
+  });
+
+  // Get performance trends
+  app.get("/api/driver/analytics/performance/trends", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access performance analytics" });
+      }
+
+      const { period = 'week' } = req.query;
+      const { performanceTrackingService } = await import('./services/performanceTracking');
+
+      const trends = await performanceTrackingService.getPerformanceTrend(
+        req.user.id,
+        period as 'week' | 'month' | 'year'
+      );
+
+      res.json(trends);
+    } catch (error: any) {
+      console.error("Error getting performance trends:", error);
+      res.status(500).json({ error: error.message || "Failed to get performance trends" });
+    }
+  });
+
+  // Get delivery heat map
+  app.get("/api/driver/analytics/heatmap/deliveries", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access heat maps" });
+      }
+
+      const { north, south, east, west, date, hour } = req.query;
+      const { heatMapAggregationService } = await import('./services/heatMapAggregation');
+
+      if (!north || !south || !east || !west) {
+        return res.status(400).json({ error: "Bounds (north, south, east, west) required" });
+      }
+
+      const bounds = {
+        north: parseFloat(north as string),
+        south: parseFloat(south as string),
+        east: parseFloat(east as string),
+        west: parseFloat(west as string),
+      };
+
+      const heatMap = await heatMapAggregationService.getDeliveryHeatMap(
+        bounds,
+        date as string | undefined,
+        hour ? Number(hour) : undefined
+      );
+
+      res.json(heatMap);
+    } catch (error: any) {
+      console.error("Error getting delivery heat map:", error);
+      res.status(500).json({ error: error.message || "Failed to get delivery heat map" });
+    }
+  });
+
+  // Get earnings heat map
+  app.get("/api/driver/analytics/heatmap/earnings", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access heat maps" });
+      }
+
+      const { north, south, east, west, date, hour } = req.query;
+      const { heatMapAggregationService } = await import('./services/heatMapAggregation');
+
+      if (!north || !south || !east || !west) {
+        return res.status(400).json({ error: "Bounds (north, south, east, west) required" });
+      }
+
+      const bounds = {
+        north: parseFloat(north as string),
+        south: parseFloat(south as string),
+        east: parseFloat(east as string),
+        west: parseFloat(west as string),
+      };
+
+      const heatMap = await heatMapAggregationService.getEarningsHeatMap(
+        bounds,
+        date as string | undefined,
+        hour ? Number(hour) : undefined
+      );
+
+      res.json(heatMap);
+    } catch (error: any) {
+      console.error("Error getting earnings heat map:", error);
+      res.status(500).json({ error: error.message || "Failed to get earnings heat map" });
+    }
+  });
+
+  // Get demand prediction heat map
+  app.get("/api/driver/analytics/heatmap/demand", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access heat maps" });
+      }
+
+      const { north, south, east, west, hour } = req.query;
+      const { heatMapAggregationService } = await import('./services/heatMapAggregation');
+
+      if (!north || !south || !east || !west) {
+        return res.status(400).json({ error: "Bounds (north, south, east, west) required" });
+      }
+
+      const bounds = {
+        north: parseFloat(north as string),
+        south: parseFloat(south as string),
+        east: parseFloat(east as string),
+        west: parseFloat(west as string),
+      };
+
+      const targetHour = hour ? Number(hour) : new Date().getHours();
+      const heatMap = await heatMapAggregationService.getDemandPredictionHeatMap(bounds, targetHour);
+
+      res.json(heatMap);
+    } catch (error: any) {
+      console.error("Error getting demand prediction:", error);
+      res.status(500).json({ error: error.message || "Failed to get demand prediction" });
+    }
+  });
+
+  // Get hotspots
+  app.get("/api/driver/analytics/hotspots", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access hotspots" });
+      }
+
+      const { north, south, east, west, threshold = 70 } = req.query;
+      const { heatMapAggregationService } = await import('./services/heatMapAggregation');
+
+      if (!north || !south || !east || !west) {
+        return res.status(400).json({ error: "Bounds (north, south, east, west) required" });
+      }
+
+      const bounds = {
+        north: parseFloat(north as string),
+        south: parseFloat(south as string),
+        east: parseFloat(east as string),
+        west: parseFloat(west as string),
+      };
+
+      const hotspots = await heatMapAggregationService.calculateHotspots(bounds, Number(threshold));
+
+      res.json(hotspots);
+    } catch (error: any) {
+      console.error("Error getting hotspots:", error);
+      res.status(500).json({ error: error.message || "Failed to get hotspots" });
+    }
+  });
+
+  // Get driver goals
+  app.get("/api/driver/goals", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can access goals" });
+      }
+
+      const goals = await storage.getDriverGoals(req.user.id);
+      res.json(goals);
+    } catch (error: any) {
+      console.error("Error getting driver goals:", error);
+      res.status(500).json({ error: error.message || "Failed to get driver goals" });
+    }
+  });
+
+  // Create driver goal
+  app.post("/api/driver/goals", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can create goals" });
+      }
+
+      const { goalType, targetValue, startDate, endDate } = req.body;
+
+      if (!goalType || !targetValue || !startDate || !endDate) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const goal = await storage.createDriverGoal({
+        driverId: req.user.id,
+        goalType,
+        targetValue: targetValue.toString(),
+        currentValue: '0',
+        startDate,
+        endDate,
+        status: 'in_progress',
+      });
+
+      res.json(goal);
+    } catch (error: any) {
+      console.error("Error creating goal:", error);
+      res.status(500).json({ error: error.message || "Failed to create goal" });
+    }
+  });
+
+  // Update driver goal
+  app.put("/api/driver/goals/:goalId", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can update goals" });
+      }
+
+      const { goalId } = req.params;
+      const updates = req.body;
+
+      const goal = await storage.updateDriverGoal(goalId, req.user.id, updates);
+      res.json(goal);
+    } catch (error: any) {
+      console.error("Error updating goal:", error);
+      res.status(500).json({ error: error.message || "Failed to update goal" });
+    }
+  });
+
+  // Delete driver goal
+  app.delete("/api/driver/goals/:goalId", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'driver') {
+        return res.status(403).json({ error: "Only drivers can delete goals" });
+      }
+
+      const { goalId } = req.params;
+
+      await storage.deleteDriverGoal(goalId, req.user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting goal:", error);
+      res.status(500).json({ error: error.message || "Failed to delete goal" });
+    }
+  });
+
   // Get available delivery zones for a restaurant (public endpoint for storefront)
   app.get('/api/storefront/delivery-zones/:restaurantId', async (req: any, res) => {
     try {
