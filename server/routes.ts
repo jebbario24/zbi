@@ -4537,6 +4537,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'delivered',
           deliveryTime: now,
         });
+
+        // PHASE 5: Update analytics after delivery completion
+        try {
+          const order = await storage.getOrder(orderId);
+          if (order && order.driverId) {
+            const { earningsAnalyticsService } = await import('./services/earningsAnalytics');
+            const { heatMapAggregationService } = await import('./services/heatMapAggregation');
+            const { performanceTrackingService } = await import('./services/performanceTracking');
+
+            // Update time slot earnings
+            const deliveryDate = new Date();
+            const earnings = parseFloat(order.deliveryFee || '0');
+            const durationMinutes = order.pickedUpAt && order.deliveredAt 
+              ? (new Date(order.deliveredAt).getTime() - new Date(order.pickedUpAt).getTime()) / 60000 
+              : 30; // Default 30 min if missing
+
+            await earningsAnalyticsService.updateTimeSlotEarnings(
+              order.driverId,
+              deliveryDate,
+              earnings,
+              durationMinutes
+            );
+
+            // Update heat map data
+            if (order.deliveryLat && order.deliveryLng) {
+              await heatMapAggregationService.updateHeatMapData({
+                lat: parseFloat(order.deliveryLat),
+                lng: parseFloat(order.deliveryLng),
+                earnings,
+                deliveryTimeMinutes: Math.round(durationMinutes),
+                timestamp: deliveryDate,
+              });
+            }
+
+            // Aggregate daily earnings (check if it's a new day)
+            const today = deliveryDate.toISOString().split('T')[0];
+            await earningsAnalyticsService.aggregateDailyEarnings(order.driverId, today);
+
+            // Calculate daily performance
+            await performanceTrackingService.calculateDailyPerformance(order.driverId, today);
+
+            console.log(`Analytics updated for order ${orderId}`);
+          }
+        } catch (error) {
+          console.error('Error updating analytics:', error);
+          // Don't fail the delivery if analytics fail
+        }
       }
 
       // WebSocket broadcast to restaurant, customer, and admins

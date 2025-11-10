@@ -546,6 +546,15 @@ export class DatabaseStorage implements IStorage {
     } as any));
   }
 
+  async getOrder(orderId: string): Promise<Order | undefined> {
+    const [order] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+    return order;
+  }
+
   async createOrder(order: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order> {
     const [newOrder] = await db.insert(orders).values(order).returning();
     
