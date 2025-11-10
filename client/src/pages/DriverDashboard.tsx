@@ -61,6 +61,7 @@ import { calculateDistance, formatDistance, estimateTravelTime, getCurrentLocati
 import { DebugAuthInfo } from "@/components/DebugAuthInfo";
 import { LiveDeliveryTracker } from "@/components/delivery/LiveDeliveryTracker";
 import { BatchOptimizer } from "@/components/delivery/BatchOptimizer";
+import { SmartRecommendationsCard } from "@/components/SmartRecommendationsCard";
 
 interface CompletionStatus {
   profileComplete: boolean;
@@ -693,6 +694,9 @@ export default function DriverDashboard() {
             </AlertDescription>
           </Alert>
         )}
+
+        {/* PHASE 6: Smart Recommendations - AI-powered suggestions */}
+        {isApproved && <SmartRecommendationsCard />}
 
         {/* Priority Alert System - Show only the most important alert */}
         {!isApproved && completionStatus && (

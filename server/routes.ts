@@ -4532,6 +4532,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update order status based on delivery status
       if (status === 'picked_up') {
         await storage.updateOrder(orderId, { status: 'out_for_delivery' });
+
+        // PHASE 6: Record prep time when order is picked up (ready_for_pickup → picked_up)
+        try {
+          const { prepTimePredictionService } = await import('./services/prepTimePrediction');
+          await prepTimePredictionService.recordActualPrepTime(orderId, now);
+        } catch (error) {
+          logError('Error recording prep time (non-critical)', error);
+        }
       } else if (status === 'delivered') {
         await storage.updateOrder(orderId, { 
           status: 'delivered',

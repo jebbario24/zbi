@@ -13,8 +13,10 @@ import {
   Activity,
   Zap,
   MapPin,
-  BarChart3
+  BarChart3,
+  Brain
 } from 'lucide-react';
+import { AIInsightsTab } from '@/components/AIInsightsTab';
 
 export default function DriverAnalytics() {
   const { user } = useAuth();
@@ -88,11 +90,15 @@ export default function DriverAnalytics() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+        <TabsList className="grid w-full grid-cols-5 max-w-3xl">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="earnings">Earnings</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
+          <TabsTrigger value="ai-insights">
+            <Brain className="h-4 w-4 mr-1" />
+            AI Insights
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -461,6 +467,11 @@ export default function DriverAnalytics() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* AI Insights Tab - PHASE 6 */}
+        <TabsContent value="ai-insights">
+          <AIInsightsTab />
         </TabsContent>
       </Tabs>
     </div>
