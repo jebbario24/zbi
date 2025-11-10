@@ -2814,3 +2814,158 @@ export const insertDriverGoalsSchema = createInsertSchema(driverGoals).omit({
 });
 export type InsertDriverGoals = z.infer<typeof insertDriverGoalsSchema>;
 export type DriverGoals = typeof driverGoals.$inferSelect;
+
+// ==========================================
+// PHASE 6: AI & MACHINE LEARNING TABLES
+// ==========================================
+
+// Prep Time History - Track actual vs predicted prep times
+export const prepTimeHistory = pgTable("prep_time_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: "set null" }),
+  orderedAt: timestamp("ordered_at").notNull(),
+  readyAt: timestamp("ready_at"),
+  actualPrepMinutes: integer("actual_prep_minutes"),
+  predictedPrepMinutes: integer("predicted_prep_minutes").notNull(),
+  predictionErrorMinutes: integer("prediction_error_minutes"),
+  itemCount: integer("item_count").notNull().default(1),
+  orderValue: varchar("order_value").notNull().default('0'),
+  hourOfDay: integer("hour_of_day").notNull(), // 0-23
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sunday, 6=Saturday
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  indexRestaurant: index("idx_prep_time_restaurant").on(table.restaurantId),
+  indexDateTime: index("idx_prep_time_datetime").on(table.orderedAt),
+  indexAccuracy: index("idx_prep_time_accuracy").on(table.predictionErrorMinutes),
+}));
+
+// ETA Predictions - Track predicted vs actual arrival times
+export const etaPredictions = pgTable("eta_predictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deliveryId: varchar("delivery_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  predictedEta: timestamp("predicted_eta").notNull(),
+  actualArrival: timestamp("actual_arrival"),
+  predictionErrorMinutes: integer("prediction_error_minutes"),
+  trafficLevel: varchar("traffic_level").notNull().default('medium'), // low, medium, high, very_high
+  weatherCondition: varchar("weather_condition"),
+  routeDistanceKm: varchar("route_distance_km").notNull(),
+  routeDurationMinutes: integer("route_duration_minutes").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  indexDelivery: index("idx_eta_delivery").on(table.deliveryId),
+  indexDriver: index("idx_eta_driver").on(table.driverId),
+  indexAccuracy: index("idx_eta_accuracy").on(table.predictionErrorMinutes),
+}));
+
+// Driver Behavior Patterns - AI-identified patterns for insights
+export const driverBehaviorPatterns = pgTable("driver_behavior_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  patternType: varchar("pattern_type").notNull(), // speed, efficiency, zone_mastery, acceptance, etc.
+  patternData: varchar("pattern_data").notNull(), // JSON string with pattern details
+  confidenceScore: varchar("confidence_score").notNull().default('0'), // 0-100
+  sampleSize: integer("sample_size").notNull().default(0), // Number of deliveries analyzed
+  date: varchar("date").notNull(), // YYYY-MM-DD
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  indexDriver: index("idx_behavior_driver").on(table.driverId),
+  indexPattern: index("idx_behavior_pattern").on(table.patternType),
+  indexDate: index("idx_behavior_date").on(table.date),
+  uniqueDriverPatternDate: index("idx_behavior_unique").on(table.driverId, table.patternType, table.date),
+}));
+
+// Smart Recommendations - AI-generated actionable suggestions
+export const smartRecommendations = pgTable("smart_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  recommendationType: varchar("recommendation_type").notNull(), // work_now, best_zone, batch, peak_incoming, go_home
+  priority: integer("priority").notNull().default(3), // 1-5 (5 = urgent)
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  actionUrl: varchar("action_url"), // Deep link to relevant page
+  expiresAt: timestamp("expires_at").notNull(),
+  dismissedAt: timestamp("dismissed_at"),
+  actedUponAt: timestamp("acted_upon_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  indexDriver: index("idx_recommendations_driver").on(table.driverId),
+  indexActive: index("idx_recommendations_active").on(table.expiresAt, table.dismissedAt),
+  indexPriority: index("idx_recommendations_priority").on(table.priority),
+}));
+
+// Surge Pricing Log - Track surge multipliers and effectiveness
+export const surgePricingLog = pgTable("surge_pricing_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  zoneId: varchar("zone_id").references(() => deliveryZones.id, { onDelete: "set null" }),
+  surgeMultiplier: varchar("surge_multiplier").notNull(), // 1.0 - 3.0
+  demandScore: varchar("demand_score").notNull(), // 0-100
+  supplyScore: varchar("supply_score").notNull(), // 0-100
+  activeOrders: integer("active_orders").notNull().default(0),
+  availableDrivers: integer("available_drivers").notNull().default(0),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  indexZone: index("idx_surge_zone").on(table.zoneId),
+  indexTime: index("idx_surge_time").on(table.startTime),
+  indexActive: index("idx_surge_active").on(table.endTime),
+}));
+
+// ML Training Data - Store feature/label pairs for future ML models
+export const mlTrainingData = pgTable("ml_training_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  modelType: varchar("model_type").notNull(), // prep_time, eta, demand, matching, etc.
+  featureData: text("feature_data").notNull(), // JSON string of features
+  labelData: text("label_data").notNull(), // JSON string of labels (actual outcomes)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  indexModel: index("idx_ml_model").on(table.modelType),
+  indexDate: index("idx_ml_date").on(table.createdAt),
+}));
+
+// Phase 6: AI & ML Schema Exports
+export const insertPrepTimeHistorySchema = createInsertSchema(prepTimeHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPrepTimeHistory = z.infer<typeof insertPrepTimeHistorySchema>;
+export type PrepTimeHistory = typeof prepTimeHistory.$inferSelect;
+
+export const insertEtaPredictionsSchema = createInsertSchema(etaPredictions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertEtaPredictions = z.infer<typeof insertEtaPredictionsSchema>;
+export type EtaPredictions = typeof etaPredictions.$inferSelect;
+
+export const insertDriverBehaviorPatternsSchema = createInsertSchema(driverBehaviorPatterns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDriverBehaviorPatterns = z.infer<typeof insertDriverBehaviorPatternsSchema>;
+export type DriverBehaviorPatterns = typeof driverBehaviorPatterns.$inferSelect;
+
+export const insertSmartRecommendationsSchema = createInsertSchema(smartRecommendations).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSmartRecommendations = z.infer<typeof insertSmartRecommendationsSchema>;
+export type SmartRecommendations = typeof smartRecommendations.$inferSelect;
+
+export const insertSurgePricingLogSchema = createInsertSchema(surgePricingLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSurgePricingLog = z.infer<typeof insertSurgePricingLogSchema>;
+export type SurgePricingLog = typeof surgePricingLog.$inferSelect;
+
+export const insertMlTrainingDataSchema = createInsertSchema(mlTrainingData).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertMlTrainingData = z.infer<typeof insertMlTrainingDataSchema>;
+export type MlTrainingData = typeof mlTrainingData.$inferSelect;
