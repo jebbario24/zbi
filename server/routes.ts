@@ -7811,6 +7811,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { smartRecommendationsService } = await import('./services/smartRecommendations');
   const { prepTimePredictionService } = await import('./services/prepTimePrediction');
   const { driverBehaviorAnalysisService } = await import('./services/driverBehaviorAnalysis');
+  const { trafficAwareETAService } = await import('./services/trafficAwareETA');
+  const { surgePricingEngineService } = await import('./services/surgePricingEngine');
 
   // Get smart recommendations for driver
   app.get('/api/driver/ai/recommendations', isAuthenticated, isDriver, async (req: any, res) => {
@@ -7954,6 +7956,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logError('Error getting best zones', error);
       res.status(500).json({ message: 'Failed to get best zones' });
+    }
+  });
+
+  // Calculate traffic-aware ETA
+  app.post('/api/driver/ai/eta/calculate', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const { from, to } = req.body;
+
+      if (!from || !to || !from.lat || !from.lng || !to.lat || !to.lng) {
+        return res.status(400).json({ message: 'Invalid coordinates' });
+      }
+
+      const eta = await trafficAwareETAService.calculateSmartETA(
+        driverId,
+        { lat: from.lat, lng: from.lng },
+        { lat: to.lat, lng: to.lng }
+      );
+
+      res.json(eta);
+    } catch (error) {
+      logError('Error calculating ETA', error);
+      res.status(500).json({ message: 'Failed to calculate ETA' });
+    }
+  });
+
+  // Get driver's ETA accuracy stats
+  app.get('/api/driver/ai/eta/accuracy', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const days = parseInt(req.query.days as string) || 30;
+      const accuracy = await trafficAwareETAService.getETAAccuracy(driverId, days);
+      res.json(accuracy);
+    } catch (error) {
+      logError('Error getting ETA accuracy', error);
+      res.status(500).json({ message: 'Failed to get ETA accuracy' });
+    }
+  });
+
+  // ADMIN: Get surge pricing recommendations
+  app.get('/api/admin/ai/surge-recommendations', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const zoneId = req.query.zoneId as string | undefined;
+      const recommendations = await surgePricingEngineService.calculateSurgeRecommendation(zoneId);
+      res.json(recommendations);
+    } catch (error) {
+      logError('Error getting surge recommendations', error);
+      res.status(500).json({ message: 'Failed to get recommendations' });
+    }
+  });
+
+  // ADMIN: Apply surge pricing
+  app.post('/api/admin/ai/surge/apply', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { zoneId, multiplier, demandScore, supplyScore, activeOrders, availableDrivers } = req.body;
+
+      if (!multiplier || multiplier < 1.0 || multiplier > 3.0) {
+        return res.status(400).json({ message: 'Invalid multiplier (must be 1.0-3.0)' });
+      }
+
+      await surgePricingEngineService.applySurge(
+        zoneId || null,
+        multiplier,
+        demandScore,
+        supplyScore,
+        activeOrders,
+        availableDrivers
+      );
+
+      res.json({ success: true, message: `Surge pricing ${multiplier}x applied` });
+    } catch (error) {
+      logError('Error applying surge', error);
+      res.status(500).json({ message: 'Failed to apply surge' });
+    }
+  });
+
+  // ADMIN: End surge pricing
+  app.post('/api/admin/ai/surge/end', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { zoneId } = req.body;
+      await surgePricingEngineService.endSurge(zoneId || null);
+      res.json({ success: true, message: 'Surge pricing ended' });
+    } catch (error) {
+      logError('Error ending surge', error);
+      res.status(500).json({ message: 'Failed to end surge' });
+    }
+  });
+
+  // ADMIN: Get surge pricing history
+  app.get('/api/admin/ai/surge/history', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const zoneId = req.query.zoneId as string | undefined;
+      const days = parseInt(req.query.days as string) || 30;
+      const history = await surgePricingEngineService.getSurgeHistory(zoneId, days);
+      res.json(history);
+    } catch (error) {
+      logError('Error getting surge history', error);
+      res.status(500).json({ message: 'Failed to get history' });
     }
   });
 
