@@ -2331,6 +2331,42 @@ export class DatabaseStorage implements IStorage {
     
     return await query.orderBy(desc(batchPerformance.completedAt)).limit(limit);
   }
+
+  // ==========================================
+  // PHASE 5: ANALYTICS & GOALS METHODS
+  // ==========================================
+
+  async getDriverGoals(driverId: string) {
+    const { driverGoals } = await import('../shared/schema');
+    return await db
+      .select()
+      .from(driverGoals)
+      .where(eq(driverGoals.driverId, driverId))
+      .orderBy(desc(driverGoals.createdAt));
+  }
+
+  async createDriverGoal(data: any) {
+    const { driverGoals } = await import('../shared/schema');
+    const [goal] = await db.insert(driverGoals).values(data).returning();
+    return goal;
+  }
+
+  async updateDriverGoal(goalId: string, driverId: string, updates: any) {
+    const { driverGoals } = await import('../shared/schema');
+    const [goal] = await db
+      .update(driverGoals)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(driverGoals.id, goalId), eq(driverGoals.driverId, driverId)))
+      .returning();
+    return goal;
+  }
+
+  async deleteDriverGoal(goalId: string, driverId: string) {
+    const { driverGoals } = await import('../shared/schema');
+    await db
+      .delete(driverGoals)
+      .where(and(eq(driverGoals.id, goalId), eq(driverGoals.driverId, driverId)));
+  }
 }
 
 export const storage = new DatabaseStorage();
