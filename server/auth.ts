@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import { db } from './db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { getBaseUrl } from './env';
 
 const SALT_ROUNDS = 10;
 
@@ -67,7 +68,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: '/api/auth/google/callback',
+        callbackURL: `${getBaseUrl()}/api/auth/google/callback`,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
@@ -143,7 +144,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: '/api/auth/google/driver/callback',
+        callbackURL: `${getBaseUrl()}/api/auth/google/driver/callback`,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {

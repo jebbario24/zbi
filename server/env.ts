@@ -128,7 +128,7 @@ export function getBaseUrl(): string {
   
   if (process.env.NODE_ENV === 'production') {
     console.warn('⚠️  BASE_URL not set in production. Using fallback.');
-    return 'https://etitout.onrender.com';
+    return 'https://eatout.cloud';
   }
   
   return 'http://localhost:5000';
