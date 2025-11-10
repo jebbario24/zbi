@@ -7761,6 +7761,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // PHASE 6: AI & MACHINE LEARNING ENDPOINTS
+  // ==========================================
+
+  // Import Phase 6 services
+  const { smartRecommendationsService } = await import('./services/smartRecommendations');
+  const { prepTimePredictionService } = await import('./services/prepTimePrediction');
+  const { driverBehaviorAnalysisService } = await import('./services/driverBehaviorAnalysis');
+
+  // Get smart recommendations for driver
+  app.get('/api/driver/ai/recommendations', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+
+      // Generate fresh recommendations
+      const recommendations = await smartRecommendationsService.generateRecommendations(driverId);
+
+      // Save to database
+      if (recommendations.length > 0) {
+        await smartRecommendationsService.saveRecommendations(driverId, recommendations);
+      }
+
+      // Get all active recommendations
+      const activeRecs = await smartRecommendationsService.getActiveRecommendations(driverId);
+
+      res.json(activeRecs);
+    } catch (error) {
+      logError('Error getting AI recommendations', error);
+      res.status(500).json({ message: 'Failed to get recommendations' });
+    }
+  });
+
+  // Dismiss a recommendation
+  app.post('/api/driver/ai/recommendations/:id/dismiss', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const recommendationId = req.params.id;
+
+      await smartRecommendationsService.dismissRecommendation(recommendationId, driverId);
+      res.json({ success: true });
+    } catch (error) {
+      logError('Error dismissing recommendation', error);
+      res.status(500).json({ message: 'Failed to dismiss recommendation' });
+    }
+  });
+
+  // Mark recommendation as acted upon
+  app.post('/api/driver/ai/recommendations/:id/act', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const recommendationId = req.params.id;
+
+      await smartRecommendationsService.actOnRecommendation(recommendationId, driverId);
+      res.json({ success: true });
+    } catch (error) {
+      logError('Error acting on recommendation', error);
+      res.status(500).json({ message: 'Failed to mark as acted upon' });
+    }
+  });
+
+  // Get driver behavior insights
+  app.get('/api/driver/ai/insights/behavior', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const insights = await driverBehaviorAnalysisService.generateInsights(driverId);
+      res.json(insights);
+    } catch (error) {
+      logError('Error getting behavior insights', error);
+      res.status(500).json({ message: 'Failed to get insights' });
+    }
+  });
+
+  // Get driver speed score
+  app.get('/api/driver/ai/insights/speed-score', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const period = (req.query.period as 'day' | 'week' | 'month') || 'week';
+      const speedData = await driverBehaviorAnalysisService.analyzeDriverSpeed(driverId, period);
+      res.json(speedData);
+    } catch (error) {
+      logError('Error getting speed score', error);
+      res.status(500).json({ message: 'Failed to get speed score' });
+    }
+  });
+
+  // Get driver zone mastery
+  app.get('/api/driver/ai/insights/zone-mastery', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const zones = await driverBehaviorAnalysisService.calculateZoneMastery(driverId);
+      res.json(zones);
+    } catch (error) {
+      logError('Error getting zone mastery', error);
+      res.status(500).json({ message: 'Failed to get zone mastery' });
+    }
+  });
+
+  // Get driver best performance times
+  app.get('/api/driver/ai/insights/best-times', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const times = await driverBehaviorAnalysisService.findBestPerformanceTimes(driverId);
+      res.json(times);
+    } catch (error) {
+      logError('Error getting best times', error);
+      res.status(500).json({ message: 'Failed to get best times' });
+    }
+  });
+
+  // Predict prep time for restaurant
+  app.get('/api/driver/ai/prep-time/:restaurantId', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const restaurantId = req.params.restaurantId;
+      const stats = await prepTimePredictionService.getRestaurantPrepTimeStats(restaurantId);
+      res.json(stats);
+    } catch (error) {
+      logError('Error getting prep time stats', error);
+      res.status(500).json({ message: 'Failed to get prep time' });
+    }
+  });
+
+  // Get "work now" score - current demand level
+  app.get('/api/driver/ai/work-now-score', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
+      const lng = req.query.lng ? parseFloat(req.query.lng as string) : undefined;
+
+      const location = lat && lng ? { lat, lng } : undefined;
+      const recommendations = await smartRecommendationsService.generateRecommendations(driverId, location);
+
+      // Find work_now recommendation
+      const workNowRec = recommendations.find((r) => r.type === 'work_now');
+      const score = workNowRec ? workNowRec.priority * 20 : 50; // Convert priority 1-5 to score 0-100
+
+      res.json({ score, recommendation: workNowRec || null });
+    } catch (error) {
+      logError('Error getting work now score', error);
+      res.status(500).json({ message: 'Failed to get work now score' });
+    }
+  });
+
+  // Get best zones to work in right now
+  app.get('/api/driver/ai/best-zones', isAuthenticated, isDriver, async (req: any, res) => {
+    try {
+      const driverId = req.user.id;
+      const zones = await driverBehaviorAnalysisService.calculateZoneMastery(driverId);
+      res.json(zones);
+    } catch (error) {
+      logError('Error getting best zones', error);
+      res.status(500).json({ message: 'Failed to get best zones' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
