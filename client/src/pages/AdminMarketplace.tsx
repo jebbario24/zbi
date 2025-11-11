@@ -145,6 +145,13 @@ function HeroSlidersTab() {
       setDialogOpen(false);
       resetForm();
     },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create slider", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
+    },
   });
 
   const updateMutation = useMutation({
@@ -156,6 +163,13 @@ function HeroSlidersTab() {
       setDialogOpen(false);
       resetForm();
     },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update slider", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -164,12 +178,26 @@ function HeroSlidersTab() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/sliders'] });
       toast({ title: "Slider deleted successfully!" });
     },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete slider", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
+    },
   });
 
   const toggleMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/admin/marketplace/sliders/${id}/toggle`, 'PUT'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/sliders'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to toggle slider status", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
     },
   });
 
@@ -407,6 +435,13 @@ function CuisinesTab() {
       setDialogOpen(false);
       resetForm();
     },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create cuisine", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
+    },
   });
 
   const updateMutation = useMutation({
@@ -418,6 +453,13 @@ function CuisinesTab() {
       setDialogOpen(false);
       resetForm();
     },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update cuisine", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -426,12 +468,26 @@ function CuisinesTab() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/cuisines'] });
       toast({ title: "Cuisine deleted successfully!" });
     },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete cuisine", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
+    },
   });
 
   const toggleMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/admin/marketplace/cuisines/${id}/toggle`, 'PUT'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/cuisines'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to toggle cuisine status", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
     },
   });
 
@@ -639,12 +695,26 @@ function FeaturedRestaurantsTab() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/featured'] });
       toast({ title: "Featured restaurant removed!" });
     },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to remove featured restaurant", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
+    },
   });
 
   const toggleMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/admin/marketplace/featured/${id}/toggle`, 'PUT'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/featured'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to toggle featured status", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
     },
   });
 
@@ -747,6 +817,7 @@ function BannersTab() {
 function SettingsTab() {
   const { toast } = useToast();
   const [editingSettings, setEditingSettings] = useState<Record<string, any>>({});
+  const [isInitializing, setIsInitializing] = useState(false);
 
   const { data: settings, isLoading } = useQuery<Array<{
     id: string;
@@ -768,49 +839,74 @@ function SettingsTab() {
       toast({ title: "Settings updated successfully!" });
       setEditingSettings({});
     },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update settings", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
+    },
   });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest('/api/admin/marketplace/settings', 'POST', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/settings'] });
-      toast({ title: "Setting created successfully!" });
+    onError: (error: any) => {
+      console.error("Error creating setting:", error);
     },
   });
 
   // Initialize default settings if none exist
   const initializeDefaultSettings = async () => {
-    const defaultSettings = [
-      // General Settings
-      { key: 'site_name', value: 'EatOut Marketplace', valueType: 'string', category: 'general', description: 'Marketplace name displayed to customers', isEditable: true },
-      { key: 'site_tagline', value: 'Discover amazing restaurants near you', valueType: 'string', category: 'general', description: 'Main tagline for the marketplace', isEditable: true },
-      { key: 'support_email', value: 'support@eatout.cloud', valueType: 'string', category: 'general', description: 'Customer support email', isEditable: true },
-      { key: 'support_phone', value: '+1 (555) 123-4567', valueType: 'string', category: 'general', description: 'Customer support phone', isEditable: true },
-      
-      // SEO Settings
-      { key: 'seo_title', value: 'EatOut - Food Delivery Marketplace', valueType: 'string', category: 'seo', description: 'Default meta title', isEditable: true },
-      { key: 'seo_description', value: 'Order food from the best restaurants in your area', valueType: 'string', category: 'seo', description: 'Default meta description', isEditable: true },
-      { key: 'seo_keywords', value: 'food delivery, restaurants, online ordering', valueType: 'string', category: 'seo', description: 'SEO keywords', isEditable: true },
-      
-      // Delivery Settings
-      { key: 'default_delivery_fee', value: '299', valueType: 'number', category: 'delivery', description: 'Default delivery fee in cents', isEditable: true },
-      { key: 'free_delivery_threshold', value: '2500', valueType: 'number', category: 'delivery', description: 'Minimum order for free delivery (cents)', isEditable: true },
-      { key: 'max_delivery_distance', value: '10', valueType: 'number', category: 'delivery', description: 'Maximum delivery distance in km', isEditable: true },
-      { key: 'estimated_delivery_time', value: '30-45 min', valueType: 'string', category: 'delivery', description: 'Default delivery time estimate', isEditable: true },
-      
-      // Commission Settings
-      { key: 'platform_commission', value: '15', valueType: 'number', category: 'commission', description: 'Platform commission percentage', isEditable: true },
-      { key: 'driver_commission', value: '10', valueType: 'number', category: 'commission', description: 'Driver commission percentage', isEditable: true },
-      
-      // Display Settings
-      { key: 'featured_limit', value: '10', valueType: 'number', category: 'display', description: 'Max number of featured restaurants', isEditable: true },
-      { key: 'slider_autoplay', value: 'true', valueType: 'boolean', category: 'display', description: 'Auto-play hero carousel', isEditable: true },
-      { key: 'slider_interval', value: '5000', valueType: 'number', category: 'display', description: 'Slider interval in milliseconds', isEditable: true },
-      { key: 'show_restaurant_ratings', value: 'true', valueType: 'boolean', category: 'display', description: 'Show restaurant ratings', isEditable: true },
-    ];
+    setIsInitializing(true);
+    try {
+      const defaultSettings = [
+        // General Settings
+        { key: 'site_name', value: 'EatOut Marketplace', valueType: 'string', category: 'general', description: 'Marketplace name displayed to customers', isEditable: true },
+        { key: 'site_tagline', value: 'Discover amazing restaurants near you', valueType: 'string', category: 'general', description: 'Main tagline for the marketplace', isEditable: true },
+        { key: 'support_email', value: 'support@eatout.cloud', valueType: 'string', category: 'general', description: 'Customer support email', isEditable: true },
+        { key: 'support_phone', value: '+1 (555) 123-4567', valueType: 'string', category: 'general', description: 'Customer support phone', isEditable: true },
+        
+        // SEO Settings
+        { key: 'seo_title', value: 'EatOut - Food Delivery Marketplace', valueType: 'string', category: 'seo', description: 'Default meta title', isEditable: true },
+        { key: 'seo_description', value: 'Order food from the best restaurants in your area', valueType: 'string', category: 'seo', description: 'Default meta description', isEditable: true },
+        { key: 'seo_keywords', value: 'food delivery, restaurants, online ordering', valueType: 'string', category: 'seo', description: 'SEO keywords', isEditable: true },
+        
+        // Delivery Settings
+        { key: 'default_delivery_fee', value: '299', valueType: 'number', category: 'delivery', description: 'Default delivery fee in cents', isEditable: true },
+        { key: 'free_delivery_threshold', value: '2500', valueType: 'number', category: 'delivery', description: 'Minimum order for free delivery (cents)', isEditable: true },
+        { key: 'max_delivery_distance', value: '10', valueType: 'number', category: 'delivery', description: 'Maximum delivery distance in km', isEditable: true },
+        { key: 'estimated_delivery_time', value: '30-45 min', valueType: 'string', category: 'delivery', description: 'Default delivery time estimate', isEditable: true },
+        
+        // Commission Settings
+        { key: 'platform_commission', value: '15', valueType: 'number', category: 'commission', description: 'Platform commission percentage', isEditable: true },
+        { key: 'driver_commission', value: '10', valueType: 'number', category: 'commission', description: 'Driver commission percentage', isEditable: true },
+        
+        // Display Settings
+        { key: 'featured_limit', value: '10', valueType: 'number', category: 'display', description: 'Max number of featured restaurants', isEditable: true },
+        { key: 'slider_autoplay', value: 'true', valueType: 'boolean', category: 'display', description: 'Auto-play hero carousel', isEditable: true },
+        { key: 'slider_interval', value: '5000', valueType: 'number', category: 'display', description: 'Slider interval in milliseconds', isEditable: true },
+        { key: 'show_restaurant_ratings', value: 'true', valueType: 'boolean', category: 'display', description: 'Show restaurant ratings', isEditable: true },
+      ];
 
-    for (const setting of defaultSettings) {
-      await createMutation.mutateAsync(setting);
+      for (const setting of defaultSettings) {
+        await createMutation.mutateAsync(setting);
+      }
+      
+      // Refresh the settings list after initialization
+      await queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/settings'] });
+      
+      toast({ 
+        title: "Settings initialized successfully!", 
+        description: `${defaultSettings.length} settings created` 
+      });
+    } catch (error: any) {
+      toast({ 
+        title: "Failed to initialize settings", 
+        description: error.message || "An error occurred",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsInitializing(false);
     }
   };
 
@@ -903,9 +999,9 @@ function SettingsTab() {
             <CardDescription>Initialize default marketplace settings to get started</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={initializeDefaultSettings}>
+            <Button onClick={initializeDefaultSettings} disabled={isInitializing}>
               <SettingsIcon className="h-4 w-4 mr-2" />
-              Initialize Default Settings
+              {isInitializing ? 'Initializing...' : 'Initialize Default Settings'}
             </Button>
           </CardContent>
         </Card>

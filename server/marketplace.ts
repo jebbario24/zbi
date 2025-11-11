@@ -506,10 +506,7 @@ router.get('/cuisines', async (req: Request, res: Response) => {
       .from(cuisineTypes)
       .leftJoin(
         restaurantCuisines, 
-        and(
-          eq(cuisineTypes.id, restaurantCuisines.cuisineId),
-          eq(cuisineTypes.isActive, true)
-        )
+        eq(cuisineTypes.id, restaurantCuisines.cuisineId)
       )
       .where(eq(cuisineTypes.isActive, true))
       .groupBy(cuisineTypes.id)
@@ -684,30 +681,29 @@ router.get('/banners', async (req: Request, res: Response) => {
     const now = new Date();
     const { type } = req.query; // Optional filter by banner type
     
-    let query = db
-      .select()
-      .from(marketplaceBanners)
-      .where(
-        and(
-          eq(marketplaceBanners.isActive, true),
-          or(
-            isNull(marketplaceBanners.startsAt),
-            lte(marketplaceBanners.startsAt, now)
-          ),
-          or(
-            isNull(marketplaceBanners.endsAt),
-            gte(marketplaceBanners.endsAt, now)
-          )
-        )
+    // Build WHERE conditions
+    const conditions = [
+      eq(marketplaceBanners.isActive, true),
+      or(
+        isNull(marketplaceBanners.startsAt),
+        lte(marketplaceBanners.startsAt, now)
+      ),
+      or(
+        isNull(marketplaceBanners.endsAt),
+        gte(marketplaceBanners.endsAt, now)
       )
-      .$dynamic();
+    ];
     
-    // Filter by type if provided
-    if (type) {
-      query = query.where(eq(marketplaceBanners.bannerType, type as string));
+    // Add type filter if provided
+    if (type && typeof type === 'string') {
+      conditions.push(eq(marketplaceBanners.bannerType, type));
     }
     
-    const banners = await query.orderBy(sql`${marketplaceBanners.displayOrder} ASC`);
+    const banners = await db
+      .select()
+      .from(marketplaceBanners)
+      .where(and(...conditions))
+      .orderBy(sql`${marketplaceBanners.displayOrder} ASC`);
     
     // Fix image URLs
     const baseUrl = getBaseUrl();
