@@ -745,15 +745,207 @@ function BannersTab() {
 
 // Settings Tab
 function SettingsTab() {
+  const { toast } = useToast();
+  const [editingSettings, setEditingSettings] = useState<Record<string, any>>({});
+
+  const { data: settings, isLoading } = useQuery<Array<{
+    id: string;
+    key: string;
+    value: string;
+    valueType: string;
+    description?: string;
+    category: string;
+    isEditable: boolean;
+  }>>({
+    queryKey: ['/api/admin/marketplace/settings'],
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: Array<{ key: string; value: string }>) => 
+      apiRequest('/api/admin/marketplace/settings', 'PUT', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/settings'] });
+      toast({ title: "Settings updated successfully!" });
+      setEditingSettings({});
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('/api/admin/marketplace/settings', 'POST', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/marketplace/settings'] });
+      toast({ title: "Setting created successfully!" });
+    },
+  });
+
+  // Initialize default settings if none exist
+  const initializeDefaultSettings = async () => {
+    const defaultSettings = [
+      // General Settings
+      { key: 'site_name', value: 'EatOut Marketplace', valueType: 'string', category: 'general', description: 'Marketplace name displayed to customers', isEditable: true },
+      { key: 'site_tagline', value: 'Discover amazing restaurants near you', valueType: 'string', category: 'general', description: 'Main tagline for the marketplace', isEditable: true },
+      { key: 'support_email', value: 'support@eatout.cloud', valueType: 'string', category: 'general', description: 'Customer support email', isEditable: true },
+      { key: 'support_phone', value: '+1 (555) 123-4567', valueType: 'string', category: 'general', description: 'Customer support phone', isEditable: true },
+      
+      // SEO Settings
+      { key: 'seo_title', value: 'EatOut - Food Delivery Marketplace', valueType: 'string', category: 'seo', description: 'Default meta title', isEditable: true },
+      { key: 'seo_description', value: 'Order food from the best restaurants in your area', valueType: 'string', category: 'seo', description: 'Default meta description', isEditable: true },
+      { key: 'seo_keywords', value: 'food delivery, restaurants, online ordering', valueType: 'string', category: 'seo', description: 'SEO keywords', isEditable: true },
+      
+      // Delivery Settings
+      { key: 'default_delivery_fee', value: '299', valueType: 'number', category: 'delivery', description: 'Default delivery fee in cents', isEditable: true },
+      { key: 'free_delivery_threshold', value: '2500', valueType: 'number', category: 'delivery', description: 'Minimum order for free delivery (cents)', isEditable: true },
+      { key: 'max_delivery_distance', value: '10', valueType: 'number', category: 'delivery', description: 'Maximum delivery distance in km', isEditable: true },
+      { key: 'estimated_delivery_time', value: '30-45 min', valueType: 'string', category: 'delivery', description: 'Default delivery time estimate', isEditable: true },
+      
+      // Commission Settings
+      { key: 'platform_commission', value: '15', valueType: 'number', category: 'commission', description: 'Platform commission percentage', isEditable: true },
+      { key: 'driver_commission', value: '10', valueType: 'number', category: 'commission', description: 'Driver commission percentage', isEditable: true },
+      
+      // Display Settings
+      { key: 'featured_limit', value: '10', valueType: 'number', category: 'display', description: 'Max number of featured restaurants', isEditable: true },
+      { key: 'slider_autoplay', value: 'true', valueType: 'boolean', category: 'display', description: 'Auto-play hero carousel', isEditable: true },
+      { key: 'slider_interval', value: '5000', valueType: 'number', category: 'display', description: 'Slider interval in milliseconds', isEditable: true },
+      { key: 'show_restaurant_ratings', value: 'true', valueType: 'boolean', category: 'display', description: 'Show restaurant ratings', isEditable: true },
+    ];
+
+    for (const setting of defaultSettings) {
+      await createMutation.mutateAsync(setting);
+    }
+  };
+
+  const handleChange = (key: string, value: string) => {
+    setEditingSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = () => {
+    const updates = Object.entries(editingSettings).map(([key, value]) => ({
+      key,
+      value: String(value),
+    }));
+
+    if (updates.length > 0) {
+      updateMutation.mutate(updates);
+    }
+  };
+
+  const groupedSettings = settings?.reduce((acc, setting) => {
+    if (!acc[setting.category]) {
+      acc[setting.category] = [];
+    }
+    acc[setting.category].push(setting);
+    return acc;
+  }, {} as Record<string, typeof settings>);
+
+  const getCategoryLabel = (category: string) => {
+    const labels: Record<string, string> = {
+      general: 'General Settings',
+      seo: 'SEO Settings',
+      delivery: 'Delivery Settings',
+      commission: 'Commission Settings',
+      display: 'Display Settings',
+    };
+    return labels[category] || category;
+  };
+
+  const renderSettingInput = (setting: any) => {
+    const currentValue = editingSettings[setting.key] ?? setting.value;
+
+    if (setting.valueType === 'boolean') {
+      return (
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={currentValue === 'true' || currentValue === true}
+            onCheckedChange={(checked) => handleChange(setting.key, String(checked))}
+          />
+          <Label className="text-sm text-muted-foreground">{setting.description}</Label>
+        </div>
+      );
+    }
+
+    if (setting.valueType === 'number') {
+      return (
+        <div className="space-y-1">
+          <Input
+            type="number"
+            value={currentValue}
+            onChange={(e) => handleChange(setting.key, e.target.value)}
+          />
+          {setting.description && (
+            <p className="text-xs text-muted-foreground">{setting.description}</p>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-1">
+        <Input
+          type="text"
+          value={currentValue}
+          onChange={(e) => handleChange(setting.key, e.target.value)}
+        />
+        {setting.description && (
+          <p className="text-xs text-muted-foreground">{setting.description}</p>
+        )}
+      </div>
+    );
+  };
+
+  if (isLoading) return <Skeleton className="h-96 w-full" />;
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Marketplace Settings</CardTitle>
-        <CardDescription>Configure global marketplace settings</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground">Settings interface - Coming soon</p>
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      {!settings || settings.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>No Marketplace Settings Configured</CardTitle>
+            <CardDescription>Initialize default marketplace settings to get started</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={initializeDefaultSettings}>
+              <SettingsIcon className="h-4 w-4 mr-2" />
+              Initialize Default Settings
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold">Marketplace Settings</h2>
+              <p className="text-muted-foreground">Configure global marketplace behavior</p>
+            </div>
+            <Button 
+              onClick={handleSave} 
+              disabled={Object.keys(editingSettings).length === 0}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save Changes
+            </Button>
+          </div>
+
+          {Object.entries(groupedSettings || {}).map(([category, categorySettings]) => (
+            <Card key={category}>
+              <CardHeader>
+                <CardTitle>{getCategoryLabel(category)}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {categorySettings.map((setting) => (
+                    <div key={setting.id} className="grid gap-2">
+                      <Label className="font-medium capitalize">
+                        {setting.key.replace(/_/g, ' ')}
+                      </Label>
+                      {renderSettingInput(setting)}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </>
+      )}
+    </div>
   );
 }
