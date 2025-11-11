@@ -19,7 +19,8 @@ import {
   MessageSquare,
   DollarSign,
   Shield,
-  Activity
+  Activity,
+  ShoppingBag
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -183,6 +184,11 @@ const adminMenuItems = [
     titleKey: "Dispatch Control",
     url: "/admin/dispatch",
     icon: Truck,
+  },
+  {
+    titleKey: "Marketplace",
+    url: "/admin/marketplace",
+    icon: ShoppingBag,
   },
   {
     titleKey: "Subscriptions",
