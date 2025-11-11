@@ -2926,6 +2926,121 @@ export const mlTrainingData = pgTable("ml_training_data", {
   indexDate: index("idx_ml_date").on(table.createdAt),
 }));
 
+// ============================================
+// MARKETPLACE ADMIN MANAGEMENT
+// ============================================
+
+// Marketplace Hero Sliders
+export const marketplaceSliders = pgTable("marketplace_sliders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 255 }),
+  subtitle: text("subtitle"),
+  description: text("description"),
+  desktopImageUrl: text("desktop_image_url").notNull(),
+  mobileImageUrl: text("mobile_image_url"),
+  ctaText: varchar("cta_text", { length: 100 }),
+  ctaLink: text("cta_link"),
+  linkType: varchar("link_type", { length: 50 }).default('none'), // 'restaurant', 'cuisine', 'external', 'none'
+  targetId: varchar("target_id"), // Restaurant ID or cuisine ID
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  startsAt: timestamp("starts_at"),
+  endsAt: timestamp("ends_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  displayOrderIdx: index("marketplace_sliders_display_order_idx").on(table.displayOrder),
+  activeIdx: index("marketplace_sliders_active_idx").on(table.isActive),
+}));
+
+// Cuisine Types
+export const cuisineTypes = pgTable("cuisine_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  description: text("description"),
+  iconUrl: text("icon_url"),
+  imageUrl: text("image_url"),
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  displayOrderIdx: index("cuisine_types_display_order_idx").on(table.displayOrder),
+  slugIdx: index("cuisine_types_slug_idx").on(table.slug),
+}));
+
+// Restaurant Cuisines (Many-to-Many)
+export const restaurantCuisines = pgTable("restaurant_cuisines", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  cuisineId: varchar("cuisine_id").notNull().references(() => cuisineTypes.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  restaurantCuisineUnique: unique("restaurant_cuisine_unique").on(table.restaurantId, table.cuisineId),
+  restaurantIdx: index("restaurant_cuisines_restaurant_idx").on(table.restaurantId),
+  cuisineIdx: index("restaurant_cuisines_cuisine_idx").on(table.cuisineId),
+}));
+
+// Featured Restaurants (Admin manual selection)
+export const featuredRestaurants = pgTable("featured_restaurants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  featuredPosition: integer("featured_position").notNull(), // 1, 2, 3... for ordering
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  positionIdx: index("featured_restaurants_position_idx").on(table.featuredPosition),
+  activeIdx: index("featured_restaurants_active_idx").on(table.isActive),
+  restaurantIdx: index("featured_restaurants_restaurant_idx").on(table.restaurantId),
+}));
+
+// Marketplace Promotional Banners
+export const marketplaceBanners = pgTable("marketplace_banners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 255 }),
+  subtitle: text("subtitle"),
+  bannerType: varchar("banner_type", { length: 50 }).notNull(), // 'top', 'category', 'promo'
+  position: varchar("position", { length: 50 }).default('top'), // 'top', 'middle', 'bottom'
+  imageUrl: text("image_url"),
+  backgroundColor: varchar("background_color", { length: 7 }), // Hex color
+  textColor: varchar("text_color", { length: 7 }), // Hex color
+  ctaText: varchar("cta_text", { length: 100 }),
+  ctaLink: text("cta_link"),
+  linkType: varchar("link_type", { length: 50 }),
+  targetId: varchar("target_id"),
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  startsAt: timestamp("starts_at"),
+  endsAt: timestamp("ends_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  typeIdx: index("marketplace_banners_type_idx").on(table.bannerType),
+  activeIdx: index("marketplace_banners_active_idx").on(table.isActive),
+}));
+
+// Marketplace Global Settings
+export const marketplaceSettings = pgTable("marketplace_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value").notNull(),
+  valueType: varchar("value_type", { length: 50 }).notNull().default('string'), // 'string', 'number', 'boolean', 'json'
+  description: text("description"),
+  category: varchar("category", { length: 50 }).default('general'), // 'general', 'seo', 'delivery', 'display', 'commission'
+  isEditable: boolean("is_editable").notNull().default(true),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  keyIdx: index("marketplace_settings_key_idx").on(table.key),
+  categoryIdx: index("marketplace_settings_category_idx").on(table.category),
+}));
+
 // Phase 6: AI & ML Schema Exports
 export const insertPrepTimeHistorySchema = createInsertSchema(prepTimeHistory).omit({
   id: true,
@@ -2969,3 +3084,51 @@ export const insertMlTrainingDataSchema = createInsertSchema(mlTrainingData).omi
 });
 export type InsertMlTrainingData = z.infer<typeof insertMlTrainingDataSchema>;
 export type MlTrainingData = typeof mlTrainingData.$inferSelect;
+
+// Marketplace Admin Schema Exports
+export const insertMarketplaceSliderSchema = createInsertSchema(marketplaceSliders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertMarketplaceSlider = z.infer<typeof insertMarketplaceSliderSchema>;
+export type MarketplaceSlider = typeof marketplaceSliders.$inferSelect;
+
+export const insertCuisineTypeSchema = createInsertSchema(cuisineTypes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCuisineType = z.infer<typeof insertCuisineTypeSchema>;
+export type CuisineType = typeof cuisineTypes.$inferSelect;
+
+export const insertRestaurantCuisineSchema = createInsertSchema(restaurantCuisines).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertRestaurantCuisine = z.infer<typeof insertRestaurantCuisineSchema>;
+export type RestaurantCuisine = typeof restaurantCuisines.$inferSelect;
+
+export const insertFeaturedRestaurantSchema = createInsertSchema(featuredRestaurants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertFeaturedRestaurant = z.infer<typeof insertFeaturedRestaurantSchema>;
+export type FeaturedRestaurant = typeof featuredRestaurants.$inferSelect;
+
+export const insertMarketplaceBannerSchema = createInsertSchema(marketplaceBanners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertMarketplaceBanner = z.infer<typeof insertMarketplaceBannerSchema>;
+export type MarketplaceBanner = typeof marketplaceBanners.$inferSelect;
+
+export const insertMarketplaceSettingSchema = createInsertSchema(marketplaceSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertMarketplaceSetting = z.infer<typeof insertMarketplaceSettingSchema>;
+export type MarketplaceSetting = typeof marketplaceSettings.$inferSelect;
