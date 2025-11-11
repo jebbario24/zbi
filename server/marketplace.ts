@@ -4,8 +4,24 @@ import { storage } from './storage';
 import { db } from './db';
 import { getBaseUrl } from './env';
 import { logError, logInfo } from './logger';
-import { restaurants, menuItems, menuCategories, orders, orderItems, deliveryZones, itemOptions, bundles, promoRules } from '@shared/schema';
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { 
+  restaurants, 
+  menuItems, 
+  menuCategories, 
+  orders, 
+  orderItems, 
+  deliveryZones, 
+  itemOptions, 
+  bundles, 
+  promoRules,
+  marketplaceSliders,
+  cuisineTypes,
+  restaurantCuisines,
+  featuredRestaurants,
+  marketplaceBanners,
+  marketplaceSettings,
+} from '@shared/schema';
+import { eq, and, sql, inArray, lte, gte, or, isNull } from 'drizzle-orm';
 
 const router = Router();
 
@@ -422,6 +438,333 @@ router.get('/orders/:id', async (req: Request, res: Response) => {
   } catch (error) {
     logError('Error fetching marketplace order', error);
     res.status(500).json({ message: 'Failed to fetch order' });
+  }
+});
+
+// ============================================
+// PUBLIC MARKETPLACE FEATURES
+// ============================================
+
+// GET /api/marketplace/sliders - Get active sliders
+router.get('/sliders', async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    
+    const sliders = await db
+      .select()
+      .from(marketplaceSliders)
+      .where(
+        and(
+          eq(marketplaceSliders.isActive, true),
+          or(
+            isNull(marketplaceSliders.startsAt),
+            lte(marketplaceSliders.startsAt, now)
+          ),
+          or(
+            isNull(marketplaceSliders.endsAt),
+            gte(marketplaceSliders.endsAt, now)
+          )
+        )
+      )
+      .orderBy(sql`${marketplaceSliders.displayOrder} ASC`);
+    
+    // Fix image URLs
+    const baseUrl = getBaseUrl();
+    const enrichedSliders = sliders.map(slider => ({
+      ...slider,
+      desktopImageUrl: slider.desktopImageUrl?.startsWith('http') 
+        ? slider.desktopImageUrl 
+        : `${baseUrl}${slider.desktopImageUrl}`,
+      mobileImageUrl: slider.mobileImageUrl?.startsWith('http')
+        ? slider.mobileImageUrl
+        : slider.mobileImageUrl 
+          ? `${baseUrl}${slider.mobileImageUrl}`
+          : null,
+    }));
+    
+    res.json(enrichedSliders);
+  } catch (error) {
+    logError('Error fetching marketplace sliders', error);
+    res.status(500).json({ message: 'Failed to fetch sliders' });
+  }
+});
+
+// GET /api/marketplace/cuisines - Get active cuisines
+router.get('/cuisines', async (req: Request, res: Response) => {
+  try {
+    const cuisines = await db
+      .select({
+        id: cuisineTypes.id,
+        name: cuisineTypes.name,
+        slug: cuisineTypes.slug,
+        description: cuisineTypes.description,
+        iconUrl: cuisineTypes.iconUrl,
+        imageUrl: cuisineTypes.imageUrl,
+        displayOrder: cuisineTypes.displayOrder,
+        restaurantCount: sql<number>`count(distinct ${restaurantCuisines.restaurantId})::int`,
+      })
+      .from(cuisineTypes)
+      .leftJoin(
+        restaurantCuisines, 
+        and(
+          eq(cuisineTypes.id, restaurantCuisines.cuisineId),
+          eq(cuisineTypes.isActive, true)
+        )
+      )
+      .where(eq(cuisineTypes.isActive, true))
+      .groupBy(cuisineTypes.id)
+      .orderBy(sql`${cuisineTypes.displayOrder} ASC`);
+    
+    // Fix image URLs
+    const baseUrl = getBaseUrl();
+    const enrichedCuisines = cuisines.map(cuisine => ({
+      ...cuisine,
+      iconUrl: cuisine.iconUrl?.startsWith('http')
+        ? cuisine.iconUrl
+        : cuisine.iconUrl
+          ? `${baseUrl}${cuisine.iconUrl}`
+          : null,
+      imageUrl: cuisine.imageUrl?.startsWith('http')
+        ? cuisine.imageUrl
+        : cuisine.imageUrl
+          ? `${baseUrl}${cuisine.imageUrl}`
+          : null,
+    }));
+    
+    res.json(enrichedCuisines);
+  } catch (error) {
+    logError('Error fetching cuisines', error);
+    res.status(500).json({ message: 'Failed to fetch cuisines' });
+  }
+});
+
+// GET /api/marketplace/cuisines/:slug/restaurants - Get restaurants by cuisine
+router.get('/cuisines/:slug/restaurants', async (req: Request, res: Response) => {
+  try {
+    const { slug } = req.params;
+    
+    // Get cuisine by slug
+    const [cuisine] = await db
+      .select()
+      .from(cuisineTypes)
+      .where(
+        and(
+          eq(cuisineTypes.slug, slug),
+          eq(cuisineTypes.isActive, true)
+        )
+      )
+      .limit(1);
+    
+    if (!cuisine) {
+      return res.status(404).json({ message: 'Cuisine not found' });
+    }
+    
+    // Get restaurants with this cuisine
+    const results = await db
+      .select({
+        id: restaurants.id,
+        name: restaurants.name,
+        slug: restaurants.slug,
+        description: restaurants.description,
+        logoUrl: restaurants.logoUrl,
+        coverImageUrl: restaurants.coverImageUrl,
+        address: restaurants.address,
+        phone: restaurants.phone,
+        email: restaurants.email,
+        currency: restaurants.currency,
+        country: restaurants.country,
+        taxRate: restaurants.taxRate,
+        isActive: restaurants.isActive,
+        primaryColor: restaurants.primaryColor,
+        secondaryColor: restaurants.secondaryColor,
+        accentColor: restaurants.accentColor,
+        openingHours: restaurants.openingHours,
+        createdAt: restaurants.createdAt,
+      })
+      .from(restaurants)
+      .innerJoin(restaurantCuisines, eq(restaurants.id, restaurantCuisines.restaurantId))
+      .where(
+        and(
+          eq(restaurantCuisines.cuisineId, cuisine.id),
+          eq(restaurants.isActive, true)
+        )
+      );
+    
+    // Enrich results
+    const baseUrl = getBaseUrl();
+    const enrichedResults = results.map((restaurant) => ({
+      ...restaurant,
+      logoUrl: restaurant.logoUrl?.startsWith('http') 
+        ? restaurant.logoUrl 
+        : `${baseUrl}${restaurant.logoUrl}`,
+      coverImageUrl: restaurant.coverImageUrl?.startsWith('http')
+        ? restaurant.coverImageUrl
+        : `${baseUrl}${restaurant.coverImageUrl}`,
+      rating: 4.5,
+      reviewCount: Math.floor(Math.random() * 200) + 50,
+      deliveryTime: '25-35 min',
+      deliveryFee: 299,
+      minimumOrder: 1500,
+      isOpen: true,
+      cuisine: cuisine.name,
+    }));
+    
+    res.json(enrichedResults);
+  } catch (error) {
+    logError('Error fetching restaurants by cuisine', error);
+    res.status(500).json({ message: 'Failed to fetch restaurants' });
+  }
+});
+
+// GET /api/marketplace/featured - Get featured restaurants
+router.get('/featured', async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    
+    const featured = await db
+      .select({
+        id: restaurants.id,
+        name: restaurants.name,
+        slug: restaurants.slug,
+        description: restaurants.description,
+        logoUrl: restaurants.logoUrl,
+        coverImageUrl: restaurants.coverImageUrl,
+        address: restaurants.address,
+        phone: restaurants.phone,
+        primaryColor: restaurants.primaryColor,
+        secondaryColor: restaurants.secondaryColor,
+        accentColor: restaurants.accentColor,
+        featuredPosition: featuredRestaurants.featuredPosition,
+      })
+      .from(featuredRestaurants)
+      .innerJoin(restaurants, eq(featuredRestaurants.restaurantId, restaurants.id))
+      .where(
+        and(
+          eq(featuredRestaurants.isActive, true),
+          eq(restaurants.isActive, true),
+          lte(featuredRestaurants.startsAt, now),
+          or(
+            isNull(featuredRestaurants.endsAt),
+            gte(featuredRestaurants.endsAt, now)
+          )
+        )
+      )
+      .orderBy(sql`${featuredRestaurants.featuredPosition} ASC`)
+      .limit(10);
+    
+    // Enrich and fix image URLs
+    const baseUrl = getBaseUrl();
+    const enrichedFeatured = featured.map((restaurant) => ({
+      ...restaurant,
+      logoUrl: restaurant.logoUrl?.startsWith('http')
+        ? restaurant.logoUrl
+        : `${baseUrl}${restaurant.logoUrl}`,
+      coverImageUrl: restaurant.coverImageUrl?.startsWith('http')
+        ? restaurant.coverImageUrl
+        : `${baseUrl}${restaurant.coverImageUrl}`,
+      rating: 4.5,
+      reviewCount: Math.floor(Math.random() * 200) + 50,
+      deliveryTime: '25-35 min',
+      deliveryFee: 299,
+      minimumOrder: 1500,
+      isOpen: true,
+      isFeatured: true,
+    }));
+    
+    res.json(enrichedFeatured);
+  } catch (error) {
+    logError('Error fetching featured restaurants', error);
+    res.status(500).json({ message: 'Failed to fetch featured restaurants' });
+  }
+});
+
+// GET /api/marketplace/banners - Get active banners
+router.get('/banners', async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const { type } = req.query; // Optional filter by banner type
+    
+    let query = db
+      .select()
+      .from(marketplaceBanners)
+      .where(
+        and(
+          eq(marketplaceBanners.isActive, true),
+          or(
+            isNull(marketplaceBanners.startsAt),
+            lte(marketplaceBanners.startsAt, now)
+          ),
+          or(
+            isNull(marketplaceBanners.endsAt),
+            gte(marketplaceBanners.endsAt, now)
+          )
+        )
+      )
+      .$dynamic();
+    
+    // Filter by type if provided
+    if (type) {
+      query = query.where(eq(marketplaceBanners.bannerType, type as string));
+    }
+    
+    const banners = await query.orderBy(sql`${marketplaceBanners.displayOrder} ASC`);
+    
+    // Fix image URLs
+    const baseUrl = getBaseUrl();
+    const enrichedBanners = banners.map(banner => ({
+      ...banner,
+      imageUrl: banner.imageUrl?.startsWith('http')
+        ? banner.imageUrl
+        : banner.imageUrl
+          ? `${baseUrl}${banner.imageUrl}`
+          : null,
+    }));
+    
+    res.json(enrichedBanners);
+  } catch (error) {
+    logError('Error fetching marketplace banners', error);
+    res.status(500).json({ message: 'Failed to fetch banners' });
+  }
+});
+
+// GET /api/marketplace/settings - Get public marketplace settings
+router.get('/settings', async (req: Request, res: Response) => {
+  try {
+    const settings = await db
+      .select({
+        key: marketplaceSettings.key,
+        value: marketplaceSettings.value,
+        valueType: marketplaceSettings.valueType,
+        category: marketplaceSettings.category,
+      })
+      .from(marketplaceSettings)
+      .where(eq(marketplaceSettings.isEditable, true));
+    
+    // Convert to key-value object
+    const settingsObject = settings.reduce((acc, setting) => {
+      let value: any = setting.value;
+      
+      // Parse value based on type
+      if (setting.valueType === 'number') {
+        value = parseFloat(value);
+      } else if (setting.valueType === 'boolean') {
+        value = value === 'true';
+      } else if (setting.valueType === 'json') {
+        try {
+          value = JSON.parse(value);
+        } catch (e) {
+          // Keep as string if parsing fails
+        }
+      }
+      
+      acc[setting.key] = value;
+      return acc;
+    }, {} as Record<string, any>);
+    
+    res.json(settingsObject);
+  } catch (error) {
+    logError('Error fetching marketplace settings', error);
+    res.status(500).json({ message: 'Failed to fetch settings' });
   }
 });
 

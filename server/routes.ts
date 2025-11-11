@@ -33,6 +33,7 @@ import { wsManager } from "./websocket";
 import { authLimiter, apiLimiter, storefrontLimiter, webhookLimiter, uploadLimiter } from "./rateLimiter";
 import { logError, logWarn, logInfo } from "./logger";
 import marketplaceRouter from "./marketplace";
+import adminMarketplaceRouter from "./admin/marketplace";
 
 // Initialize Stripe only if credentials are available
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -5255,6 +5256,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin marketplace management routes (requires admin auth)
+  app.use('/api/admin/marketplace', isAuthenticated, isAdmin, apiLimiter, adminMarketplaceRouter);
+  
   // Public marketplace routes (no auth required)
   // Marketplace API for customer-facing restaurant discovery and ordering
   app.use('/api/marketplace', storefrontLimiter, marketplaceRouter);
