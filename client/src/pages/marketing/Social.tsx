@@ -68,7 +68,7 @@ export default function Social() {
     } else if (restaurant.subdomain) {
       return `https://${restaurant.subdomain}.eatout.app`;
     } else {
-      return `${window.location.origin}/s/${restaurant.slug}`;
+      return `${window.location.origin}/store/${restaurant.slug}`;
     }
   };
 
@@ -304,49 +304,89 @@ export default function Social() {
 
     // Get the SVG element
     const svg = qrCodeRef.current.querySelector('svg');
-    if (!svg) return;
-
-    // Convert SVG to canvas
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size (larger for better quality)
-    const size = 1024;
-    canvas.width = size;
-    canvas.height = size;
-
-    // Add white background
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, size, size);
-
-    // Convert SVG to image
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const img = new Image();
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, size, size);
-      URL.revokeObjectURL(url);
-
-      // Download as PNG
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const downloadUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = `${restaurant.name.replace(/\s+/g, '-')}-qr-code.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(downloadUrl);
-        
-        toast({ title: "Downloaded", description: "QR code saved successfully" });
+    if (!svg) {
+      toast({ 
+        title: "Error", 
+        description: "QR code not found. Please wait for it to load.", 
+        variant: "destructive" 
       });
-    };
+      return;
+    }
 
-    img.src = url;
+    try {
+      // Convert SVG to canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error("Canvas context not available");
+      }
+
+      // Set canvas size (larger for better quality)
+      const size = 1024;
+      canvas.width = size;
+      canvas.height = size;
+
+      // Add white background
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, size, size);
+
+      // Convert SVG to image with proper encoding
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
+      const img = new Image();
+
+      img.onload = () => {
+        try {
+          ctx.drawImage(img, 0, 0, size, size);
+
+          // Download as PNG
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              toast({ 
+                title: "Error", 
+                description: "Failed to generate image", 
+                variant: "destructive" 
+              });
+              return;
+            }
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = `${restaurant.name.replace(/\s+/g, '-')}-qr-code.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+            
+            toast({ title: "Downloaded", description: "QR code saved successfully" });
+          });
+        } catch (error) {
+          console.error('Error during canvas conversion:', error);
+          toast({ 
+            title: "Error", 
+            description: "Failed to convert QR code to image", 
+            variant: "destructive" 
+          });
+        }
+      };
+
+      img.onerror = () => {
+        toast({ 
+          title: "Error", 
+          description: "Failed to load QR code image", 
+          variant: "destructive" 
+        });
+      };
+
+      img.src = `data:image/svg+xml;base64,${svgBase64}`;
+    } catch (error) {
+      console.error('Error downloading QR code:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to download QR code", 
+        variant: "destructive" 
+      });
+    }
   };
 
   const handlePrintTableTents = () => {
