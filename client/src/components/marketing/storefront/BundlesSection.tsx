@@ -6,6 +6,8 @@ import { Package, ShoppingCart } from "lucide-react";
 interface Bundle {
   id: string;
   name: string;
+  description?: string;
+  imageUrl?: string;
   items: string[];
   regularPrice: number;
   bundlePrice: number;
@@ -40,13 +42,31 @@ export function BundlesSection({ bundles, onAddToCart }: BundlesSectionProps) {
 
           return (
             <Card key={bundle.id} className="overflow-hidden hover-elevate" data-testid={`bundle-${bundle.id}`}>
-              <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 border-b">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <h3 className="text-lg font-semibold line-clamp-2">{bundle.name}</h3>
-                  <Badge className="bg-green-600 text-white shrink-0">
+              {/* Bundle Image or Placeholder */}
+              {bundle.imageUrl ? (
+                <div className="relative h-48 overflow-hidden bg-muted">
+                  <img 
+                    src={bundle.imageUrl} 
+                    alt={bundle.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <Badge className="absolute top-3 right-3 bg-green-600 text-white shadow-lg">
                     Save {savingsPercent}%
                   </Badge>
                 </div>
+              ) : (
+                <div className="relative h-48 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                  <Package className="h-20 w-20 text-primary/20" />
+                  <Badge className="absolute top-3 right-3 bg-green-600 text-white shadow-lg">
+                    Save {savingsPercent}%
+                  </Badge>
+                </div>
+              )}
+
+              {/* Bundle Details */}
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-semibold line-clamp-2 mb-3">{bundle.name}</h3>
                 
                 <div className="space-y-1 mb-4">
                   {bundle.items.slice(0, 3).map((item, idx) => (
