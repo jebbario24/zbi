@@ -267,6 +267,7 @@ export default function Bundles() {
       id: editingBundle.id,
       data: {
         name: editingBundle.name,
+        imageUrl: editingBundle.imageUrl || '',
         items: validItems,
         regularPrice,
         bundlePrice,
@@ -349,6 +350,7 @@ export default function Bundles() {
 
     createBundleMutation.mutate({
       name: newBundle.name,
+      imageUrl: newBundle.imageUrl || '',
       items: validItems,
       regularPrice,
       bundlePrice,
