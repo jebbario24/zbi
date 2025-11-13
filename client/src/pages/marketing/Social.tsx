@@ -392,16 +392,29 @@ export default function Social() {
   const handlePrintTableTents = () => {
     if (!restaurant || !storefrontUrl) return;
 
+    // HTML escape function
+    const escapeHtml = (str: string) => {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
     // Create a new window for printing
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+
+    const escapedName = escapeHtml(restaurant.name);
+    const escapedUrl = escapeHtml(storefrontUrl);
 
     // Generate print-friendly table tent HTML
     const printContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${restaurant.name} - Table Tent</title>
+          <title>${escapedName} - Table Tent</title>
           <style>
             @media print {
               @page { margin: 0; }
@@ -443,23 +456,30 @@ export default function Social() {
               color: #666;
               margin-top: 20px;
             }
+            .url-display {
+              font-size: 12px;
+              color: #999;
+              margin-top: 10px;
+              word-break: break-all;
+            }
           </style>
         </head>
         <body>
           <div class="table-tent">
-            <h1>${restaurant.name}</h1>
+            <h1>${escapedName}</h1>
             <p class="subtitle">Scan to View Menu & Order</p>
             <div class="qr-container" id="qr-container"></div>
             <p class="instructions">
               Point your phone camera at the QR code<br>
               to browse our menu and place an order
             </p>
+            <p class="url-display">${escapedUrl}</p>
           </div>
           <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
           <script>
             const canvas = document.createElement('canvas');
             document.getElementById('qr-container').appendChild(canvas);
-            QRCode.toCanvas(canvas, '${storefrontUrl}', {
+            QRCode.toCanvas(canvas, '${escapedUrl}', {
               width: 300,
               margin: 2,
               color: {
@@ -476,7 +496,7 @@ export default function Social() {
     printWindow.document.write(printContent);
     printWindow.document.close();
     
-    toast({ title: "Print Ready", description: "Table tent ready to print" });
+    toast({ title: "Print Ready", description: `QR code points to: ${storefrontUrl}` });
   };
 
   const handleCopyLink = () => {
