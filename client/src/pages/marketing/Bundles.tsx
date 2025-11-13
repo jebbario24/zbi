@@ -40,6 +40,8 @@ import type { MenuItem } from "@shared/schema";
 interface Bundle {
   id: string;
   name: string;
+  description?: string;
+  imageUrl?: string;
   items: string[];
   regularPrice: number;
   bundlePrice: number;
@@ -138,11 +140,14 @@ export default function Bundles() {
   const [bundleInputs, setBundleInputs] = useState({ regularPrice: '', bundlePrice: '', sales: '' });
   const [bundleItems, setBundleItems] = useState<string[]>([]);
   const [newItem, setNewItem] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // New bundle state
   const [newBundle, setNewBundle] = useState<Bundle>({
     id: '',
     name: '',
+    description: '',
+    imageUrl: '',
     items: [],
     regularPrice: 0,
     bundlePrice: 0,
@@ -159,6 +164,41 @@ export default function Bundles() {
   const avgDiscount = bundles.length > 0
     ? bundles.reduce((sum, b) => sum + ((b.regularPrice - b.bundlePrice) / b.regularPrice * 100), 0) / bundles.length
     : 0;
+
+  // Image upload handler
+  const handleImageUpload = async (file: File, isNewBundle: boolean = false) => {
+    setIsUploadingImage(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      
+      if (isNewBundle) {
+        setNewBundle({ ...newBundle, imageUrl: data.url });
+      } else if (editingBundle) {
+        setEditingBundle({ ...editingBundle, imageUrl: data.url });
+      }
+      
+      toast({ title: "Success", description: "Image uploaded successfully" });
+    } catch (error) {
+      toast({ 
+        title: "Error", 
+        description: "Failed to upload image", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   // Edit Bundle handlers
   const handleEditBundle = (bundle: Bundle) => {
@@ -490,6 +530,47 @@ export default function Bundles() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="edit-bundle-image">Bundle Image</Label>
+                <div className="space-y-3">
+                  {editingBundle.imageUrl && (
+                    <div className="relative h-32 w-full rounded-lg overflow-hidden bg-muted border">
+                      <img 
+                        src={editingBundle.imageUrl} 
+                        alt="Bundle preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="absolute top-2 right-2"
+                        onClick={() => setEditingBundle({ ...editingBundle, imageUrl: '' })}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  )}
+                  <Input
+                    id="edit-bundle-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file, false);
+                    }}
+                    disabled={isUploadingImage}
+                    data-testid="input-edit-bundle-image"
+                  />
+                  {isUploadingImage && (
+                    <p className="text-sm text-muted-foreground">Uploading image...</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Recommended: 800x600px or larger, JPG/PNG format
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Bundle Items</Label>
                 <div className="space-y-2">
                   {bundleItems.map((item, index) => (
@@ -629,6 +710,47 @@ export default function Bundles() {
               <p className="text-xs text-muted-foreground">
                 A catchy name for your combo deal
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-bundle-image">Bundle Image</Label>
+              <div className="space-y-3">
+                {newBundle.imageUrl && (
+                  <div className="relative h-32 w-full rounded-lg overflow-hidden bg-muted border">
+                    <img 
+                      src={newBundle.imageUrl} 
+                      alt="Bundle preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="absolute top-2 right-2"
+                      onClick={() => setNewBundle({ ...newBundle, imageUrl: '' })}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
+                )}
+                <Input
+                  id="new-bundle-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file, true);
+                  }}
+                  disabled={isUploadingImage}
+                  data-testid="input-new-bundle-image"
+                />
+                {isUploadingImage && (
+                  <p className="text-sm text-muted-foreground">Uploading image...</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Recommended: 800x600px or larger, JPG/PNG format
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">
