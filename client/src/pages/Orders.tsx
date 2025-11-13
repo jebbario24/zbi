@@ -701,7 +701,6 @@ export default function Orders() {
             <div style="margin-top: 5px;">Thank you for your order!</div>
           </div>
         </div>
-        <div class="page-break"></div>
       `).join('');
 
       // Complete HTML document
@@ -718,12 +717,6 @@ export default function Orders() {
                 }
                 body { margin: 0; }
                 .no-print { display: none; }
-                .page-break {
-                  page-break-after: always;
-                }
-                .page-break:last-child {
-                  page-break-after: avoid;
-                }
               }
               * {
                 margin: 0;
@@ -742,6 +735,10 @@ export default function Orders() {
                 padding: 15px;
                 background: white;
                 margin-bottom: 20px;
+                page-break-after: always;
+              }
+              .ticket:last-child {
+                page-break-after: avoid;
               }
               .header {
                 text-align: center;
@@ -811,9 +808,6 @@ export default function Orders() {
                 border: none;
                 cursor: pointer;
                 font-size: 14px;
-              }
-              .page-break {
-                display: none;
               }
             </style>
           </head>
