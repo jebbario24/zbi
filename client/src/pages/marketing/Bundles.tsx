@@ -36,6 +36,8 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { MenuItem } from "@shared/schema";
+import { InlineImageUploader } from "@/components/InlineImageUploader";
+import type { UploadResult } from "@uppy/core";
 
 interface Bundle {
   id: string;
@@ -140,7 +142,6 @@ export default function Bundles() {
   const [bundleInputs, setBundleInputs] = useState({ regularPrice: '', bundlePrice: '', sales: '' });
   const [bundleItems, setBundleItems] = useState<string[]>([]);
   const [newItem, setNewItem] = useState('');
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // New bundle state
   const [newBundle, setNewBundle] = useState<Bundle>({
@@ -165,38 +166,39 @@ export default function Bundles() {
     ? bundles.reduce((sum, b) => sum + ((b.regularPrice - b.bundlePrice) / b.regularPrice * 100), 0) / bundles.length
     : 0;
 
-  // Image upload handler
-  const handleImageUpload = async (file: File, isNewBundle: boolean = false) => {
-    setIsUploadingImage(true);
-    const formData = new FormData();
-    formData.append('file', file);
+  // Image upload handlers
+  const handleGetUploadParameters = async () => {
+    const response = await fetch("/api/objects/upload", {
+      method: "POST",
+      credentials: "include",
+    });
+    const data = await response.json();
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+      objectPath: data.objectPath,
+    };
+  };
 
-    try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-
-      if (!response.ok) throw new Error('Upload failed');
-
-      const data = await response.json();
-      
-      if (isNewBundle) {
-        setNewBundle({ ...newBundle, imageUrl: data.url });
-      } else if (editingBundle) {
-        setEditingBundle({ ...editingBundle, imageUrl: data.url });
+  const handleEditImageComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful[0]) {
+      const file = result.successful[0];
+      const objectPath = file.meta?.objectPath as string;
+      if (objectPath && editingBundle) {
+        setEditingBundle({ ...editingBundle, imageUrl: objectPath });
+        toast({ title: "Success", description: "Image uploaded successfully" });
       }
-      
-      toast({ title: "Success", description: "Image uploaded successfully" });
-    } catch (error) {
-      toast({ 
-        title: "Error", 
-        description: "Failed to upload image", 
-        variant: "destructive" 
-      });
-    } finally {
-      setIsUploadingImage(false);
+    }
+  };
+
+  const handleNewImageComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful[0]) {
+      const file = result.successful[0];
+      const objectPath = file.meta?.objectPath as string;
+      if (objectPath) {
+        setNewBundle({ ...newBundle, imageUrl: objectPath });
+        toast({ title: "Success", description: "Image uploaded successfully" });
+      }
     }
   };
 
@@ -531,43 +533,14 @@ export default function Bundles() {
 
               <div className="space-y-2">
                 <Label htmlFor="edit-bundle-image">Bundle Image</Label>
-                <div className="space-y-3">
-                  {editingBundle.imageUrl && (
-                    <div className="relative h-32 w-full rounded-lg overflow-hidden bg-muted border">
-                      <img 
-                        src={editingBundle.imageUrl} 
-                        alt="Bundle preview"
-                        className="w-full h-full object-cover"
-                      />
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="absolute top-2 right-2"
-                        onClick={() => setEditingBundle({ ...editingBundle, imageUrl: '' })}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  )}
-                  <Input
-                    id="edit-bundle-image"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file, false);
-                    }}
-                    disabled={isUploadingImage}
-                    data-testid="input-edit-bundle-image"
-                  />
-                  {isUploadingImage && (
-                    <p className="text-sm text-muted-foreground">Uploading image...</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Recommended: 800x600px or larger, JPG/PNG format
-                  </p>
-                </div>
+                <InlineImageUploader
+                  currentImageUrl={editingBundle.imageUrl}
+                  maxFileSize={5242880}
+                  onGetUploadParameters={handleGetUploadParameters}
+                  onComplete={handleEditImageComplete}
+                  onRemove={() => setEditingBundle({ ...editingBundle, imageUrl: '' })}
+                  note="Add an appetizing photo of your bundle (max 5MB, JPG or PNG)"
+                />
               </div>
 
               <div className="space-y-2">
@@ -714,43 +687,14 @@ export default function Bundles() {
 
             <div className="space-y-2">
               <Label htmlFor="new-bundle-image">Bundle Image</Label>
-              <div className="space-y-3">
-                {newBundle.imageUrl && (
-                  <div className="relative h-32 w-full rounded-lg overflow-hidden bg-muted border">
-                    <img 
-                      src={newBundle.imageUrl} 
-                      alt="Bundle preview"
-                      className="w-full h-full object-cover"
-                    />
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="absolute top-2 right-2"
-                      onClick={() => setNewBundle({ ...newBundle, imageUrl: '' })}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Remove
-                    </Button>
-                  </div>
-                )}
-                <Input
-                  id="new-bundle-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file, true);
-                  }}
-                  disabled={isUploadingImage}
-                  data-testid="input-new-bundle-image"
-                />
-                {isUploadingImage && (
-                  <p className="text-sm text-muted-foreground">Uploading image...</p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Recommended: 800x600px or larger, JPG/PNG format
-                </p>
-              </div>
+              <InlineImageUploader
+                currentImageUrl={newBundle.imageUrl}
+                maxFileSize={5242880}
+                onGetUploadParameters={handleGetUploadParameters}
+                onComplete={handleNewImageComplete}
+                onRemove={() => setNewBundle({ ...newBundle, imageUrl: '' })}
+                note="Add an appetizing photo of your bundle (max 5MB, JPG or PNG)"
+              />
             </div>
 
             <div className="space-y-2">
