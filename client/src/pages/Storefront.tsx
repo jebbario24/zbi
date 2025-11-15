@@ -771,7 +771,7 @@ export default function Storefront() {
       
       // Build shipping address from components or use the legacy field
       const fullAddress = deliveryCountry && deliveryCity
-        ? `${homeAddress ? homeAddress + ', ' : ''}${deliveryNeighborhood ? deliveryNeighborhood + ', ' : ''}${deliveryCity}, ${deliveryCountry}`
+        ? `${homeAddress ? homeAddress + ', ' : ''}${deliveryCity}, ${deliveryCountry}`
         : shippingAddress;
       
       return await fetch(endpoint, {
@@ -1417,7 +1417,6 @@ export default function Storefront() {
                             onValueChange={(value) => {
                               setDeliveryCountry(value);
                               setDeliveryCity("");
-                              setDeliveryNeighborhood("");
                             }}
                           >
                             <SelectTrigger id="country-select" data-testid="select-delivery-country">
@@ -1464,36 +1463,6 @@ export default function Storefront() {
                             </SelectContent>
                           </Select>
                         </div>
-
-                        {neighborhoods.length > 0 ? (
-                          <div className="space-y-2">
-                            <Label htmlFor="neighborhood-select" className="text-sm">Neighborhood (optional)</Label>
-                            <Select
-                              value={deliveryNeighborhood}
-                              onValueChange={setDeliveryNeighborhood}
-                              disabled={!deliveryCity}
-                            >
-                              <SelectTrigger id="neighborhood-select" data-testid="select-delivery-neighborhood">
-                                <SelectValue placeholder={deliveryCity ? "Select neighborhood" : "Select city first"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="">No specific neighborhood</SelectItem>
-                                {neighborhoods.map((neighborhood) => (
-                                  <SelectItem key={neighborhood} value={neighborhood}>
-                                    {neighborhood}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ) : (
-                          <Input
-                            placeholder="Neighborhood (optional)"
-                            value={deliveryNeighborhood}
-                            onChange={(e) => setDeliveryNeighborhood(e.target.value)}
-                            data-testid="input-delivery-neighborhood"
-                          />
-                        )}
 
                         <Input
                           placeholder="Home Address *"
