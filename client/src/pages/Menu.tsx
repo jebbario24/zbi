@@ -1339,7 +1339,7 @@ export default function Menu() {
                           </div>
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 hidden">
                           <Checkbox
                             checked={option.required}
                             onCheckedChange={(checked) => {
