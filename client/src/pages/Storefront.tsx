@@ -1854,39 +1854,43 @@ export default function Storefront() {
         )}
 
         {/* Marketing: Bundles & Combos Section */}
-        <BundlesSection bundles={bundles} onAddToCart={(bundle) => {
-          const existingBundle = cart.find(item => item.bundle?.id === bundle.id);
-          if (existingBundle) {
-            setCart(cart.map(item =>
-              item.bundle?.id === bundle.id
-                ? { ...item, quantity: item.quantity + 1 }
-                : item
-            ));
-          } else {
-            setCart([...cart, {
-              bundle: {
+        <BundlesSection 
+          bundles={bundles} 
+          formatPrice={formatPrice}
+          onAddToCart={(bundle) => {
+            const existingBundle = cart.find(item => item.bundle?.id === bundle.id);
+            if (existingBundle) {
+              setCart(cart.map(item =>
+                item.bundle?.id === bundle.id
+                  ? { ...item, quantity: item.quantity + 1 }
+                  : item
+              ));
+            } else {
+              setCart([...cart, {
+                bundle: {
+                  id: bundle.id,
+                  name: bundle.name,
+                  items: bundle.items,
+                  regularPrice: bundle.regularPrice,
+                  bundlePrice: bundle.bundlePrice,
+                },
+                quantity: 1,
+              }]);
+            }
+            toast({ title: "Added to cart", description: `${bundle.name} bundle added!` });
+            
+            // Track add to cart event for pixels
+            if (restaurant) {
+              trackAddToCart({
                 id: bundle.id,
                 name: bundle.name,
-                items: bundle.items,
-                regularPrice: bundle.regularPrice,
-                bundlePrice: bundle.bundlePrice,
-              },
-              quantity: 1,
-            }]);
-          }
-          toast({ title: "Added to cart", description: `${bundle.name} bundle added!` });
-          
-          // Track add to cart event for pixels
-          if (restaurant) {
-            trackAddToCart({
-              id: bundle.id,
-              name: bundle.name,
-              price: bundle.bundlePrice,
-              currency: restaurant.currency || 'USD',
-              quantity: 1,
-            }, pixelConfig);
-          }
-        }} />
+                price: bundle.bundlePrice,
+                currency: restaurant.currency || 'USD',
+                quantity: 1,
+              }, pixelConfig);
+            }
+          }} 
+        />
 
         {/* Marketing: Active Promos Banner */}
         <ActivePromosBanner promos={activePromos} />

@@ -55,6 +55,11 @@ export default function Bundles() {
   const { t } = useTranslation();
   const { toast } = useToast();
 
+  // Fetch restaurant data for currency
+  const { data: restaurant } = useQuery({
+    queryKey: ["/api/restaurants/me"],
+  });
+
   // Fetch available menu items
   const { data: menuItems = [] } = useQuery<MenuItem[]>({
     queryKey: ["/api/menu/items"],
@@ -165,6 +170,39 @@ export default function Bundles() {
   const avgDiscount = bundles.length > 0
     ? bundles.reduce((sum, b) => sum + ((b.regularPrice - b.bundlePrice) / b.regularPrice * 100), 0) / bundles.length
     : 0;
+
+  // Currency formatter
+  const formatCurrency = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    const currency = restaurant?.currency || 'USD';
+    const country = restaurant?.country || 'United States';
+    
+    // Map countries to locale codes
+    const localeMap: { [key: string]: string } = {
+      'United States': 'en-US',
+      'Canada': 'en-CA',
+      'United Kingdom': 'en-GB',
+      'Morocco': 'ar-MA',
+      'France': 'fr-FR',
+      'Germany': 'de-DE',
+      'Spain': 'es-ES',
+      'Italy': 'it-IT',
+      'UAE': 'ar-AE',
+      'Saudi Arabia': 'ar-SA',
+      'Egypt': 'ar-EG',
+      'India': 'en-IN',
+      'China': 'zh-CN',
+      'Japan': 'ja-JP',
+      'Australia': 'en-AU',
+    };
+    
+    const locale = localeMap[country] || 'en-US';
+    
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+    }).format(numAmount);
+  };
 
   // Image upload handlers
   const handleGetUploadParameters = async () => {
@@ -477,14 +515,14 @@ export default function Bundles() {
               <div className="flex items-center justify-between pt-3 border-t">
                 <div>
                   <p className="text-xs text-muted-foreground line-through">
-                    ${Number(bundle.regularPrice).toFixed(2)}
+                    {formatCurrency(bundle.regularPrice)}
                   </p>
                   <p className="text-xl font-bold text-green-600">
-                    ${Number(bundle.bundlePrice).toFixed(2)}
+                    {formatCurrency(bundle.bundlePrice)}
                   </p>
                 </div>
                 <Badge variant="outline" className="text-green-600">
-                  Save ${(Number(bundle.regularPrice) - Number(bundle.bundlePrice)).toFixed(2)}
+                  Save {formatCurrency(Number(bundle.regularPrice) - Number(bundle.bundlePrice))}
                 </Badge>
               </div>
               <div className="flex gap-2">
@@ -593,7 +631,7 @@ export default function Bundles() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-regular-price">Regular Price ($)</Label>
+                  <Label htmlFor="edit-regular-price">Regular Price ({restaurant?.currency || 'USD'})</Label>
                   <Input
                     id="edit-regular-price"
                     type="number"
@@ -607,7 +645,7 @@ export default function Bundles() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-bundle-price">Bundle Price ($)</Label>
+                  <Label htmlFor="edit-bundle-price">Bundle Price ({restaurant?.currency || 'USD'})</Label>
                   <Input
                     id="edit-bundle-price"
                     type="number"
@@ -750,7 +788,7 @@ export default function Bundles() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="new-regular-price">Regular Price ($)</Label>
+                <Label htmlFor="new-regular-price">Regular Price ({restaurant?.currency || 'USD'})</Label>
                 <Input
                   id="new-regular-price"
                   type="number"
@@ -764,7 +802,7 @@ export default function Bundles() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="new-bundle-price">Bundle Price ($)</Label>
+                <Label htmlFor="new-bundle-price">Bundle Price ({restaurant?.currency || 'USD'})</Label>
                 <Input
                   id="new-bundle-price"
                   type="number"

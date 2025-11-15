@@ -18,9 +18,10 @@ interface Bundle {
 interface BundlesSectionProps {
   bundles: Bundle[];
   onAddToCart?: (bundle: Bundle) => void;
+  formatPrice?: (price: number | string) => string;
 }
 
-export function BundlesSection({ bundles, onAddToCart }: BundlesSectionProps) {
+export function BundlesSection({ bundles, onAddToCart, formatPrice }: BundlesSectionProps) {
   const activeBundles = bundles.filter(b => b.isActive);
 
   if (activeBundles.length === 0) {
@@ -83,9 +84,11 @@ export function BundlesSection({ bundles, onAddToCart }: BundlesSectionProps) {
                 </div>
 
                 <div className="flex items-baseline gap-3">
-                  <div className="text-2xl font-bold">${Number(bundle.bundlePrice).toFixed(2)}</div>
+                  <div className="text-2xl font-bold">
+                    {formatPrice ? formatPrice(bundle.bundlePrice) : `$${Number(bundle.bundlePrice).toFixed(2)}`}
+                  </div>
                   <div className="text-sm text-muted-foreground line-through">
-                    ${Number(bundle.regularPrice).toFixed(2)}
+                    {formatPrice ? formatPrice(bundle.regularPrice) : `$${Number(bundle.regularPrice).toFixed(2)}`}
                   </div>
                 </div>
               </div>
