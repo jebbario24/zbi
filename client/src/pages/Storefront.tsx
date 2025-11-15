@@ -2740,9 +2740,13 @@ export default function Storefront() {
             <Button 
               onClick={addToCartWithOptions}
               disabled={
-                selectedItem && ((selectedItem.options as any) || []).some((optionGroup: any) => 
-                  optionGroup.required && !selectedItemOptions.some(o => o.optionGroupLabel === optionGroup.label)
-                )
+                selectedItem && ((selectedItem.options as any) || []).some((optionGroup: any) => {
+                  if (!optionGroup.required) return false;
+                  const normalizedLabel = optionGroup.label?.trim().toLowerCase();
+                  return !selectedItemOptions.some(o => 
+                    o.optionGroupLabel?.trim().toLowerCase() === normalizedLabel
+                  );
+                })
               }
               data-testid="button-add-to-cart-with-options"
             >
